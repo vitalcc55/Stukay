@@ -39,9 +39,9 @@ codex mcp get jetbrains
 - why: это даст предсказуемый resume path и validator surface для будущих длинных задач.
 
 ## Progress Log
-- status: milestone_1_complete
-- done: scaffold lifecycle stack, initial validator pass, current repo discovery, Android CLI and JetBrains MCP evidence collection, bootstrap repo-local runbook and checkpoint policy
-- next: заполнить Android docs, commands, architecture and observability surfaces
+- status: milestone_2_complete
+- done: scaffold lifecycle stack, initial validator pass, current repo discovery, Android CLI and JetBrains MCP evidence collection, bootstrap repo-local runbook and checkpoint policy, verified current Gradle build/test surface, documented stack inventory, commands, architecture direction and workflow guidance
+- next: описать observability/notion milestone и его validation surfaces
 
 ## Recovery / Rollback
 - Если milestone не проходит validation, вернуть repo-local docs в self-consistent state до следующего commit.

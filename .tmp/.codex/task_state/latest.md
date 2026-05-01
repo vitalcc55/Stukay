@@ -1,29 +1,41 @@
 # Task State
 
 - goal: Поднять Android-aware repo harness, docs, observability policy и Notion sync для Stukay до начала feature development.
-- stage: milestone_2_research_pending
+- stage: milestone_3_observability_pending
 - done:
   - milestone 1 complete
+  - milestone 2 complete
   - scaffold lifecycle stack
   - validate lifecycle stack
   - inspect current Android repo state
   - capture Android CLI and JetBrains MCP evidence
+  - verify current Gradle build and unit test surface
+  - document stack inventory, commands, architecture and workflow
 - next:
-  - заполнить Android-specific docs
   - описать observability и diagnostics policy
   - завести Notion page и связать ее с repo-local docs
   - прогнать validation и сделать stage commits
 - edited_files:
   - .gitignore
   - AGENTS.md
+  - README.md
   - Prompt.md
   - Implement.md
   - Documentation.md
+  - docs/DECISIONS.md
+  - docs/architecture/index.md
+  - docs/architecture/application-architecture.md
   - docs/exec-plans/active/ExecPlan.md
   - docs/exec-plans/tech-debt-tracker.md
+  - docs/generated/stack-inventory.md
+  - docs/generated/commands.md
+  - docs/generated/test-matrix.md
+  - docs/generated/project-interfaces.md
+  - docs/process/android-agent-workflow.md
+  - docs/research/official-sources-2026-05-01.md
   - .tmp/.codex/task_state/latest.md
   - .tmp/.codex/task_state/latest.json
   - docs/CHANGELOG.md
-- verify_status: lifecycle validator warn-only with no contract failures; Gradle validation not run yet
+- verify_status: lifecycle validator warn-only with no contract failures; Gradle assembleDebug and testDebugUnitTest verified
 - open_questions:
   - какая Notion surface станет постоянным местом для проекта: standalone page или later database entry
