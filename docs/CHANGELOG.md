@@ -8,3 +8,5 @@
 - Добавлена `.gitignore` политика для канонических `.tmp/.codex/task_state/latest.*`.
 - Добавлены repo-local Android docs: `README`, stack inventory, commands inventory, test matrix, interfaces map, architecture direction и Android agent workflow.
 - В docs зафиксированы роли JetBrains MCP и `android` CLI как обязательных engineering surfaces.
+- Добавлены `docs/QUALITY.md`, observability/logging policy, Android UI legibility surface и repo-to-Notion sync policy.
+- Проект `Stukay` заведен в Notion database `Проекты` как запись `PRJ-3`.

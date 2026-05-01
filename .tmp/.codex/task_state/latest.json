@@ -1,20 +1,22 @@
 {
   "goal": "Поднять Android-aware repo harness, docs, observability policy и Notion sync для Stukay до начала feature development.",
-  "stage": "milestone_3_observability_pending",
+  "stage": "bootstrap_complete_ready_for_product_milestone",
   "done": [
     "milestone 1 complete",
     "milestone 2 complete",
+    "milestone 3 complete",
     "scaffold lifecycle stack",
     "validate lifecycle stack",
     "inspect current Android repo state",
     "capture Android CLI and JetBrains MCP evidence",
     "verify current Gradle build and unit test surface",
-    "document stack inventory, commands, architecture and workflow"
+    "document stack inventory, commands, architecture and workflow",
+    "add observability, quality and notion sync docs"
   ],
   "next": [
-    "описать observability и diagnostics policy",
-    "завести Notion page и связать ее с repo-local docs",
-    "прогнать validation и сделать stage commits"
+    "выбрать первый post-harness product milestone",
+    "решить, когда начинать namespace / architecture refactor",
+    "подтвердить native jetbrains namespace после перезапуска live runtime"
   ],
   "edited_files": [
     ".gitignore",
@@ -32,15 +34,19 @@
     "docs/generated/commands.md",
     "docs/generated/test-matrix.md",
     "docs/generated/project-interfaces.md",
+    "docs/generated/ui-legibility-surface.md",
+    "docs/notion/PROJECT_SYNC.md",
+    "docs/observability/logging-and-diagnostics.md",
     "docs/process/android-agent-workflow.md",
+    "docs/QUALITY.md",
     "docs/research/official-sources-2026-05-01.md",
     ".tmp/.codex/task_state/latest.md",
     ".tmp/.codex/task_state/latest.json",
     "docs/CHANGELOG.md"
   ],
-  "verify_status": "lifecycle validator warn-only with no contract failures; Gradle assembleDebug and testDebugUnitTest verified",
+  "verify_status": "lifecycle validator warn-only with no contract failures; Gradle assembleDebug and testDebugUnitTest verified; Notion project record created",
   "open_questions": [
-    "какая Notion surface станет постоянным местом для проекта: standalone page или later database entry"
+    "нужен ли отдельный task sync в базе Задачи после старта product milestones"
   ],
-  "updated_at_utc": "2026-05-01T18:32:00Z"
+  "updated_at_utc": "2026-05-01T18:45:00Z"
 }

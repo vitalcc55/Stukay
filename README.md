@@ -39,6 +39,9 @@
 - [docs/generated/stack-inventory.md](/C:/Users/v.vlasov/Desktop/Stukay/docs/generated/stack-inventory.md)
 - [docs/generated/commands.md](/C:/Users/v.vlasov/Desktop/Stukay/docs/generated/commands.md)
 - [docs/DECISIONS.md](/C:/Users/v.vlasov/Desktop/Stukay/docs/DECISIONS.md)
+- [docs/QUALITY.md](/C:/Users/v.vlasov/Desktop/Stukay/docs/QUALITY.md)
+- [docs/observability/logging-and-diagnostics.md](/C:/Users/v.vlasov/Desktop/Stukay/docs/observability/logging-and-diagnostics.md)
+- [docs/notion/PROJECT_SYNC.md](/C:/Users/v.vlasov/Desktop/Stukay/docs/notion/PROJECT_SYNC.md)
 
 ## Validation Snapshot
 

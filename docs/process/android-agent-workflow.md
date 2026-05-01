@@ -66,3 +66,4 @@
 - JetBrains MCP и Android CLI относятся к engineering workflow, а не к runtime architecture приложения.
 - Если current runtime не подхватил native `jetbrains` namespace, это не отменяет сам MCP config; просто используй fallback verification и зафиксируй limitation.
 - Не документируй Android behavior как факт, если он не проверен по official source.
+- Android UI legibility surface строится через Android Studio / emulator / device / diagnostics, а не через browser-first assumptions.

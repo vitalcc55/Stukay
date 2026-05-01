@@ -43,6 +43,9 @@
 - `docs/generated/commands.md`
 - `docs/generated/test-matrix.md`
 - `docs/generated/project-interfaces.md`
+- `docs/generated/ui-legibility-surface.md`
+- `docs/QUALITY.md`
 - `docs/observability/logging-and-diagnostics.md`
+- `docs/notion/PROJECT_SYNC.md`
 - `docs/DECISIONS.md`
 - `docs/CHANGELOG.md`
