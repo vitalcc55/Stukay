@@ -38,3 +38,13 @@ google-services.json
 
 # Reference projects
 references/
+
+# Repo-local Codex lifecycle state:
+# keep only canonical resume checkpoints under version control
+.tmp/*
+!.tmp/.codex/
+.tmp/.codex/*
+!.tmp/.codex/task_state/
+.tmp/.codex/task_state/*
+!.tmp/.codex/task_state/latest.md
+!.tmp/.codex/task_state/latest.json
