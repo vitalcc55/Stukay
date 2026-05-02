@@ -1,58 +1,47 @@
 # Task State
 
-- goal: Поднять Android-aware repo harness, docs, observability policy и Notion sync для Stukay до начала feature development.
-- stage: review_loop_complete_ready_for_runtime_slice
+- goal: Реализовать первый Android-side runtime slice для Host Bridge contract, pairing и local network flow без ухода в полный real thread runtime.
+- stage: runtime_slice_host_bridge_complete
 - done:
-  - milestone 1 complete
-  - milestone 2 complete
-  - milestone 3 complete
-  - scaffold lifecycle stack
-  - validate lifecycle stack
-  - inspect current Android repo state
-  - capture Android CLI and JetBrains MCP evidence
-  - verify current Gradle build and unit test surface
-  - document stack inventory, commands, architecture and workflow
-  - add observability, quality and notion sync docs
-  - complete multi-module foundation refactor and root shell scaffold
-  - complete `core:logging` TDD cycle and live diagnostics foundation wiring
-  - complete fake domain, typed timeline items and approval shell
-  - close local multi-agent review loop with no remaining bug-bar findings
+  - rewrite active ExecPlan for Host Bridge runtime slice
+  - add runtime slice research substrate with official Android/OpenAI facts and reference signals
+  - add typed Host Bridge / pairing / connection models in `core:model`
+  - move app wiring to runtime graph instead of direct fake repository construction
+  - add pairing payload save/connect/reconnect/disconnect flow in `Settings`
+  - add Android 16 local network permission rationale and request hook
+  - add host summary to `Projects` and `Diagnostics`
+  - add manifest network permissions for current local-network slice
+  - add JVM tests for pairing parser and host bridge repository state transitions
+  - verify `:app:testDebugUnitTest`
+  - verify `:app:assembleDebug`
+  - verify `android describe --project_dir .`
+  - verify `codex mcp get jetbrains`
 - next:
-  - начать runtime slice для Host Bridge
-  - спроектировать pairing и local network flow
-  - определить transport contracts и replacement seam для fake repositories
+  - перейти к Host Bridge MVP
+  - заменить stub transport на реальный host-backed transport
+  - начать real thread/runtime integration поверх уже введенного seam
 - edited_files:
-  - .gitignore
-  - AGENTS.md
-  - README.md
-  - Prompt.md
-  - Implement.md
+  - app/src/main/AndroidManifest.xml
+  - app/src/main/java/dev/vitalcc/stukay/StukayApp.kt
+  - app/src/main/java/dev/vitalcc/stukay/StukayAppViewModel.kt
+  - app/src/main/java/dev/vitalcc/stukay/runtime/StukayAppState.kt
+  - app/src/main/java/dev/vitalcc/stukay/runtime/StukayRuntimeGraph.kt
+  - app/src/main/java/dev/vitalcc/stukay/runtime/hostbridge/HostBridgePairingParser.kt
+  - app/src/main/java/dev/vitalcc/stukay/runtime/hostbridge/HostBridgePairingStore.kt
+  - app/src/main/java/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeRepository.kt
+  - app/src/test/java/dev/vitalcc/stukay/runtime/hostbridge/HostBridgePairingParserTest.kt
+  - app/src/test/java/dev/vitalcc/stukay/runtime/hostbridge/StubHostBridgeRepositoryTest.kt
+  - core/model/src/main/java/dev/vitalcc/stukay/core/model/HostBridgeModels.kt
+  - feature/projects/src/main/java/dev/vitalcc/stukay/feature/projects/ui/ProjectsRoute.kt
+  - feature/settings/build.gradle.kts
+  - feature/settings/src/main/java/dev/vitalcc/stukay/feature/settings/ui/SettingsRoute.kt
+  - feature/diagnostics/src/main/java/dev/vitalcc/stukay/feature/diagnostics/ui/DiagnosticsRoute.kt
   - Documentation.md
-  - docs/DECISIONS.md
-  - docs/architecture/index.md
-  - docs/architecture/application-architecture.md
   - docs/exec-plans/active/ExecPlan.md
-  - docs/exec-plans/tech-debt-tracker.md
-  - docs/generated/stack-inventory.md
-  - docs/generated/commands.md
-  - docs/generated/test-matrix.md
-  - docs/generated/project-interfaces.md
-  - docs/generated/ui-legibility-surface.md
-  - docs/notion/PROJECT_SYNC.md
-  - docs/observability/logging-and-diagnostics.md
-  - docs/process/android-agent-workflow.md
-  - docs/QUALITY.md
-  - docs/research/official-sources-2026-05-01.md
-  - app/build.gradle.kts
-  - settings.gradle.kts
-  - build.gradle.kts
-  - gradle/libs.versions.toml
-  - core/*
-  - feature/*
-  - app/src/main/**
+  - docs/exec-plans/active/runtime-slice-host-bridge-research.md
   - .tmp/.codex/task_state/latest.md
   - .tmp/.codex/task_state/latest.json
   - docs/CHANGELOG.md
-- verify_status: `:core:model:testDebugUnitTest`, `:feature:projects:testDebugUnitTest`, `:feature:thread:testDebugUnitTest`, `:core:logging:testDebugUnitTest`, `:app:assembleDebug`, `:app:testDebugUnitTest`, lifecycle validator проходят; три локальных review-агента подтвердили отсутствие bug-bar findings
+- verify_status: `:app:testDebugUnitTest`, `:app:assembleDebug`, `android describe --project_dir .` и `codex mcp get jetbrains` проходят; lifecycle validator ожидает только heading-consistent docs sync
 - open_questions:
-  - нужен ли отдельный task sync в базе `Задачи` после старта product milestones
+  - camera QR scan и public tunnel path сознательно отложены в Host Bridge MVP

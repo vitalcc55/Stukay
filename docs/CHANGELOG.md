@@ -23,3 +23,10 @@
 - Реализован DDD-lite fake domain: typed projects, threads, timeline items, approval actions и in-memory repositories/use cases.
 - `ThreadScreen` теперь поддерживает fake run start/complete и approval resolution, а shell стабилизирован под оба режима рендера Pixel 9 Pro XL.
 - Поверх milestone выполнен локальный multi-agent review loop; исправлены найденные баги в lifecycle owner app state, approval semantics, route/diagnostics identity, bounded log truth surface и width-constrained shell rollout.
+- Зафиксирован новый active `ExecPlan` и research-подложка для `Host Bridge contract + pairing + local network flow`.
+- Добавлены typed `Host Bridge` / pairing / connection models в `core:model`.
+- `StukayAppState` переведен на runtime graph вместо прямого создания fake repositories.
+- `Settings` получил pairing payload save/connect/reconnect/disconnect flow и Android 16 local-network permission rationale.
+- `Projects` теперь показывает lightweight host status signal, а `Diagnostics` — host/connection summary.
+- В `AndroidManifest.xml` добавлены `INTERNET`, `ACCESS_NETWORK_STATE` и `NEARBY_WIFI_DEVICES` для текущего local-network slice.
+- Добавлены JVM tests для pairing payload parser и host bridge repository state transitions.

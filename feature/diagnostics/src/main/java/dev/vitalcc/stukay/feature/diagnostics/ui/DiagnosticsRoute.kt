@@ -25,6 +25,7 @@ import dev.vitalcc.stukay.core.logging.AppLogger
 import dev.vitalcc.stukay.core.logging.DiagnosticsSummary
 import dev.vitalcc.stukay.core.logging.LogArea
 import dev.vitalcc.stukay.core.logging.logEvent
+import dev.vitalcc.stukay.core.model.HostBridgeConnectionState
 import dev.vitalcc.stukay.core.model.RouteContext
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveCard
 import dev.vitalcc.stukay.core.design.layout.ScreenFrame
@@ -36,6 +37,7 @@ fun DiagnosticsRoute(
     currentRouteContext: RouteContext,
     inspectedRouteContext: RouteContext,
     diagnosticsSummary: DiagnosticsSummary,
+    hostBridgeState: HostBridgeConnectionState,
     onNavigateBack: () -> Unit,
 ) {
     LaunchedEffect(Unit) {
@@ -106,6 +108,34 @@ fun DiagnosticsRoute(
                                 text = latest.messageHuman,
                                 style = MaterialTheme.typography.bodyMedium,
                             )
+                        }
+                    }
+                }
+
+                item {
+                    ExpressiveCard(
+                        title = "Host Bridge summary",
+                        subtitle = hostBridgeState.phase.name,
+                    ) {
+                        val pairedHost = hostBridgeState.pairedHost
+                        if (pairedHost == null) {
+                            Text(text = "Pairing payload еще не сохранен.")
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text(text = "Host: ${pairedHost.hostLabel}")
+                                Text(text = "Endpoint: ${pairedHost.endpoint}")
+                                Text(text = "Transport: ${pairedHost.transport.name}")
+                                Text(text = "Local network: ${hostBridgeState.localNetworkAccessState.name}")
+                                hostBridgeState.lastConnectedAtEpochMs?.let { lastConnectedAt ->
+                                    Text(text = "Последнее готовое подключение: $lastConnectedAt")
+                                }
+                                hostBridgeState.lastError?.let { errorText ->
+                                    Text(
+                                        text = "Последняя ошибка: $errorText",
+                                        color = MaterialTheme.colorScheme.error,
+                                    )
+                                }
+                            }
                         }
                     }
                 }

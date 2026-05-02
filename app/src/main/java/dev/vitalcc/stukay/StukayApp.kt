@@ -1,5 +1,8 @@
 package dev.vitalcc.stukay
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -31,6 +34,11 @@ fun StukayApp(
     val navController = rememberNavController()
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val routeContext = currentBackStackEntry.toRouteContext()
+    val localNetworkPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        appState.onLocalNetworkPermissionResult(granted)
+    }
 
     LaunchedEffect(routeContext) {
         appState.updateCurrentRouteContext(routeContext)
@@ -56,6 +64,7 @@ fun StukayApp(
             composable(route = StukayDestination.Projects.route) {
                 ProjectsRoute(
                     projects = appState.projects(),
+                    hostBridgeState = appState.hostBridgeState,
                     logger = appState.logger,
                     onOpenProject = { projectId ->
                         navController.navigate(ProjectDetailsDestination.route(projectId.value))
@@ -123,6 +132,17 @@ fun StukayApp(
             composable(route = StukayDestination.Settings.route) {
                 SettingsRoute(
                     logger = appState.logger,
+                    hostBridgeState = appState.hostBridgeState,
+                    pairingInput = appState.pairingInput,
+                    onUpdatePairingInput = appState::updatePairingInput,
+                    onSavePairingPayload = appState::savePairingPayload,
+                    onConnectHostBridge = appState::connectHostBridge,
+                    onReconnectHostBridge = appState::reconnectHostBridge,
+                    onDisconnectHostBridge = appState::disconnectHostBridge,
+                    onRequestLocalNetworkPermission = {
+                        appState.requestLocalNetworkPermission()
+                        localNetworkPermissionLauncher.launch(Manifest.permission.NEARBY_WIFI_DEVICES)
+                    },
                     onNavigateBack = navController::popBackStack,
                     onOpenDiagnostics = {
                         navController.navigate(StukayDestination.Diagnostics.route)
@@ -136,6 +156,7 @@ fun StukayApp(
                     currentRouteContext = appState.currentRouteContext,
                     inspectedRouteContext = appState.lastInspectedRouteContext,
                     diagnosticsSummary = appState.diagnosticsSummary(),
+                    hostBridgeState = appState.hostBridgeState,
                     onNavigateBack = navController::popBackStack,
                 )
             }

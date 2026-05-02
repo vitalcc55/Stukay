@@ -1,8 +1,11 @@
 package dev.vitalcc.stukay
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import dev.vitalcc.stukay.runtime.StukayAppState
 
-class StukayAppViewModel : ViewModel() {
-    val appState: StukayAppState = StukayAppState()
+class StukayAppViewModel(
+    application: Application,
+) : AndroidViewModel(application) {
+    val appState: StukayAppState = StukayAppState(application)
 }

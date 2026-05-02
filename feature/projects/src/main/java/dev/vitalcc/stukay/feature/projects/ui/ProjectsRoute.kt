@@ -26,6 +26,8 @@ import dev.vitalcc.stukay.core.logging.AppLogger
 import dev.vitalcc.stukay.core.logging.LogArea
 import dev.vitalcc.stukay.core.logging.logEvent
 import dev.vitalcc.stukay.core.model.CodexProject
+import dev.vitalcc.stukay.core.model.HostBridgeConnectionPhase
+import dev.vitalcc.stukay.core.model.HostBridgeConnectionState
 import dev.vitalcc.stukay.core.model.ProjectId
 import dev.vitalcc.stukay.core.model.ProjectStatus
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveCard
@@ -37,6 +39,7 @@ import dev.vitalcc.stukay.core.design.layout.ScreenFrame
 @Composable
 fun ProjectsRoute(
     projects: List<CodexProject>,
+    hostBridgeState: HostBridgeConnectionState,
     logger: AppLogger,
     onOpenProject: (ProjectId) -> Unit,
     onOpenSettings: () -> Unit,
@@ -88,6 +91,29 @@ fun ProjectsRoute(
                     Spacer(modifier = Modifier.height(20.dp))
                 }
 
+                item {
+                    ExpressiveCard(
+                        title = "Host Bridge",
+                        subtitle = hostBridgeTitle(hostBridgeState),
+                        modifier = Modifier.padding(bottom = 14.dp),
+                    ) {
+                        ExpressiveStatusPill(
+                            label = hostBridgeLabel(hostBridgeState),
+                            tone = when (hostBridgeState.phase) {
+                                HostBridgeConnectionPhase.Connected -> ExpressiveStatusTone.Positive
+                                HostBridgeConnectionPhase.PermissionRequired -> ExpressiveStatusTone.Warning
+                                HostBridgeConnectionPhase.Failed -> ExpressiveStatusTone.Critical
+                                else -> ExpressiveStatusTone.Neutral
+                            },
+                            modifier = Modifier.padding(bottom = 12.dp),
+                        )
+                        Text(
+                            text = hostBridgeDetail(hostBridgeState),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
+                }
+
                 items(projects) { project ->
                     ExpressiveCard(
                         title = project.name,
@@ -124,4 +150,30 @@ fun ProjectsRoute(
             }
         }
     }
+}
+
+private fun hostBridgeLabel(state: HostBridgeConnectionState): String = when (state.phase) {
+    HostBridgeConnectionPhase.NotPaired -> "Не настроен"
+    HostBridgeConnectionPhase.Paired -> "Сохранен"
+    HostBridgeConnectionPhase.Connecting -> "Подключение"
+    HostBridgeConnectionPhase.Connected -> "Подключен"
+    HostBridgeConnectionPhase.Disconnected -> "Отключен"
+    HostBridgeConnectionPhase.PermissionRequired -> "Нужно разрешение"
+    HostBridgeConnectionPhase.Failed -> "Ошибка"
+}
+
+private fun hostBridgeTitle(state: HostBridgeConnectionState): String = when (state.phase) {
+    HostBridgeConnectionPhase.NotPaired -> "Pairing payload еще не добавлен."
+    HostBridgeConnectionPhase.Paired -> "Host сохранен и готов к подключению."
+    HostBridgeConnectionPhase.Connecting -> "Подготовка к подключению к локальному host."
+    HostBridgeConnectionPhase.Connected -> "Локальный host bridge помечен как доступный."
+    HostBridgeConnectionPhase.Disconnected -> "Pairing сохранен, подключение можно восстановить."
+    HostBridgeConnectionPhase.PermissionRequired -> "Для Android 16 local network path нужен Nearby devices."
+    HostBridgeConnectionPhase.Failed -> state.lastError ?: "Host bridge вернул ошибочное состояние."
+}
+
+private fun hostBridgeDetail(state: HostBridgeConnectionState): String {
+    val pairedHost = state.pairedHost ?: return "Откройте Settings и сохраните pairing payload для Windows host bridge."
+    val errorPart = state.lastError?.let { " Ошибка: $it" }.orEmpty()
+    return "${pairedHost.hostLabel} · ${pairedHost.transport.name} · ${pairedHost.endpoint}.$errorPart"
 }
