@@ -10,3 +10,11 @@
 - В docs зафиксированы роли JetBrains MCP и `android` CLI как обязательных engineering surfaces.
 - Добавлены `docs/QUALITY.md`, observability/logging policy, Android UI legibility surface и repo-to-Notion sync policy.
 - Проект `Stukay` заведен в Notion database `Проекты` как запись `PRJ-3`.
+
+## 2026-05-02
+
+- Начат первый product milestone.
+- Проект переведен на `dev.vitalcc.stukay`.
+- Введен multi-module foundation scaffold: `:app`, `:core:*`, `:feature:*`.
+- Поднят root shell для `Projects`, `Project`, `Thread`, `Settings`, `Diagnostics`.
+- `:app:assembleDebug` и `:app:testDebugUnitTest` проходят после foundation refactor.

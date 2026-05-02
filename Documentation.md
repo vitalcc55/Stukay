@@ -1,9 +1,9 @@
 # Documentation.md
 
 ## Current Milestone Status
-- current: Bootstrap contour complete; repo is ready for the first post-harness product milestone.
-- done: Milestone 1, 2 и 3 завершены; observability policy, diagnostics direction и Notion sync layer добавлены.
-- next: Следующий milestone уже должен быть product-facing, например fake UI shell или architecture refactor preparation.
+- current: Первый product milestone начат; foundation refactor и root shell scaffold завершены.
+- done: Multi-module каркас поднят, package rename выполнен, root shell и базовая navigation/state wiring уже собираются.
+- next: Реализовать `core:logging` через TDD и посадить Diagnostics foundation на реальные runtime events.
 
 ## Decisions
 - decision: Сначала поднимаем harness, docs и observability, а не меняем продуктовый код.
@@ -24,13 +24,13 @@
 - expected result: отображается активный stdio-config Android Studio MCP.
 
 ## Latest Review Outcome
-- findings: no findings по observability/notion diff; repo now has a complete bootstrap contour for long-horizon Android work.
-- residual risks: runtime logging and diagnostics screen еще не реализованы в приложении; это только policy layer.
+- findings: foundation diff зелёный по сборке; архитектурный каркас больше не template-only.
+- residual risks: logging/data/domain behavior ещё не реализованы; DiagnosticsScreen пока только shell without live data.
 
 ## Known Issues And Follow-ups
 - item: В текущем runtime JetBrains MCP tools могут быть недоступны как native namespace до перезапуска Codex App, хотя server-side конфиг уже работает.
 - item: `android describe` иногда не печатает useful stdout без controlled capture; это надо зафиксировать в commands inventory.
-- item: current repo still uses template namespace and single-module structure.
+- item: root shell пока использует локальный navigation state machine вместо `navigation-compose`; это осознанное решение первого этапа, пока зависимость и масштабы UI не требуют большего.
 - item: Notion workspace запрещает standalone private page creation; проект привязан к базе `Проекты`, и этот parent constraint надо учитывать дальше.
 
 ## Evidence Index

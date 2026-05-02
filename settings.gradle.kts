@@ -24,3 +24,10 @@ dependencyResolutionManagement {
 
 rootProject.name = "Stukay"
 include(":app")
+include(":core:model")
+include(":core:logging")
+include(":core:design")
+include(":feature:projects")
+include(":feature:thread")
+include(":feature:settings")
+include(":feature:diagnostics")

@@ -1,6 +1,6 @@
 # Stack Inventory
 
-Обновлено: `2026-05-01`
+Обновлено: `2026-05-02`
 
 ## Scope
 
@@ -10,21 +10,21 @@
 
 | Area | Current State |
 | --- | --- |
-| Repo type | Android app repository, single module |
-| Root module graph | `:app` |
+| Repo type | Android app repository, multi-module |
+| Root module graph | `:app`, `:core:model`, `:core:logging`, `:core:design`, `:feature:projects`, `:feature:thread`, `:feature:settings`, `:feature:diagnostics` |
 | Build system | Gradle Wrapper |
 | Gradle version | `9.4.1` |
 | Android Gradle Plugin | `9.2.0` |
 | Kotlin | `2.2.10` |
 | Compose dependency model | Compose BOM `2026.02.01` |
-| Current namespace | `com.vitaly.stukay` |
-| Current applicationId | `com.vitaly.stukay` |
+| Current namespace | `dev.vitalcc.stukay` |
+| Current applicationId | `dev.vitalcc.stukay` |
 | Current minSdk / targetSdk | `36 / 36` |
 | Current compileSdk | `36.1` |
-| Java source / target compatibility | `11 / 11` |
+| Java source / target compatibility | `17 / 17` |
 | UI stack | Jetpack Compose + Material 3 |
-| Current app entry point | `app/src/main/java/com/vitaly/stukay/MainActivity.kt` |
-| Current tests | template unit test + template instrumented test |
+| Current app entry point | `app/src/main/java/dev/vitalcc/stukay/MainActivity.kt` |
+| Current tests | renamed unit/instrumented smoke baseline under new package |
 
 ## External Tool Surfaces
 
@@ -39,6 +39,7 @@
 ## Evidence Snapshot
 
 - `android describe --project_dir .` confirms module `:app`, variants `debug` and `release`, and existing `app-debug.apk`.
+- `.\gradlew.bat :app:assembleDebug :app:testDebugUnitTest` confirms multi-module root shell compiles after foundation refactor on `2026-05-02`.
 - JetBrains MCP probe confirms IDE-side modules:
   - `Stukay`
   - `Stukay.app`
@@ -62,7 +63,5 @@
 
 ## Known Gaps Between Current And Target
 
-- `current package / namespace` не совпадает с target `dev.vitalcc.stukay`.
-- Репозиторий пока одномодульный.
 - Нет repo-local quality task, lint policy, observability implementation или diagnostics screen.
-- Нет yet product architecture code for projects / threads / approvals / review.
+- Нет yet live logging core, fake domain orchestration или typed timeline implementation.

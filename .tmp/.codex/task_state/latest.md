@@ -1,7 +1,7 @@
 # Task State
 
 - goal: Поднять Android-aware repo harness, docs, observability policy и Notion sync для Stukay до начала feature development.
-- stage: bootstrap_complete_ready_for_product_milestone
+- stage: product_milestone_foundation_complete
 - done:
   - milestone 1 complete
   - milestone 2 complete
@@ -13,10 +13,11 @@
   - verify current Gradle build and unit test surface
   - document stack inventory, commands, architecture and workflow
   - add observability, quality and notion sync docs
+  - complete multi-module foundation refactor and root shell scaffold
 - next:
-  - выбрать первый post-harness product milestone
-  - решить, когда начинать namespace / architecture refactor
-  - подтвердить native `jetbrains` namespace после перезапуска live runtime
+  - реализовать `core:logging` через TDD
+  - посадить Diagnostics foundation на live log data
+  - затем перейти к fake domain и typed UI shell
 - edited_files:
   - .gitignore
   - AGENTS.md
@@ -39,9 +40,16 @@
   - docs/process/android-agent-workflow.md
   - docs/QUALITY.md
   - docs/research/official-sources-2026-05-01.md
+  - app/build.gradle.kts
+  - settings.gradle.kts
+  - build.gradle.kts
+  - gradle/libs.versions.toml
+  - core/*
+  - feature/*
+  - app/src/main/**
   - .tmp/.codex/task_state/latest.md
   - .tmp/.codex/task_state/latest.json
   - docs/CHANGELOG.md
-- verify_status: lifecycle validator warn-only with no contract failures; Gradle assembleDebug and testDebugUnitTest verified; Notion project record created
+- verify_status: foundation build passes via `:app:assembleDebug` and `:app:testDebugUnitTest`; bootstrap docs still require final sync after stage 3
 - open_questions:
   - нужен ли отдельный task sync в базе `Задачи` после старта product milestones

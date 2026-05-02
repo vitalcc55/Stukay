@@ -16,7 +16,7 @@
 - Kotlin `2.2.10`;
 - Compose BOM `2026.02.01`;
 - `minSdk = 36`, `targetSdk = 36`, `compileSdk = 36.1`;
-- current package / namespace: `com.vitaly.stukay`;
+- current package / namespace: `dev.vitalcc.stukay`;
 - `MainActivity` пока содержит template Compose UI.
 
 ## Target Direction
