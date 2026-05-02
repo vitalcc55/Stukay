@@ -25,18 +25,19 @@ import androidx.compose.ui.unit.dp
 import dev.vitalcc.stukay.core.logging.AppLogger
 import dev.vitalcc.stukay.core.logging.LogArea
 import dev.vitalcc.stukay.core.logging.logEvent
+import dev.vitalcc.stukay.core.model.CodexProject
+import dev.vitalcc.stukay.core.model.ProjectId
+import dev.vitalcc.stukay.core.model.ProjectStatus
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveCard
-
-private val placeholderProjects = listOf(
-    "main" to "Локальный Codex runtime на Windows и Pixel-first shell",
-    "diagnostics" to "Отдельный поток по логированию и evidence surfaces",
-)
+import dev.vitalcc.stukay.core.design.expressive.ExpressiveStatusPill
+import dev.vitalcc.stukay.core.design.expressive.ExpressiveStatusTone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProjectsRoute(
+    projects: List<CodexProject>,
     logger: AppLogger,
-    onOpenProject: (String) -> Unit,
+    onOpenProject: (ProjectId) -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     LaunchedEffect(Unit) {
@@ -85,19 +86,32 @@ fun ProjectsRoute(
                 Spacer(modifier = Modifier.height(20.dp))
             }
 
-            items(placeholderProjects) { (projectId, description) ->
+            items(projects) { project ->
                 ExpressiveCard(
-                    title = projectId,
-                    subtitle = description,
+                    title = project.name,
+                    subtitle = project.summary,
                     modifier = Modifier.padding(bottom = 14.dp),
                 ) {
                     Column {
+                        ExpressiveStatusPill(
+                            label = when (project.status) {
+                                ProjectStatus.Active -> "Active"
+                                ProjectStatus.Idle -> "Idle"
+                                ProjectStatus.Archived -> "Archived"
+                            },
+                            tone = when (project.status) {
+                                ProjectStatus.Active -> ExpressiveStatusTone.Positive
+                                ProjectStatus.Idle -> ExpressiveStatusTone.Neutral
+                                ProjectStatus.Archived -> ExpressiveStatusTone.Warning
+                            },
+                            modifier = Modifier.padding(bottom = 12.dp),
+                        )
                         Text(
-                            text = "Локальный Android shell уже готов к реальной форме проекта.",
+                            text = project.cwd,
                             style = MaterialTheme.typography.bodyMedium,
                         )
                         Button(
-                            onClick = { onOpenProject(projectId) },
+                            onClick = { onOpenProject(project.id) },
                             modifier = Modifier.padding(top = 16.dp),
                         ) {
                             Text(text = "Open project")

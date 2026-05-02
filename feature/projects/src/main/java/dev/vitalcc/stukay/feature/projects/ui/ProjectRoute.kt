@@ -23,28 +23,30 @@ import androidx.compose.ui.unit.dp
 import dev.vitalcc.stukay.core.logging.AppLogger
 import dev.vitalcc.stukay.core.logging.LogArea
 import dev.vitalcc.stukay.core.logging.logEvent
+import dev.vitalcc.stukay.core.model.CodexProject
+import dev.vitalcc.stukay.core.model.CodexThread
+import dev.vitalcc.stukay.core.model.ThreadId
+import dev.vitalcc.stukay.core.model.ThreadStatus
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveCard
-
-private val placeholderThreads = listOf(
-    "thread-active-shell" to "Active fake shell thread with timeline and approvals",
-    "thread-review-shell" to "Upcoming review-focused thread surface",
-)
+import dev.vitalcc.stukay.core.design.expressive.ExpressiveStatusPill
+import dev.vitalcc.stukay.core.design.expressive.ExpressiveStatusTone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProjectRoute(
+    project: CodexProject?,
+    threads: List<CodexThread>,
     logger: AppLogger,
-    projectId: String,
     onNavigateBack: () -> Unit,
-    onOpenThread: (String) -> Unit,
+    onOpenThread: (ThreadId) -> Unit,
 ) {
-    LaunchedEffect(projectId) {
+    LaunchedEffect(project?.id) {
         logger.info(
             logEvent(
                 area = LogArea.Ui,
                 eventName = "screen_opened",
                 messageHuman = "Project screen opened",
-                fields = mapOf("screen" to "project", "projectId" to projectId),
+                fields = mapOf("screen" to "project", "projectId" to (project?.id?.value ?: "missing")),
             ),
         )
     }
@@ -53,7 +55,7 @@ fun ProjectRoute(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(text = projectId)
+                    Text(text = project?.name ?: "Missing project")
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
@@ -77,25 +79,35 @@ fun ProjectRoute(
                     style = MaterialTheme.typography.headlineSmall,
                 )
                 Text(
-                    text = "Здесь появится список тредов, active/recent sections и быстрый вход в новый run.",
+                    text = project?.summary ?: "Project record is missing.",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
                 )
             }
 
-            items(placeholderThreads) { (threadId, description) ->
+            items(threads) { thread ->
                 ExpressiveCard(
-                    title = threadId,
-                    subtitle = description,
+                    title = thread.title,
+                    subtitle = thread.preview,
                 ) {
                     Column {
+                        ExpressiveStatusPill(
+                            label = thread.status.name,
+                            tone = when (thread.status) {
+                                ThreadStatus.Running -> ExpressiveStatusTone.Positive
+                                ThreadStatus.WaitingForApproval -> ExpressiveStatusTone.Warning
+                                ThreadStatus.Failed -> ExpressiveStatusTone.Critical
+                                else -> ExpressiveStatusTone.Neutral
+                            },
+                            modifier = Modifier.padding(bottom = 12.dp),
+                        )
                         Text(
-                            text = "Переход уже маршрутизируется через root navigation scaffold.",
+                            text = "Updated at ${thread.lastUpdatedAtEpochMs}",
                             style = MaterialTheme.typography.bodyMedium,
                         )
                         Button(
-                            onClick = { onOpenThread(threadId) },
+                            onClick = { onOpenThread(thread.id) },
                             modifier = Modifier.padding(top = 16.dp),
                         ) {
                             Text(text = "Open thread")

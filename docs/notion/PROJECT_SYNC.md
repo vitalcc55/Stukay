@@ -6,6 +6,7 @@
 - Page title: `Stukay`
 - Notion URL: <https://app.notion.com/p/353f585cf06881c682d5ccb7437ada86>
 - Record code: `PRJ-3`
+- Current next step in Notion: `Начать runtime slice: Host Bridge, pairing и local network flow после готового fake shell milestone`
 
 ## Sync Rule
 

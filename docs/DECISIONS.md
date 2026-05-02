@@ -72,3 +72,12 @@ JetBrains MCP и `android` CLI считаются частью рабочего 
 
 - current repo еще template-like;
 - смешение fact и intent приведет к ложным assumptions в следующих milestones.
+
+## 009. Pixel render mode policy
+
+Основной режим проектирования — `1344×2992`, но layout не должен разваливаться на `1008×2244`.
+
+Причина:
+
+- это два реальных режима одного целевого устройства;
+- здесь полезнее width-constrained and stable layout, чем тяжелая generalized adaptive-навигация под все классы экранов.

@@ -11,6 +11,7 @@
 | Android project introspection | project describe and docs search | Android CLI |
 | IDE-aware introspection | modules, run configurations, file/symbol operations | JetBrains MCP |
 | Runtime observability | Logcat + in-memory log store + DiagnosticsScreen snapshot | core logging layer |
+| Fake product domain | in-memory projects, threads, timeline and approval actions | feature project/thread layers |
 
 ## Planned Runtime Interfaces
 
@@ -19,7 +20,7 @@
 | Windows Host Bridge | canonical transport gateway between phone and local Codex runtime | planned |
 | codex app-server | canonical desktop runtime API | planned |
 | Pairing / host registration | connect device to host and explain network permission rationale | planned |
-| Thread timeline event stream | structured events for message, command, diff, approval, review | planned |
+| Thread timeline event stream | structured fake events and typed timeline items | partially implemented |
 | Diagnostics / exported evidence | app-level status, logs, last errors, recent requests | partially implemented |
 
 ## Interface Boundaries To Preserve

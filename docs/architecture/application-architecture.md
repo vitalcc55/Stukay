@@ -17,7 +17,8 @@
 - `MainActivity` и `StukayApp` уже поднимают edge-to-edge root shell вместо template greeting.
 - current package / namespace: `dev.vitalcc.stukay`.
 - `Projects`, `Project`, `Thread`, `Settings` и `Diagnostics` уже существуют как screen shell.
-- `Diagnostics` уже питается от минимального runtime logging слоя, но fake domain и typed timeline ещё не реализованы.
+- `Diagnostics` уже питается от минимального runtime logging слоя.
+- fake projects, threads, typed timeline items и approval shell уже реализованы поверх in-memory repositories.
 
 ## Target State
 
@@ -25,6 +26,7 @@
 
 - Android 16 / API 36 only.
 - Pixel 9 Pro XL as primary device.
+- shell проектируется под `1344×2992`, но держит стабильный layout и на `1008×2244`.
 - Compose-first UI.
 - Material 3 as stable base.
 - Material 3 Expressive использовать изолированно и точечно, потому что expressive APIs продолжают меняться между stable и alpha ветками.

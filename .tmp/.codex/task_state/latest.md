@@ -1,7 +1,7 @@
 # Task State
 
 - goal: Поднять Android-aware repo harness, docs, observability policy и Notion sync для Stukay до начала feature development.
-- stage: product_milestone_logging_complete
+- stage: product_milestone_complete_ready_for_runtime_slice
 - done:
   - milestone 1 complete
   - milestone 2 complete
@@ -15,10 +15,11 @@
   - add observability, quality and notion sync docs
   - complete multi-module foundation refactor and root shell scaffold
   - complete `core:logging` TDD cycle and live diagnostics foundation wiring
+  - complete fake domain, typed timeline items and approval shell
 - next:
-  - реализовать fake domain и use cases
-  - ввести typed timeline items и approval shell
-  - обновить docs/status/Notion после stage 3
+  - начать runtime slice для Host Bridge
+  - спроектировать pairing и local network flow
+  - подтвердить native `jetbrains` namespace после перезапуска live runtime
 - edited_files:
   - .gitignore
   - AGENTS.md
@@ -51,6 +52,6 @@
   - .tmp/.codex/task_state/latest.md
   - .tmp/.codex/task_state/latest.json
   - docs/CHANGELOG.md
-- verify_status: `:core:logging:testDebugUnitTest`, `:app:assembleDebug` и `:app:testDebugUnitTest` проходят
+- verify_status: `:core:model:testDebugUnitTest`, `:feature:projects:testDebugUnitTest`, `:feature:thread:testDebugUnitTest`, `:core:logging:testDebugUnitTest`, `:app:assembleDebug`, `:app:testDebugUnitTest` проходят
 - open_questions:
   - нужен ли отдельный task sync в базе `Задачи` после старта product milestones

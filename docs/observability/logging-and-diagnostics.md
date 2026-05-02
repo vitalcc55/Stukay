@@ -19,6 +19,9 @@
   - `screen_opened`
   - `thread_opened`
   - `diagnostics_opened`
+  - `fake_turn_started`
+  - `fake_turn_completed`
+  - `approval_clicked`
 - `DiagnosticsScreen` уже показывает:
   - Android version
   - current route

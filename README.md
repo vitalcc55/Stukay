@@ -23,6 +23,7 @@
 
 - Android 16 / API 36 only;
 - Pixel 9 Pro XL portrait-first;
+- primary display mode `1344×2992`, but layouts must remain stable on `1008×2244`;
 - Jetpack Compose;
 - Material 3 with isolated Material 3 Expressive experimentation;
 - Windows Host Bridge -> codex app-server as canonical runtime API;

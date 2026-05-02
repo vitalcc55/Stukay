@@ -1,6 +1,6 @@
 # Test Matrix
 
-Обновлено: `2026-05-01`
+Обновлено: `2026-05-02`
 
 ## Current Matrix
 
@@ -9,6 +9,8 @@
 | Lifecycle harness | lifecycle stack validation | `python C:\Users\v.vlasov\.codex\skills\repo-harness-lifecycle\scripts\validate_lifecycle_stack.py --root .` | verified |
 | Build | debug assemble | `.\gradlew.bat :app:assembleDebug --console=plain` | verified |
 | JVM tests | template unit tests | `.\gradlew.bat :app:testDebugUnitTest --console=plain` | verified |
+| Domain rules | state helpers + fake repositories + use cases | `.\gradlew.bat :core:model:testDebugUnitTest :feature:projects:testDebugUnitTest :feature:thread:testDebugUnitTest --console=plain` | verified |
+| Logging core | structured logger, store, diagnostics summary | `.\gradlew.bat :core:logging:testDebugUnitTest --console=plain` | verified |
 | Android instrumented tests | template `androidTest` exists | `.\gradlew.bat :app:connectedDebugAndroidTest --console=plain` | not_yet_verified |
 | Lint | debug lint | `.\gradlew.bat :app:lintDebug --console=plain` | not_yet_verified |
 

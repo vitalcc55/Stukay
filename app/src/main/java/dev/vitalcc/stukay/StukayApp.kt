@@ -12,6 +12,7 @@ import androidx.navigation.navArgument
 import dev.vitalcc.stukay.core.logging.LogArea
 import dev.vitalcc.stukay.core.logging.logEvent
 import dev.vitalcc.stukay.core.design.theme.StukayTheme
+import dev.vitalcc.stukay.core.model.ApprovalDecision
 import dev.vitalcc.stukay.feature.diagnostics.ui.DiagnosticsRoute
 import dev.vitalcc.stukay.feature.projects.ui.ProjectRoute
 import dev.vitalcc.stukay.feature.projects.ui.ProjectsRoute
@@ -58,9 +59,10 @@ fun StukayApp() {
         ) {
             composable(route = StukayDestination.Projects.route) {
                 ProjectsRoute(
+                    projects = appState.projects(),
                     logger = appState.logger,
                     onOpenProject = { projectId ->
-                        navController.navigate(ProjectDetailsDestination.route(projectId))
+                        navController.navigate(ProjectDetailsDestination.route(projectId.value))
                     },
                     onOpenSettings = {
                         navController.navigate(StukayDestination.Settings.route)
@@ -76,12 +78,14 @@ fun StukayApp() {
                     },
                 ),
             ) { backStackEntry ->
+                val projectId = backStackEntry.arguments?.getString(ProjectDetailsDestination.projectIdArg).orEmpty()
                 ProjectRoute(
+                    project = appState.project(projectId),
+                    threads = appState.threads(projectId),
                     logger = appState.logger,
-                    projectId = backStackEntry.arguments?.getString(ProjectDetailsDestination.projectIdArg).orEmpty(),
                     onNavigateBack = navController::popBackStack,
                     onOpenThread = { threadId ->
-                        navController.navigate(ThreadDestination.route(threadId))
+                        navController.navigate(ThreadDestination.route(threadId.value))
                     },
                 )
             }
@@ -94,9 +98,24 @@ fun StukayApp() {
                     },
                 ),
             ) { backStackEntry ->
+                val threadId = backStackEntry.arguments?.getString(ThreadDestination.threadIdArg).orEmpty()
                 ThreadRoute(
+                    thread = appState.thread(threadId),
+                    timeline = appState.timeline(threadId),
                     logger = appState.logger,
-                    threadId = backStackEntry.arguments?.getString(ThreadDestination.threadIdArg).orEmpty(),
+                    onStartFakeTurn = {
+                        appState.startFakeTurn(threadId)
+                    },
+                    onCompleteFakeTurn = {
+                        appState.completeFakeTurn(threadId)
+                    },
+                    onResolveApproval = { approvalId, decision ->
+                        appState.resolveApproval(
+                            threadId = threadId,
+                            approvalId = approvalId.value,
+                            decision = decision,
+                        )
+                    },
                     onNavigateBack = navController::popBackStack,
                 )
             }

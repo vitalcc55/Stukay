@@ -6,9 +6,9 @@
 - impact: часть IDE-aware workflows пока приходится документировать и проверять через standalone probes.
 - follow-up: после перезапуска Codex App подтвердить native availability `jetbrains` tool namespace.
 
-- item: Repo-local observability policy уже зафиксирована, но runtime implementation (`AppLogger`, log sinks, diagnostics screen) еще отсутствует.
-- impact: будущие Android milestones пока нельзя расследовать через app-native logs/diagnostics.
-- follow-up: отдельный implementation milestone после fake UI shell.
+- item: Runtime logging уже есть, но diagnostics пока ограничен in-memory snapshot и Logcat without persistence/export.
+- impact: расследование между перезапусками приложения и офлайн evidence export пока невозможны.
+- follow-up: в runtime milestone добавить persistence, redaction и export flow.
 
 - item: Quality policy зафиксирована только на уровне docs; aggregated `quality` task еще не создан.
 - impact: local CI equivalent пока собирается вручную из нескольких команд.
