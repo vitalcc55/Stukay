@@ -32,7 +32,7 @@
 ## Known Issues And Follow-ups
 - item: В текущем runtime JetBrains MCP tools могут быть недоступны как native namespace до перезапуска Codex App, хотя server-side конфиг уже работает.
 - item: `android describe` иногда не печатает useful stdout без controlled capture; это надо зафиксировать в commands inventory.
-- item: root shell пока использует локальный navigation state machine вместо `navigation-compose`; это осознанное решение первого этапа, пока зависимость и масштабы UI не требуют большего.
+- item: shell уже использует `Navigation Compose`, но adaptive-навигация под более широкие классы экранов пока не вводилась сознательно.
 - item: Notion workspace запрещает standalone private page creation; проект привязан к базе `Проекты`, и этот parent constraint надо учитывать дальше.
 - item: adaptive UI для двух режимов рендера Pixel (`1008×2244` и `1344×2992`) пока решён через width-constrained shell, а не через `NavigationSuiteScaffold` или отдельный adaptive toolkit layer.
 
