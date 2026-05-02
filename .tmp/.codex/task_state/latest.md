@@ -1,7 +1,7 @@
 # Task State
 
 - goal: Поднять Android-aware repo harness, docs, observability policy и Notion sync для Stukay до начала feature development.
-- stage: product_milestone_complete_ready_for_runtime_slice
+- stage: review_loop_complete_ready_for_runtime_slice
 - done:
   - milestone 1 complete
   - milestone 2 complete
@@ -16,10 +16,11 @@
   - complete multi-module foundation refactor and root shell scaffold
   - complete `core:logging` TDD cycle and live diagnostics foundation wiring
   - complete fake domain, typed timeline items and approval shell
+  - close local multi-agent review loop with no remaining bug-bar findings
 - next:
   - начать runtime slice для Host Bridge
   - спроектировать pairing и local network flow
-  - подтвердить native `jetbrains` namespace после перезапуска live runtime
+  - определить transport contracts и replacement seam для fake repositories
 - edited_files:
   - .gitignore
   - AGENTS.md
@@ -52,6 +53,6 @@
   - .tmp/.codex/task_state/latest.md
   - .tmp/.codex/task_state/latest.json
   - docs/CHANGELOG.md
-- verify_status: `:core:model:testDebugUnitTest`, `:feature:projects:testDebugUnitTest`, `:feature:thread:testDebugUnitTest`, `:core:logging:testDebugUnitTest`, `:app:assembleDebug`, `:app:testDebugUnitTest` проходят
+- verify_status: `:core:model:testDebugUnitTest`, `:feature:projects:testDebugUnitTest`, `:feature:thread:testDebugUnitTest`, `:core:logging:testDebugUnitTest`, `:app:assembleDebug`, `:app:testDebugUnitTest`, lifecycle validator проходят; три локальных review-агента подтвердили отсутствие bug-bar findings
 - open_questions:
   - нужен ли отдельный task sync в базе `Задачи` после старта product milestones

@@ -19,6 +19,7 @@ import dev.vitalcc.stukay.core.model.ApprovalId
 import dev.vitalcc.stukay.core.model.CodexProject
 import dev.vitalcc.stukay.core.model.CodexThread
 import dev.vitalcc.stukay.core.model.ProjectId
+import dev.vitalcc.stukay.core.model.RouteContext
 import dev.vitalcc.stukay.core.model.ThreadId
 import dev.vitalcc.stukay.core.model.TimelineItem
 import dev.vitalcc.stukay.feature.projects.data.FakeProjectsRepository
@@ -62,11 +63,26 @@ class StukayAppState {
     val logger: AppLogger = StructuredLogger(liveSink)
     private val diagnosticsSummaryProvider = DiagnosticsSummaryProvider(store = logStore)
 
-    var currentScreenRoute by mutableStateOf("projects")
+    var currentRouteContext by mutableStateOf(RouteContext(routePattern = "projects"))
+        private set
+    var lastInspectedRouteContext by mutableStateOf(RouteContext(routePattern = "projects"))
         private set
 
-    fun updateCurrentScreenRoute(route: String) {
-        currentScreenRoute = route
+    init {
+        logger.info(
+            logEvent(
+                area = LogArea.App,
+                eventName = "app_started",
+                messageHuman = "Stukay app shell started",
+            ),
+        )
+    }
+
+    fun updateCurrentRouteContext(routeContext: RouteContext) {
+        currentRouteContext = routeContext
+        if (routeContext.projectId != null || routeContext.threadId != null) {
+            lastInspectedRouteContext = routeContext
+        }
     }
 
     fun diagnosticsSummary(): DiagnosticsSummary {

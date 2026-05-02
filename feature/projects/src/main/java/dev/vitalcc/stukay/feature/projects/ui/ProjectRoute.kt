@@ -3,6 +3,7 @@ package dev.vitalcc.stukay.feature.projects.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -30,6 +31,7 @@ import dev.vitalcc.stukay.core.model.ThreadStatus
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveCard
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveStatusPill
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveStatusTone
+import dev.vitalcc.stukay.core.design.layout.ScreenFrame
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,49 +70,51 @@ fun ProjectRoute(
             )
         },
     ) { innerPadding ->
-        LazyColumn(
-            contentPadding = PaddingValues(20.dp),
-            modifier = Modifier.padding(innerPadding),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            item {
-                Text(
-                    text = "Project shell",
-                    style = MaterialTheme.typography.headlineSmall,
-                )
-                Text(
-                    text = project?.summary ?: "Project record is missing.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 6.dp),
-                )
-            }
+        ScreenFrame(modifier = Modifier.padding(innerPadding)) {
+            LazyColumn(
+                contentPadding = PaddingValues(vertical = 20.dp),
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                item {
+                    Text(
+                        text = "Project shell",
+                        style = MaterialTheme.typography.headlineSmall,
+                    )
+                    Text(
+                        text = project?.summary ?: "Project record is missing.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
 
-            items(threads) { thread ->
-                ExpressiveCard(
-                    title = thread.title,
-                    subtitle = thread.preview,
-                ) {
-                    Column {
-                        ExpressiveStatusPill(
-                            label = thread.status.name,
-                            tone = when (thread.status) {
-                                ThreadStatus.Running -> ExpressiveStatusTone.Positive
-                                ThreadStatus.WaitingForApproval -> ExpressiveStatusTone.Warning
-                                ThreadStatus.Failed -> ExpressiveStatusTone.Critical
-                                else -> ExpressiveStatusTone.Neutral
-                            },
-                            modifier = Modifier.padding(bottom = 12.dp),
-                        )
-                        Text(
-                            text = "Updated at ${thread.lastUpdatedAtEpochMs}",
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Button(
-                            onClick = { onOpenThread(thread.id) },
-                            modifier = Modifier.padding(top = 16.dp),
-                        ) {
-                            Text(text = "Open thread")
+                items(threads) { thread ->
+                    ExpressiveCard(
+                        title = thread.title,
+                        subtitle = thread.preview,
+                    ) {
+                        Column {
+                            ExpressiveStatusPill(
+                                label = thread.status.name,
+                                tone = when (thread.status) {
+                                    ThreadStatus.Running -> ExpressiveStatusTone.Positive
+                                    ThreadStatus.WaitingForApproval -> ExpressiveStatusTone.Warning
+                                    ThreadStatus.Failed -> ExpressiveStatusTone.Critical
+                                    else -> ExpressiveStatusTone.Neutral
+                                },
+                                modifier = Modifier.padding(bottom = 12.dp),
+                            )
+                            Text(
+                                text = "Updated at ${thread.lastUpdatedAtEpochMs}",
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            Button(
+                                onClick = { onOpenThread(thread.id) },
+                                modifier = Modifier.padding(top = 16.dp),
+                            ) {
+                                Text(text = "Open thread")
+                            }
                         }
                     }
                 }

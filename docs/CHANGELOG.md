@@ -22,3 +22,4 @@
 - Root shell теперь пишет runtime events, а `DiagnosticsScreen` показывает живой snapshot recent logs и summary.
 - Реализован DDD-lite fake domain: typed projects, threads, timeline items, approval actions и in-memory repositories/use cases.
 - `ThreadScreen` теперь поддерживает fake run start/complete и approval resolution, а shell стабилизирован под оба режима рендера Pixel 9 Pro XL.
+- Поверх milestone выполнен локальный multi-agent review loop; исправлены найденные баги в lifecycle owner app state, approval semantics, route/diagnostics identity, bounded log truth surface и width-constrained shell rollout.

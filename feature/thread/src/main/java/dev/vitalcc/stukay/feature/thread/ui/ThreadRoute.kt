@@ -35,6 +35,7 @@ import dev.vitalcc.stukay.core.model.canStartFakeTurn
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveCard
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveStatusPill
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveStatusTone
+import dev.vitalcc.stukay.core.design.layout.ScreenFrame
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,59 +76,61 @@ fun ThreadRoute(
             )
         },
     ) { innerPadding ->
-        LazyColumn(
-            contentPadding = PaddingValues(20.dp),
-            modifier = Modifier.padding(innerPadding),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            item {
-                Text(
-                    text = "Thread shell",
-                    style = MaterialTheme.typography.headlineSmall,
-                )
-                ExpressiveStatusPill(
-                    label = thread?.status?.name ?: "Missing",
-                    tone = when (thread?.status) {
-                        ThreadStatus.Running -> ExpressiveStatusTone.Positive
-                        ThreadStatus.WaitingForApproval -> ExpressiveStatusTone.Warning
-                        ThreadStatus.Failed -> ExpressiveStatusTone.Critical
-                        else -> ExpressiveStatusTone.Neutral
-                    },
-                    modifier = Modifier.padding(top = 12.dp),
-                )
-            }
+        ScreenFrame(modifier = Modifier.padding(innerPadding)) {
+            LazyColumn(
+                contentPadding = PaddingValues(vertical = 20.dp),
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                item {
+                    Text(
+                        text = "Thread shell",
+                        style = MaterialTheme.typography.headlineSmall,
+                    )
+                    ExpressiveStatusPill(
+                        label = thread?.status?.name ?: "Missing",
+                        tone = when (thread?.status) {
+                            ThreadStatus.Running -> ExpressiveStatusTone.Positive
+                            ThreadStatus.WaitingForApproval -> ExpressiveStatusTone.Warning
+                            ThreadStatus.Failed -> ExpressiveStatusTone.Critical
+                            else -> ExpressiveStatusTone.Neutral
+                        },
+                        modifier = Modifier.padding(top = 12.dp),
+                    )
+                }
 
-            item {
-                ExpressiveCard(
-                    title = "Run controls",
-                    subtitle = thread?.preview ?: "No thread data",
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        if (thread != null && thread.status.canStartFakeTurn()) {
-                            Button(
-                                onClick = onStartFakeTurn,
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                Text(text = "Start fake run")
+                item {
+                    ExpressiveCard(
+                        title = "Run controls",
+                        subtitle = thread?.preview ?: "No thread data",
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            if (thread != null && thread.status.canStartFakeTurn()) {
+                                Button(
+                                    onClick = onStartFakeTurn,
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Text(text = "Start fake run")
+                                }
                             }
-                        }
-                        if (thread != null && thread.status.canCompleteFakeTurn()) {
-                            Button(
-                                onClick = onCompleteFakeTurn,
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                Text(text = "Complete fake run")
+                            if (thread != null && thread.status.canCompleteFakeTurn()) {
+                                Button(
+                                    onClick = onCompleteFakeTurn,
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Text(text = "Complete fake run")
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            items(timeline) { item ->
-                TimelineCard(
-                    item = item,
-                    onResolveApproval = onResolveApproval,
-                )
+                items(timeline) { item ->
+                    TimelineCard(
+                        item = item,
+                        onResolveApproval = onResolveApproval,
+                    )
+                }
             }
         }
     }
@@ -189,10 +192,21 @@ private fun TimelineCard(
                     ) {
                         Text(text = "Approve once")
                     }
+                    Button(
+                        onClick = { onResolveApproval(item.approvalId, ApprovalDecision.AcceptSession) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(text = "Approve session")
+                    }
                     TextButton(
                         onClick = { onResolveApproval(item.approvalId, ApprovalDecision.Decline) },
                     ) {
                         Text(text = "Decline")
+                    }
+                    TextButton(
+                        onClick = { onResolveApproval(item.approvalId, ApprovalDecision.Cancel) },
+                    ) {
+                        Text(text = "Cancel")
                     }
                 }
             }

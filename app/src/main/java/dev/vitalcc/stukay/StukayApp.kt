@@ -11,6 +11,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import dev.vitalcc.stukay.core.logging.LogArea
 import dev.vitalcc.stukay.core.logging.logEvent
+import dev.vitalcc.stukay.core.model.RouteContext
 import dev.vitalcc.stukay.core.design.theme.StukayTheme
 import dev.vitalcc.stukay.core.model.ApprovalDecision
 import dev.vitalcc.stukay.feature.diagnostics.ui.DiagnosticsRoute
@@ -24,30 +25,25 @@ import dev.vitalcc.stukay.navigation.ThreadDestination
 import dev.vitalcc.stukay.runtime.StukayAppState
 
 @Composable
-fun StukayApp() {
+fun StukayApp(
+    appState: StukayAppState,
+) {
     val navController = rememberNavController()
-    val appState = androidx.compose.runtime.remember { StukayAppState() }
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = currentBackStackEntry?.destination?.route ?: StukayDestination.Projects.route
+    val routeContext = currentBackStackEntry.toRouteContext()
 
-    LaunchedEffect(Unit) {
-        appState.logger.info(
-            logEvent(
-                area = LogArea.App,
-                eventName = "app_started",
-                messageHuman = "Stukay app shell started",
-            ),
-        )
-    }
-
-    LaunchedEffect(currentRoute) {
-        appState.updateCurrentScreenRoute(currentRoute)
+    LaunchedEffect(routeContext) {
+        appState.updateCurrentRouteContext(routeContext)
         appState.logger.info(
             logEvent(
                 area = LogArea.Navigation,
                 eventName = "navigation_changed",
                 messageHuman = "Navigation route changed",
-                fields = mapOf("route" to currentRoute),
+                fields = buildMap {
+                    put("route", routeContext.routePattern)
+                    routeContext.projectId?.let { projectId -> put("projectId", projectId) }
+                    routeContext.threadId?.let { threadId -> put("threadId", threadId) }
+                },
             ),
         )
     }
@@ -78,7 +74,9 @@ fun StukayApp() {
                     },
                 ),
             ) { backStackEntry ->
-                val projectId = backStackEntry.arguments?.getString(ProjectDetailsDestination.projectIdArg).orEmpty()
+                val projectId = ProjectDetailsDestination.decodeProjectId(
+                    backStackEntry.arguments?.getString(ProjectDetailsDestination.projectIdArg).orEmpty(),
+                )
                 ProjectRoute(
                     project = appState.project(projectId),
                     threads = appState.threads(projectId),
@@ -98,7 +96,9 @@ fun StukayApp() {
                     },
                 ),
             ) { backStackEntry ->
-                val threadId = backStackEntry.arguments?.getString(ThreadDestination.threadIdArg).orEmpty()
+                val threadId = ThreadDestination.decodeThreadId(
+                    backStackEntry.arguments?.getString(ThreadDestination.threadIdArg).orEmpty(),
+                )
                 ThreadRoute(
                     thread = appState.thread(threadId),
                     timeline = appState.timeline(threadId),
@@ -133,11 +133,27 @@ fun StukayApp() {
             composable(route = StukayDestination.Diagnostics.route) {
                 DiagnosticsRoute(
                     logger = appState.logger,
-                    currentScreenRoute = appState.currentScreenRoute,
+                    currentRouteContext = appState.currentRouteContext,
+                    inspectedRouteContext = appState.lastInspectedRouteContext,
                     diagnosticsSummary = appState.diagnosticsSummary(),
                     onNavigateBack = navController::popBackStack,
                 )
             }
         }
     }
+}
+
+private fun androidx.navigation.NavBackStackEntry?.toRouteContext(): RouteContext {
+    if (this == null) {
+        return RouteContext(routePattern = StukayDestination.Projects.route)
+    }
+
+    val routePattern = destination.route ?: StukayDestination.Projects.route
+    val projectId = arguments?.getString(ProjectDetailsDestination.projectIdArg)?.let(ProjectDetailsDestination::decodeProjectId)
+    val threadId = arguments?.getString(ThreadDestination.threadIdArg)?.let(ThreadDestination::decodeThreadId)
+    return RouteContext(
+        routePattern = routePattern,
+        projectId = projectId,
+        threadId = threadId,
+    )
 }

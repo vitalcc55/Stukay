@@ -67,5 +67,5 @@
 
 ## Known Gaps Between Current And Target
 
-- Нет repo-local quality task, lint policy, observability implementation или diagnostics screen.
+- Нет repo-local aggregated `quality` task и пока не верифицирован `lintDebug`.
 - Нет yet persistence/export для diagnostics и нет runtime Host Bridge integration.

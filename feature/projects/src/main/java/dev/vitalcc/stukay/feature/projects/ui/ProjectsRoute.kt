@@ -31,6 +31,7 @@ import dev.vitalcc.stukay.core.model.ProjectStatus
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveCard
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveStatusPill
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveStatusTone
+import dev.vitalcc.stukay.core.design.layout.ScreenFrame
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,53 +69,55 @@ fun ProjectsRoute(
             )
         },
     ) { innerPadding ->
-        LazyColumn(
-            contentPadding = PaddingValues(20.dp),
-            modifier = Modifier.padding(innerPadding),
-        ) {
-            item {
-                Text(
-                    text = "Pixel 9 Pro XL shell",
-                    style = MaterialTheme.typography.displaySmall,
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
-                Text(
-                    text = "Пока это foundation shell. Следующим шагом сюда лягут typed timeline, approvals и diagnostics.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(modifier = Modifier.height(20.dp))
-            }
+        ScreenFrame(modifier = Modifier.padding(innerPadding)) {
+            LazyColumn(
+                contentPadding = PaddingValues(vertical = 20.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                item {
+                    Text(
+                        text = "Pixel 9 Pro XL shell",
+                        style = MaterialTheme.typography.displaySmall,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                    Text(
+                        text = "Shell уже typed и observability-ready. Следующим шагом сюда лягут pairing и Host Bridge state.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.height(20.dp))
+                }
 
-            items(projects) { project ->
-                ExpressiveCard(
-                    title = project.name,
-                    subtitle = project.summary,
-                    modifier = Modifier.padding(bottom = 14.dp),
-                ) {
-                    Column {
-                        ExpressiveStatusPill(
-                            label = when (project.status) {
-                                ProjectStatus.Active -> "Active"
-                                ProjectStatus.Idle -> "Idle"
-                                ProjectStatus.Archived -> "Archived"
-                            },
-                            tone = when (project.status) {
-                                ProjectStatus.Active -> ExpressiveStatusTone.Positive
-                                ProjectStatus.Idle -> ExpressiveStatusTone.Neutral
-                                ProjectStatus.Archived -> ExpressiveStatusTone.Warning
-                            },
-                            modifier = Modifier.padding(bottom = 12.dp),
-                        )
-                        Text(
-                            text = project.cwd,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Button(
-                            onClick = { onOpenProject(project.id) },
-                            modifier = Modifier.padding(top = 16.dp),
-                        ) {
-                            Text(text = "Open project")
+                items(projects) { project ->
+                    ExpressiveCard(
+                        title = project.name,
+                        subtitle = project.summary,
+                        modifier = Modifier.padding(bottom = 14.dp),
+                    ) {
+                        Column {
+                            ExpressiveStatusPill(
+                                label = when (project.status) {
+                                    ProjectStatus.Active -> "Active"
+                                    ProjectStatus.Idle -> "Idle"
+                                    ProjectStatus.Archived -> "Archived"
+                                },
+                                tone = when (project.status) {
+                                    ProjectStatus.Active -> ExpressiveStatusTone.Positive
+                                    ProjectStatus.Idle -> ExpressiveStatusTone.Neutral
+                                    ProjectStatus.Archived -> ExpressiveStatusTone.Warning
+                                },
+                                modifier = Modifier.padding(bottom = 12.dp),
+                            )
+                            Text(
+                                text = project.cwd,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            Button(
+                                onClick = { onOpenProject(project.id) },
+                                modifier = Modifier.padding(top = 16.dp),
+                            ) {
+                                Text(text = "Open project")
+                            }
                         }
                     }
                 }

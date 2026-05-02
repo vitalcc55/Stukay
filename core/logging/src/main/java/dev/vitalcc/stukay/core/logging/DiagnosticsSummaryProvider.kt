@@ -10,7 +10,7 @@ class DiagnosticsSummaryProvider(
 
     fun snapshot(recentLimit: Int = 25): DiagnosticsSummary = DiagnosticsSummary(
         sessionStartedAt = sessionStartedAt,
-        totalLogs = store.size(),
+        totalLogs = store.totalAcceptedEvents(),
         latestWarningOrError = store.latestWarningOrError(),
         recentLogs = store.recent(limit = recentLimit),
     )

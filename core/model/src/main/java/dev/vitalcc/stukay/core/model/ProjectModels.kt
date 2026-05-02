@@ -13,3 +13,9 @@ data class CodexProject(
     val status: ProjectStatus,
     val summary: String,
 )
+
+data class RouteContext(
+    val routePattern: String,
+    val projectId: String? = null,
+    val threadId: String? = null,
+)

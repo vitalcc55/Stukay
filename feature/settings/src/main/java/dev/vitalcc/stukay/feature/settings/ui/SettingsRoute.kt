@@ -3,6 +3,7 @@ package dev.vitalcc.stukay.feature.settings.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -24,6 +25,7 @@ import dev.vitalcc.stukay.core.logging.AppLogger
 import dev.vitalcc.stukay.core.logging.LogArea
 import dev.vitalcc.stukay.core.logging.logEvent
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveCard
+import dev.vitalcc.stukay.core.design.layout.ScreenFrame
 
 private val placeholderSettings = listOf(
     "Dynamic color enabled",
@@ -66,28 +68,30 @@ fun SettingsRoute(
             )
         },
     ) { innerPadding ->
-        LazyColumn(
-            contentPadding = PaddingValues(20.dp),
-            modifier = Modifier.padding(innerPadding),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            item {
-                ExpressiveCard(
-                    title = "Diagnostics",
-                    subtitle = "First-class engineering surface reachable through Settings.",
-                ) {
-                    Button(onClick = onOpenDiagnostics) {
-                        Text(text = "Open diagnostics")
+        ScreenFrame(modifier = Modifier.padding(innerPadding)) {
+            LazyColumn(
+                contentPadding = PaddingValues(vertical = 20.dp),
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                item {
+                    ExpressiveCard(
+                        title = "Diagnostics",
+                        subtitle = "First-class engineering surface reachable through Settings.",
+                    ) {
+                        Button(onClick = onOpenDiagnostics) {
+                            Text(text = "Open diagnostics")
+                        }
                     }
                 }
-            }
 
-            items(placeholderSettings) { line ->
-                ExpressiveCard(title = line) {
-                    Text(
-                        text = "Это foundation-level настройка или decision, уже зафиксированный в repo-local docs.",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+                items(placeholderSettings) { line ->
+                    ExpressiveCard(title = line) {
+                        Text(
+                            text = "Это foundation-level настройка или decision, уже зафиксированный в repo-local docs.",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
                 }
             }
         }

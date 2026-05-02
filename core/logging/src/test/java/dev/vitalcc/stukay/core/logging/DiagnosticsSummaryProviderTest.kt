@@ -43,6 +43,24 @@ class DiagnosticsSummaryProviderTest {
         assertNull(summary.latestWarningOrError)
     }
 
+    @Test
+    fun snapshotReportsTotalAcceptedEventsNotOnlyCurrentBufferSize() {
+        val store = InMemoryLogStore(capacity = 2)
+        val provider = DiagnosticsSummaryProvider(
+            store = store,
+            clock = fixedClock,
+        )
+
+        store.log(event(name = "one", level = LogLevel.Info))
+        store.log(event(name = "two", level = LogLevel.Info))
+        store.log(event(name = "three", level = LogLevel.Info))
+
+        val summary = provider.snapshot(recentLimit = 10)
+
+        assertEquals(3, summary.totalLogs)
+        assertEquals(listOf("three", "two"), summary.recentLogs.map { it.eventName })
+    }
+
     private fun event(
         name: String,
         level: LogLevel,

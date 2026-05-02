@@ -22,6 +22,7 @@
   - `fake_turn_started`
   - `fake_turn_completed`
   - `approval_clicked`
+- `StukayAppState` больше не живет в plain composable `remember`; он удерживается через activity-scoped `ViewModel`, чтобы shell state и diagnostics snapshot не сбрасывались на каждом recreate.
 - `DiagnosticsScreen` уже показывает:
   - Android version
   - current route

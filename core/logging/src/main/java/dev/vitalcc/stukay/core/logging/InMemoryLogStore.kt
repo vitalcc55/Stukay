@@ -4,9 +4,11 @@ class InMemoryLogStore(
     private val capacity: Int = 200,
 ) : LogSink {
     private val entries = ArrayDeque<LogEvent>()
+    private var totalAcceptedEvents: Int = 0
 
     override fun log(event: LogEvent) {
         entries.addFirst(event)
+        totalAcceptedEvents += 1
         while (entries.size > capacity) {
             entries.removeLast()
         }
@@ -24,4 +26,6 @@ class InMemoryLogStore(
     }
 
     fun size(): Int = entries.size
+
+    fun totalAcceptedEvents(): Int = totalAcceptedEvents
 }

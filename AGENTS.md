@@ -4,7 +4,11 @@
 
 ## Repo Map
 
-- `app/` — текущее Android-приложение на одном модуле `:app`.
+- `app/` — Android entrypoint, `Application`, `Activity`, root navigation и shell wiring.
+- `core/model/` — typed domain identifiers, thread/project/timeline models и route context.
+- `core/logging/` — runtime logging, sinks, diagnostics summary provider и in-memory log store.
+- `core/design/` — stable theme baseline, expressive layer и shared layout primitives.
+- `feature/projects/`, `feature/thread/`, `feature/settings/`, `feature/diagnostics/` — feature-bounded shell and fake workflow surfaces.
 - `docs/` — каноническая проектная документация, decisions, architecture, generated inventory и exec plans.
 - `Prompt.md` — зафиксированная постановка текущего long-horizon направления.
 - `Implement.md` — runbook того, как Codex должен вести работу в этом репозитории.
@@ -18,7 +22,7 @@
 - JetBrains MCP Server для Android Studio считается частью штатного рабочего контура Codex. При наличии MCP tools сначала используй IDE-aware surfaces: project modules, run configurations, inspections, symbol/file navigation, rename refactoring, formatter.
 - `android` CLI считается обязательным Android-specific control plane. Используй его для Android docs search, project describe, SDK/emulator/device flows и Android runtime diagnostics.
 - Источник истины для сборки и проверки — Gradle Wrapper (`gradlew.bat` / `gradlew`), а не IDE-only действия.
-- Текущий код проекта еще не приведен к целевому package/architecture direction; сначала документируем target state и control plane, потом меняем продуктовый код отдельными milestones.
+- Multi-module foundation shell, runtime logging и DDD-lite fake domain уже внедрены; следующий шаг — runtime slice для Host Bridge/pairing/local network flow, а не возврат к template cleanup.
 
 <!-- repo-harness-lifecycle:start -->
 ## Lifecycle Artifacts

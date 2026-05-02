@@ -2,22 +2,32 @@
 
 `Stukay` — personal-first Android 16 / Pixel 9 Pro XL приложение, задуманное как мобильная control surface для локального Codex runtime на Windows.
 
-Сейчас репозиторий находится в phase `harness + documentation`. Это означает:
+Сейчас репозиторий находится в phase `post-foundation shell`. Это означает:
 
-- код приложения пока еще близок к стартовому Android template;
-- repo-local lifecycle stack, architecture direction, observability policy и process docs уже становятся source of truth;
-- product development milestones должны идти поверх этого контура, а не вместо него.
+- template уже вытеснен multi-module shell;
+- repo-local lifecycle stack, architecture direction, observability policy и process docs являются source of truth;
+- следующий milestone должен идти в runtime slice, а не возвращаться к базовой перестройке shell.
 
 ## Current State
 
-- один Android-модуль `:app`;
+- multi-module graph:
+  - `:app`
+  - `:core:model`
+  - `:core:logging`
+  - `:core:design`
+  - `:feature:projects`
+  - `:feature:thread`
+  - `:feature:settings`
+  - `:feature:diagnostics`
 - Gradle Wrapper `9.4.1`;
 - Android Gradle Plugin `9.2.0`;
 - Kotlin `2.2.10`;
 - Compose BOM `2026.02.01`;
 - `minSdk = 36`, `targetSdk = 36`, `compileSdk = 36.1`;
 - current package / namespace: `dev.vitalcc.stukay`;
-- `MainActivity` пока содержит template Compose UI.
+- root shell уже включает `Projects`, `Project`, `Thread`, `Settings`, `Diagnostics`;
+- runtime logging и diagnostics snapshot уже работают;
+- typed fake domain и approval shell уже реализованы.
 
 ## Target Direction
 
@@ -46,9 +56,9 @@
 
 ## Validation Snapshot
 
-Проверено 2026-05-01:
+Проверено 2026-05-02:
 
 - lifecycle validator проходит без contract failures;
 - `android describe --project_dir .` распознает проект и его APK outputs;
-- `.\gradlew.bat :app:assembleDebug :app:testDebugUnitTest` проходит успешно;
+- `.\gradlew.bat :core:model:testDebugUnitTest :feature:projects:testDebugUnitTest :feature:thread:testDebugUnitTest :core:logging:testDebugUnitTest :app:assembleDebug :app:testDebugUnitTest` проходит успешно;
 - `codex mcp get jetbrains` показывает рабочий stdio-config для Android Studio MCP.

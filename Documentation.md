@@ -1,9 +1,9 @@
 # Documentation.md
 
 ## Current Milestone Status
-- current: Первый product milestone завершен.
-- done: multi-module shell, logging core, typed fake domain, timeline items и approval shell уже реализованы и проверены локально.
-- next: Следующий milestone — runtime slice для Host Bridge / pairing / local network flow.
+- current: Первый product milestone и локальный review loop завершены.
+- done: multi-module shell, logging core, typed fake domain, timeline items, approval shell и review hardening pass завершены и локально перепроверены.
+- next: Перейти к runtime slice для Host Bridge / pairing / local network flow.
 
 ## Decisions
 - decision: Сначала поднимаем harness, docs и observability, а не меняем продуктовый код.
@@ -26,7 +26,7 @@
 - expected result: отображается активный stdio-config Android Studio MCP.
 
 ## Latest Review Outcome
-- findings: no findings по product milestone diff; shell уже использует typed models, fake repositories, runtime logging и diagnostics snapshot.
+- findings: после трёх локальных review-потоков и fix pass подтверждённых bug-bar findings не осталось.
 - residual risks: Host Bridge/runtime network slice ещё не начат; diagnostics пока без persistence/export.
 
 ## Known Issues And Follow-ups

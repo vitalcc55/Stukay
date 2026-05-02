@@ -152,16 +152,29 @@ class FakeThreadRepository : ThreadRepository {
             decision = decision,
         )
 
+        val isAccepted = decision == ApprovalDecision.AcceptOnce || decision == ApprovalDecision.AcceptSession
+        val resolvedStatus = if (isAccepted) {
+            ThreadStatus.Completed
+        } else {
+            ThreadStatus.Failed
+        }
+        val resolvedPreview = when (decision) {
+            ApprovalDecision.AcceptOnce -> "Approval accepted for one action"
+            ApprovalDecision.AcceptSession -> "Approval accepted for session"
+            ApprovalDecision.Decline -> "Approval declined"
+            ApprovalDecision.Cancel -> "Approval cancelled"
+        }
+
         scenario.thread = scenario.thread.copy(
-            status = ThreadStatus.Completed,
-            preview = "Approval resolved",
+            status = resolvedStatus,
+            preview = resolvedPreview,
             lastUpdatedAtEpochMs = scenario.thread.lastUpdatedAtEpochMs + 1_000,
         )
         scenario.timeline += TimelineItem.StatusEvent(
             id = "${threadId.value}-approval-${scenario.sequence++}",
             threadId = threadId,
             title = "Approval resolved",
-            detail = "Decision: ${decision.name}",
+            detail = "Decision: ${decision.name}; status=${resolvedStatus.name}",
         )
 
         return scenario.thread
