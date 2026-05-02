@@ -2,12 +2,36 @@
 
 ## Purpose
 
-Для `Stukay` observability — это не secondary feature, а рабочий канал между приложением и Codex. Пока код logging layer еще не создан, этот документ фиксирует каноническую модель, по которой следующие milestones должны его строить.
+Для `Stukay` observability — это не secondary feature, а рабочий канал между приложением и Codex. Сейчас в репозитории уже есть минимальный runtime logging слой; этот документ фиксирует и текущую реализацию, и target direction следующих этапов.
 
 ## Current State
 
-- В приложении нет еще `AppLogger`, локального log store или diagnostics screen.
-- Repo already has lifecycle status surfaces and evidence-aware docs, но это еще не runtime observability самого Android app.
+- В приложении уже есть:
+  - `AppLogger`
+  - `StructuredLogger`
+  - `CompositeLogSink`
+  - `AndroidLogcatSink`
+  - bounded `InMemoryLogStore`
+  - `DiagnosticsSummaryProvider`
+- Root shell уже пишет runtime events:
+  - `app_started`
+  - `navigation_changed`
+  - `screen_opened`
+  - `thread_opened`
+  - `diagnostics_opened`
+- `DiagnosticsScreen` уже показывает:
+  - Android version
+  - current route
+  - session start
+  - total log count
+  - latest warning/error
+  - recent logs
+- Пока нет:
+  - persistence
+  - export
+  - redaction pipeline
+  - Room/DataStore storage
+  - trace integration
 
 ## Canonical Logging Model
 
@@ -76,10 +100,17 @@
 
 ## Diagnostics Surface
 
-Будущий `DiagnosticsScreen` должен показывать:
+Текущий `DiagnosticsScreen` уже показывает:
+
+- app session summary
+- Android version
+- current route
+- recent logs
+- latest warning/error
+
+Следующий уровень diagnostics должен добавить:
 
 - app version
-- Android version
 - Host Bridge status
 - active connection
 - current thread / turn
@@ -89,6 +120,12 @@
 - export action for redacted diagnostics
 
 ## Storage And Export
+
+Current direction:
+
+- in-memory bounded store only
+- no persistence across app restarts
+- no export yet
 
 Target direction:
 
@@ -114,6 +151,11 @@ Target direction:
 - `reconnectHostBridge`
 
 ## Investigation Workflows
+
+Уже доступны:
+
+- recent shell events through DiagnosticsScreen
+- latest warning/error summary
 
 Минимальные future workflows:
 

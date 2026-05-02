@@ -27,6 +27,7 @@ android {
 
 dependencies {
     implementation(project(":core:design"))
+    implementation(project(":core:logging"))
     implementation(project(":core:model"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.foundation)

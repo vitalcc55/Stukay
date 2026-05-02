@@ -18,8 +18,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.vitalcc.stukay.core.logging.AppLogger
+import dev.vitalcc.stukay.core.logging.LogArea
+import dev.vitalcc.stukay.core.logging.logEvent
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveCard
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveStatusPill
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveStatusTone
@@ -34,9 +38,21 @@ private val placeholderTimeline = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ThreadRoute(
+    logger: AppLogger,
     threadId: String,
     onNavigateBack: () -> Unit,
 ) {
+    LaunchedEffect(threadId) {
+        logger.info(
+            logEvent(
+                area = LogArea.Thread,
+                eventName = "thread_opened",
+                messageHuman = "Thread shell opened",
+                fields = mapOf("screen" to "thread", "threadId" to threadId),
+            ),
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(

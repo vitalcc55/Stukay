@@ -18,3 +18,5 @@
 - Введен multi-module foundation scaffold: `:app`, `:core:*`, `:feature:*`.
 - Поднят root shell для `Projects`, `Project`, `Thread`, `Settings`, `Diagnostics`.
 - `:app:assembleDebug` и `:app:testDebugUnitTest` проходят после foundation refactor.
+- Реализован `core:logging` с TDD: `AppLogger`, `LogEvent`, `LogLevel`, `LogArea`, `CompositeLogSink`, `InMemoryLogStore`, `DiagnosticsSummaryProvider`.
+- Root shell теперь пишет runtime events, а `DiagnosticsScreen` показывает живой snapshot recent logs и summary.

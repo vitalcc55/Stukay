@@ -1,11 +1,16 @@
 package dev.vitalcc.stukay
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.navigation.NavType
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import dev.vitalcc.stukay.core.logging.LogArea
+import dev.vitalcc.stukay.core.logging.logEvent
 import dev.vitalcc.stukay.core.design.theme.StukayTheme
 import dev.vitalcc.stukay.feature.diagnostics.ui.DiagnosticsRoute
 import dev.vitalcc.stukay.feature.projects.ui.ProjectRoute
@@ -15,10 +20,36 @@ import dev.vitalcc.stukay.feature.thread.ui.ThreadRoute
 import dev.vitalcc.stukay.navigation.ProjectDetailsDestination
 import dev.vitalcc.stukay.navigation.StukayDestination
 import dev.vitalcc.stukay.navigation.ThreadDestination
+import dev.vitalcc.stukay.runtime.StukayAppState
 
 @Composable
 fun StukayApp() {
     val navController = rememberNavController()
+    val appState = androidx.compose.runtime.remember { StukayAppState() }
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = currentBackStackEntry?.destination?.route ?: StukayDestination.Projects.route
+
+    LaunchedEffect(Unit) {
+        appState.logger.info(
+            logEvent(
+                area = LogArea.App,
+                eventName = "app_started",
+                messageHuman = "Stukay app shell started",
+            ),
+        )
+    }
+
+    LaunchedEffect(currentRoute) {
+        appState.updateCurrentScreenRoute(currentRoute)
+        appState.logger.info(
+            logEvent(
+                area = LogArea.Navigation,
+                eventName = "navigation_changed",
+                messageHuman = "Navigation route changed",
+                fields = mapOf("route" to currentRoute),
+            ),
+        )
+    }
 
     StukayTheme {
         NavHost(
@@ -27,6 +58,7 @@ fun StukayApp() {
         ) {
             composable(route = StukayDestination.Projects.route) {
                 ProjectsRoute(
+                    logger = appState.logger,
                     onOpenProject = { projectId ->
                         navController.navigate(ProjectDetailsDestination.route(projectId))
                     },
@@ -45,6 +77,7 @@ fun StukayApp() {
                 ),
             ) { backStackEntry ->
                 ProjectRoute(
+                    logger = appState.logger,
                     projectId = backStackEntry.arguments?.getString(ProjectDetailsDestination.projectIdArg).orEmpty(),
                     onNavigateBack = navController::popBackStack,
                     onOpenThread = { threadId ->
@@ -62,6 +95,7 @@ fun StukayApp() {
                 ),
             ) { backStackEntry ->
                 ThreadRoute(
+                    logger = appState.logger,
                     threadId = backStackEntry.arguments?.getString(ThreadDestination.threadIdArg).orEmpty(),
                     onNavigateBack = navController::popBackStack,
                 )
@@ -69,6 +103,7 @@ fun StukayApp() {
 
             composable(route = StukayDestination.Settings.route) {
                 SettingsRoute(
+                    logger = appState.logger,
                     onNavigateBack = navController::popBackStack,
                     onOpenDiagnostics = {
                         navController.navigate(StukayDestination.Diagnostics.route)
@@ -77,7 +112,12 @@ fun StukayApp() {
             }
 
             composable(route = StukayDestination.Diagnostics.route) {
-                DiagnosticsRoute(onNavigateBack = navController::popBackStack)
+                DiagnosticsRoute(
+                    logger = appState.logger,
+                    currentScreenRoute = appState.currentScreenRoute,
+                    diagnosticsSummary = appState.diagnosticsSummary(),
+                    onNavigateBack = navController::popBackStack,
+                )
             }
         }
     }

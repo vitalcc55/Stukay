@@ -16,7 +16,8 @@
 - Репозиторий уже переведен на multi-module foundation: `:app`, `:core:*`, `:feature:*`.
 - `MainActivity` и `StukayApp` уже поднимают edge-to-edge root shell вместо template greeting.
 - current package / namespace: `dev.vitalcc.stukay`.
-- `Projects`, `Project`, `Thread`, `Settings` и `Diagnostics` уже существуют как screen shell, но без live domain/logging data.
+- `Projects`, `Project`, `Thread`, `Settings` и `Diagnostics` уже существуют как screen shell.
+- `Diagnostics` уже питается от минимального runtime logging слоя, но fake domain и typed timeline ещё не реализованы.
 
 ## Target State
 

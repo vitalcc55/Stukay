@@ -1,15 +1,16 @@
 # Project Interfaces
 
-Обновлено: `2026-05-01`
+Обновлено: `2026-05-02`
 
 ## Current Interfaces
 
 | Interface | Current State | Primary Tools |
 | --- | --- | --- |
-| Android app entry point | `MainActivity` template Compose screen | Android Studio, Gradle |
-| Gradle build interface | `:app` single-module build | Gradle Wrapper |
+| Android app entry point | `MainActivity` + `StukayApp` multi-module shell | Android Studio, Gradle |
+| Gradle build interface | multi-module `:app` root build + `:core:logging` unit tests | Gradle Wrapper |
 | Android project introspection | project describe and docs search | Android CLI |
 | IDE-aware introspection | modules, run configurations, file/symbol operations | JetBrains MCP |
+| Runtime observability | Logcat + in-memory log store + DiagnosticsScreen snapshot | core logging layer |
 
 ## Planned Runtime Interfaces
 
@@ -19,7 +20,7 @@
 | codex app-server | canonical desktop runtime API | planned |
 | Pairing / host registration | connect device to host and explain network permission rationale | planned |
 | Thread timeline event stream | structured events for message, command, diff, approval, review | planned |
-| Diagnostics / exported evidence | app-level status, logs, last errors, recent requests | planned |
+| Diagnostics / exported evidence | app-level status, logs, last errors, recent requests | partially implemented |
 
 ## Interface Boundaries To Preserve
 

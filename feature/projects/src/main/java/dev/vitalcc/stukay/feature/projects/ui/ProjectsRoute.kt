@@ -19,8 +19,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.vitalcc.stukay.core.logging.AppLogger
+import dev.vitalcc.stukay.core.logging.LogArea
+import dev.vitalcc.stukay.core.logging.logEvent
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveCard
 
 private val placeholderProjects = listOf(
@@ -31,9 +35,21 @@ private val placeholderProjects = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProjectsRoute(
+    logger: AppLogger,
     onOpenProject: (String) -> Unit,
     onOpenSettings: () -> Unit,
 ) {
+    LaunchedEffect(Unit) {
+        logger.info(
+            logEvent(
+                area = LogArea.Ui,
+                eventName = "screen_opened",
+                messageHuman = "Projects screen opened",
+                fields = mapOf("screen" to "projects"),
+            ),
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(

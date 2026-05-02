@@ -17,8 +17,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.vitalcc.stukay.core.logging.AppLogger
+import dev.vitalcc.stukay.core.logging.LogArea
+import dev.vitalcc.stukay.core.logging.logEvent
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveCard
 
 private val placeholderSettings = listOf(
@@ -30,9 +34,21 @@ private val placeholderSettings = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsRoute(
+    logger: AppLogger,
     onNavigateBack: () -> Unit,
     onOpenDiagnostics: () -> Unit,
 ) {
+    LaunchedEffect(Unit) {
+        logger.info(
+            logEvent(
+                area = LogArea.Ui,
+                eventName = "screen_opened",
+                messageHuman = "Settings screen opened",
+                fields = mapOf("screen" to "settings"),
+            ),
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(

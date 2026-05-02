@@ -1,9 +1,9 @@
 # Documentation.md
 
 ## Current Milestone Status
-- current: Первый product milestone начат; foundation refactor и root shell scaffold завершены.
-- done: Multi-module каркас поднят, package rename выполнен, root shell и базовая navigation/state wiring уже собираются.
-- next: Реализовать `core:logging` через TDD и посадить Diagnostics foundation на реальные runtime events.
+- current: Второй этап product milestone завершен; logging core и diagnostics foundation уже работают внутри shell.
+- done: `core:logging` покрыт unit tests, app shell пишет runtime events, DiagnosticsScreen читает live in-memory log snapshot.
+- next: Перейти к fake domain, typed timeline items, approval shell и richer thread state.
 
 ## Decisions
 - decision: Сначала поднимаем harness, docs и observability, а не меняем продуктовый код.
@@ -24,14 +24,15 @@
 - expected result: отображается активный stdio-config Android Studio MCP.
 
 ## Latest Review Outcome
-- findings: foundation diff зелёный по сборке; архитектурный каркас больше не template-only.
-- residual risks: logging/data/domain behavior ещё не реализованы; DiagnosticsScreen пока только shell without live data.
+- findings: logging core проходит через красный-зелёный цикл, а shell уже не только собирается, но и пишет/показывает runtime events.
+- residual risks: fake domain orchestration, timeline typing и approval behavior ещё не реализованы.
 
 ## Known Issues And Follow-ups
 - item: В текущем runtime JetBrains MCP tools могут быть недоступны как native namespace до перезапуска Codex App, хотя server-side конфиг уже работает.
 - item: `android describe` иногда не печатает useful stdout без controlled capture; это надо зафиксировать в commands inventory.
 - item: root shell пока использует локальный navigation state machine вместо `navigation-compose`; это осознанное решение первого этапа, пока зависимость и масштабы UI не требуют большего.
 - item: Notion workspace запрещает standalone private page creation; проект привязан к базе `Проекты`, и этот parent constraint надо учитывать дальше.
+- item: adaptive UI для двух режимов рендера Pixel (`1008×2244` и `1344×2992`) пока закрыт width-constrained shell-логикой, но не через отдельный adaptive toolkit слой.
 
 ## Evidence Index
 - artifact: `.tmp/.codex/task_state/latest.md`

@@ -17,8 +17,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.vitalcc.stukay.core.logging.AppLogger
+import dev.vitalcc.stukay.core.logging.LogArea
+import dev.vitalcc.stukay.core.logging.logEvent
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveCard
 
 private val placeholderThreads = listOf(
@@ -29,10 +33,22 @@ private val placeholderThreads = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProjectRoute(
+    logger: AppLogger,
     projectId: String,
     onNavigateBack: () -> Unit,
     onOpenThread: (String) -> Unit,
 ) {
+    LaunchedEffect(projectId) {
+        logger.info(
+            logEvent(
+                area = LogArea.Ui,
+                eventName = "screen_opened",
+                messageHuman = "Project screen opened",
+                fields = mapOf("screen" to "project", "projectId" to projectId),
+            ),
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(

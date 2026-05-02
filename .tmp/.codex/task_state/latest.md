@@ -1,7 +1,7 @@
 # Task State
 
 - goal: Поднять Android-aware repo harness, docs, observability policy и Notion sync для Stukay до начала feature development.
-- stage: product_milestone_foundation_complete
+- stage: product_milestone_logging_complete
 - done:
   - milestone 1 complete
   - milestone 2 complete
@@ -14,10 +14,11 @@
   - document stack inventory, commands, architecture and workflow
   - add observability, quality and notion sync docs
   - complete multi-module foundation refactor and root shell scaffold
+  - complete `core:logging` TDD cycle and live diagnostics foundation wiring
 - next:
-  - реализовать `core:logging` через TDD
-  - посадить Diagnostics foundation на live log data
-  - затем перейти к fake domain и typed UI shell
+  - реализовать fake domain и use cases
+  - ввести typed timeline items и approval shell
+  - обновить docs/status/Notion после stage 3
 - edited_files:
   - .gitignore
   - AGENTS.md
@@ -50,6 +51,6 @@
   - .tmp/.codex/task_state/latest.md
   - .tmp/.codex/task_state/latest.json
   - docs/CHANGELOG.md
-- verify_status: foundation build passes via `:app:assembleDebug` and `:app:testDebugUnitTest`; bootstrap docs still require final sync after stage 3
+- verify_status: `:core:logging:testDebugUnitTest`, `:app:assembleDebug` и `:app:testDebugUnitTest` проходят
 - open_questions:
   - нужен ли отдельный task sync в базе `Задачи` после старта product milestones

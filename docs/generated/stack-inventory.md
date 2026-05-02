@@ -25,6 +25,7 @@
 | UI stack | Jetpack Compose + Material 3 |
 | Current app entry point | `app/src/main/java/dev/vitalcc/stukay/MainActivity.kt` |
 | Current tests | renamed unit/instrumented smoke baseline under new package |
+| Runtime observability baseline | `core:logging` + Logcat + in-memory diagnostics snapshot |
 
 ## External Tool Surfaces
 
@@ -40,6 +41,7 @@
 
 - `android describe --project_dir .` confirms module `:app`, variants `debug` and `release`, and existing `app-debug.apk`.
 - `.\gradlew.bat :app:assembleDebug :app:testDebugUnitTest` confirms multi-module root shell compiles after foundation refactor on `2026-05-02`.
+- `.\gradlew.bat :core:logging:testDebugUnitTest` confirms TDD-backed logging core after stage 2 on `2026-05-02`.
 - JetBrains MCP probe confirms IDE-side modules:
   - `Stukay`
   - `Stukay.app`
@@ -64,4 +66,4 @@
 ## Known Gaps Between Current And Target
 
 - Нет repo-local quality task, lint policy, observability implementation или diagnostics screen.
-- Нет yet live logging core, fake domain orchestration или typed timeline implementation.
+- Нет yet persistence/export для diagnostics, fake domain orchestration или typed timeline implementation.
