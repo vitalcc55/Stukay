@@ -88,7 +88,7 @@ Back behavior должен быть частью UX contract:
 
 ### Local Network Access
 
-Для `Stukay` это критично, потому что Host Bridge находится в локальной или частной сети. Repo docs должны учитывать local network protections и объяснение permission rationale. При этом важно не перепутать `target state` и `current code`: permission and discovery flow еще не реализованы.
+Для `Stukay` это критично, потому что Host Bridge находится в локальной или частной сети. Repo docs должны учитывать local network protections и объяснение permission rationale. При этом важно не перепутать `target state` и `current code`: permission rationale и manual opt-in path уже реализованы, а real discovery/runtime transport еще нет.
 
 ### Notifications
 

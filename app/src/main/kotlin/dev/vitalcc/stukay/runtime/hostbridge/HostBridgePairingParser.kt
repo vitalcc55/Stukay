@@ -25,7 +25,7 @@ fun parsePairingPayload(rawInput: String): PairingPayload {
     require(hostLabel.isNotEmpty()) { "Pairing payload не содержит hostLabel." }
     require(endpoint.isNotEmpty()) { "Pairing payload не содержит endpoint." }
     require(sessionToken.isNotEmpty()) { "Pairing payload не содержит sessionToken." }
-    validateEndpoint(endpoint)
+    validateEndpoint(endpoint, transport)
 
     return PairingPayload(
         version = version,
@@ -47,7 +47,10 @@ private fun parseTransport(rawValue: String): HostBridgeTransport = when (rawVal
     else -> throw IllegalArgumentException("Pairing payload содержит неподдерживаемый transport: $rawValue")
 }
 
-private fun validateEndpoint(endpoint: String) {
+private fun validateEndpoint(
+    endpoint: String,
+    transport: HostBridgeTransport,
+) {
     val uri = try {
         URI(endpoint)
     } catch (error: Exception) {
@@ -59,6 +62,17 @@ private fun validateEndpoint(endpoint: String) {
         "Endpoint должен использовать http/https/ws/wss."
     }
     require(!uri.host.isNullOrBlank()) { "Endpoint должен содержать host." }
+    require(uri.userInfo.isNullOrBlank()) { "Endpoint не должен содержать embedded credentials." }
+    require(uri.query.isNullOrBlank()) { "Endpoint не должен содержать query secrets." }
+    require(uri.fragment.isNullOrBlank()) { "Endpoint не должен содержать fragment." }
+    val endpointTransport = when (scheme) {
+        "http", "https" -> HostBridgeTransport.HttpJson
+        "ws", "wss" -> HostBridgeTransport.WebSocketJsonRpc
+        else -> error("unreachable")
+    }
+    require(transport == endpointTransport) {
+        "Endpoint transport scheme должен совпадать с transport."
+    }
 }
 
 private fun buildFieldMap(payload: String): Map<String, String> {

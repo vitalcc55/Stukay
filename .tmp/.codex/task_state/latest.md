@@ -6,12 +6,15 @@
   - rewrite active ExecPlan for Host Bridge runtime slice
   - add runtime slice research substrate with official Android/OpenAI facts and reference signals
   - add typed Host Bridge / pairing / connection models in `core:model`
-  - move app wiring to runtime graph instead of direct fake repository construction
+  - move app wiring to runtime graph and runtime adapters instead of direct fake repository construction
   - add pairing payload save/connect/reconnect/disconnect flow in `Settings`
-  - add Android 16 local network permission rationale and request hook
-  - add host summary to `Projects` and `Diagnostics`
+  - add Android 16 local network rationale as manual opt-in path instead of hard blocker
+  - add host summary to `Projects` and dedicated host diagnostics tail
   - add manifest network permissions for current local-network slice
   - add JVM tests for pairing parser and host bridge repository state transitions
+  - fix NotPaired crash paths in host bridge actions
+  - fix restored host bridge permission state after cold start
+  - harden endpoint contract and exclude pairing storage from backup/data-transfer
   - verify `:app:testDebugUnitTest`
   - verify `:app:assembleDebug`
   - verify `android describe --project_dir .`
@@ -42,6 +45,6 @@
   - .tmp/.codex/task_state/latest.md
   - .tmp/.codex/task_state/latest.json
   - docs/CHANGELOG.md
-- verify_status: `:app:testDebugUnitTest`, `:app:assembleDebug`, `android describe --project_dir .` и `codex mcp get jetbrains` проходят; lifecycle validator ожидает только heading-consistent docs sync
+- verify_status: `:app:testDebugUnitTest`, `:app:assembleDebug`, `android describe --project_dir .` и `codex mcp get jetbrains` проходят; lifecycle validator должен остаться в warn-only после docs sync
 - open_questions:
   - camera QR scan и public tunnel path сознательно отложены в Host Bridge MVP

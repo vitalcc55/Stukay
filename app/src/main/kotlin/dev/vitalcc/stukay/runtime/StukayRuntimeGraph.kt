@@ -15,13 +15,19 @@ data class StukayRuntimeGraph(
     val threadRepository: ThreadRepository,
 )
 
-fun createStukayRuntimeGraph(context: Context): StukayRuntimeGraph {
+fun createStukayRuntimeGraph(
+    context: Context,
+    localNetworkPermissionGranted: Boolean,
+): StukayRuntimeGraph {
     val hostBridgeRepository = StubHostBridgeRepository(
         pairingStore = SharedPreferencesHostBridgePairingStore(context),
+        initialNearbyWifiDevicesGranted = localNetworkPermissionGranted,
     )
+    val fakeProjectsRepository = FakeProjectsRepository()
+    val fakeThreadRepository = FakeThreadRepository()
     return StukayRuntimeGraph(
         hostBridgeRepository = hostBridgeRepository,
-        projectsRepository = FakeProjectsRepository(),
-        threadRepository = FakeThreadRepository(),
+        projectsRepository = RuntimeProjectsRepository(fakeProjectsRepository),
+        threadRepository = RuntimeThreadRepository(fakeThreadRepository),
     )
 }

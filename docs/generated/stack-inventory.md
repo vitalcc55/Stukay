@@ -26,7 +26,7 @@
 | Current app entry point | `app/src/main/java/dev/vitalcc/stukay/MainActivity.kt` |
 | Current tests | renamed unit/instrumented smoke baseline under new package |
 | Runtime observability baseline | `core:logging` + Logcat + in-memory diagnostics snapshot |
-| Current shell state | multi-screen fake shell with typed timeline and approval actions |
+| Current shell state | multi-screen shell with typed fake thread flow plus host bridge contract, pairing controls, and host diagnostics |
 
 ## External Tool Surfaces
 
@@ -68,4 +68,4 @@
 ## Known Gaps Between Current And Target
 
 - Нет repo-local aggregated `quality` task и пока не верифицирован `lintDebug`.
-- Нет yet persistence/export для diagnostics и нет runtime Host Bridge integration.
+- Нет yet persistence/export для diagnostics и нет real runtime Host Bridge transport; текущий contract slice остается stubbed.

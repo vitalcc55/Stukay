@@ -12,6 +12,7 @@ class StubHostBridgeRepositoryTest {
     fun savePairingPayloadCreatesPairedState() {
         val repository = StubHostBridgeRepository(
             pairingStore = InMemoryHostBridgePairingStore(),
+            initialNearbyWifiDevicesGranted = false,
             timeProvider = { 10L },
         )
 
@@ -21,14 +22,15 @@ class StubHostBridgeRepositoryTest {
         )
 
         assertEquals(HostBridgeConnectionPhase.Paired, state.phase)
-        assertEquals(LocalNetworkAccessState.PermissionRequired, state.localNetworkAccessState)
+        assertEquals(LocalNetworkAccessState.Ready, state.localNetworkAccessState)
         assertEquals("Office Windows", state.pairedHost?.hostLabel)
     }
 
     @Test
-    fun connectRequiresNearbyDevicesForPrivateLan() {
+    fun connectAllowsPrivateLanWithoutNearbyDevices() {
         val repository = StubHostBridgeRepository(
             pairingStore = InMemoryHostBridgePairingStore(),
+            initialNearbyWifiDevicesGranted = false,
             timeProvider = { 20L },
         )
         repository.savePairingPayload(
@@ -38,8 +40,8 @@ class StubHostBridgeRepositoryTest {
 
         val state = repository.connect(localNetworkPermissionGranted = false)
 
-        assertEquals(HostBridgeConnectionPhase.PermissionRequired, state.phase)
-        assertEquals(LocalNetworkAccessState.PermissionRequired, state.localNetworkAccessState)
+        assertEquals(HostBridgeConnectionPhase.Connected, state.phase)
+        assertEquals(LocalNetworkAccessState.Ready, state.localNetworkAccessState)
         assertNull(state.lastError)
     }
 
@@ -47,6 +49,7 @@ class StubHostBridgeRepositoryTest {
     fun connectSucceedsAfterPermissionIsGranted() {
         val repository = StubHostBridgeRepository(
             pairingStore = InMemoryHostBridgePairingStore(),
+            initialNearbyWifiDevicesGranted = true,
             timeProvider = { 30L },
         )
         repository.savePairingPayload(
@@ -65,6 +68,7 @@ class StubHostBridgeRepositoryTest {
     fun publicEndpointIsRejectedForCurrentSlice() {
         val repository = StubHostBridgeRepository(
             pairingStore = InMemoryHostBridgePairingStore(),
+            initialNearbyWifiDevicesGranted = true,
             timeProvider = { 40L },
         )
         repository.savePairingPayload(
@@ -83,6 +87,7 @@ class StubHostBridgeRepositoryTest {
     fun disconnectCanForgetSavedPairing() {
         val repository = StubHostBridgeRepository(
             pairingStore = InMemoryHostBridgePairingStore(),
+            initialNearbyWifiDevicesGranted = true,
             timeProvider = { 50L },
         )
         repository.savePairingPayload(
@@ -95,6 +100,21 @@ class StubHostBridgeRepositoryTest {
         assertEquals(HostBridgeConnectionPhase.NotPaired, state.phase)
         assertEquals(LocalNetworkAccessState.NotConfigured, state.localNetworkAccessState)
         assertNull(state.pairedHost)
+    }
+
+    @Test
+    fun restoredPairingKeepsGrantedNearbyState() {
+        val repository = StubHostBridgeRepository(
+            pairingStore = InMemoryHostBridgePairingStore(privateLanPayload()),
+            initialNearbyWifiDevicesGranted = true,
+            timeProvider = { 60L },
+        )
+
+        val state = repository.currentState()
+
+        assertEquals(HostBridgeConnectionPhase.Paired, state.phase)
+        assertEquals(LocalNetworkAccessState.Ready, state.localNetworkAccessState)
+        assertEquals(true, state.nearbyWifiDevicesGranted)
     }
 
     private fun privateLanPayload(): String = """

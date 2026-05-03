@@ -17,11 +17,11 @@
 
 | Interface | Role | Notes |
 | --- | --- | --- |
-| Windows Host Bridge | canonical transport gateway between phone and local Codex runtime | planned |
+| Windows Host Bridge | canonical transport gateway between phone and local Codex runtime | contract slice implemented; transport still stubbed |
 | codex app-server | canonical desktop runtime API | planned |
-| Pairing / host registration | connect device to host and explain network permission rationale | planned |
+| Pairing / host registration | connect device to host and explain network permission rationale | payload import + local-network rationale implemented |
 | Thread timeline event stream | structured fake events and typed timeline items | partially implemented |
-| Diagnostics / exported evidence | app-level status, logs, last errors, recent requests | partially implemented |
+| Diagnostics / exported evidence | app-level status, logs, last errors, recent requests | host summary and dedicated host tail implemented; export still planned |
 
 ## Interface Boundaries To Preserve
 

@@ -35,32 +35,30 @@
 - проверяемый build/test baseline;
 - repo-local lifecycle/docs/control-plane surfaces.
 
-Это значит, что foundation больше не является будущим этапом. Следующий реальный шаг — runtime slice, а не очередная перестройка shell.
+Это значит, что foundation больше не является будущим этапом. Contract slice для `Host Bridge / pairing / local network flow` уже закрыт; следующий реальный шаг — `Host Bridge MVP`, а не очередная перестройка shell.
 
 ## Now
 
-### 1. Runtime Slice: Host Bridge contract and pairing
+### 1. Host Bridge MVP
 
 Задача:
 
-- спроектировать и зафиксировать Android app <-> Windows Host Bridge contract;
-- определить pairing flow;
-- определить local/private network path;
-- определить transport/error/reconnect semantics;
-- зафиксировать replacement seam для fake repositories.
+- получить первый реальный end-to-end: Android -> Host Bridge -> local Codex runtime;
+- показать host status;
+- сделать базовый request/response;
+- показать сетевые ошибки, reconnect и degraded mode.
 
 Почему сейчас:
 
-- shell, fake domain и diagnostics уже есть;
-- без runtime contract следующий слой рискует смешать UI, transport и host policy;
+- contract slice уже зафиксировал app-side seam, pairing payload flow и local-network UX;
+- следующий риск теперь не в структуре shell, а в реальном transport path;
 - именно эту зону сильнее всего подтверждают reference repos `relaydex`, `openconnect`, `PocketDex`.
 
 Exit criteria:
 
-- есть repo-local contract surface;
-- fake repositories могут быть заменены transport-backed implementation без переписывания UI;
-- diagnostics понимает host/connection/request context;
-- есть первый активный `ExecPlan` для runtime slice.
+- Android клиент реально ходит в Host Bridge;
+- host status и reconnect/degraded state опираются на реальный transport, а не на stub;
+- fake thread/runtime seam начинает замещаться реальным runtime data path.
 
 ### 2. Quality gate stabilization
 
@@ -84,18 +82,7 @@ Exit criteria:
 
 ## Next
 
-### 3. Host Bridge MVP
-
-Задача:
-
-- получить первый реальный end-to-end: Android -> Host Bridge -> local Codex runtime;
-- показать host status;
-- сделать базовый request/response;
-- показать сетевые ошибки, reconnect и degraded mode.
-
-Это следующий практический шаг после contract design.
-
-### 4. Real thread runtime
+### 3. Real thread runtime
 
 Задача:
 
@@ -113,7 +100,7 @@ Reference emphasis:
 - `codexdroid`
 - `openconnect`
 
-### 5. Approval safety layer
+### 4. Approval safety layer
 
 Задача:
 

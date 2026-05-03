@@ -28,6 +28,7 @@ import dev.vitalcc.stukay.core.logging.logEvent
 import dev.vitalcc.stukay.core.model.HostBridgeConnectionPhase
 import dev.vitalcc.stukay.core.model.HostBridgeConnectionState
 import dev.vitalcc.stukay.core.model.LocalNetworkAccessState
+import dev.vitalcc.stukay.core.model.hostBridgeEndpointDisplayValue
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveCard
 import dev.vitalcc.stukay.core.design.layout.ScreenFrame
 
@@ -36,6 +37,9 @@ import dev.vitalcc.stukay.core.design.layout.ScreenFrame
 fun SettingsRoute(
     logger: AppLogger,
     hostBridgeState: HostBridgeConnectionState,
+    canAttemptHostBridgeConnect: Boolean,
+    canDisconnectHostBridge: Boolean,
+    shouldOfferNearbyDevicesPermission: Boolean,
     pairingInput: String,
     onUpdatePairingInput: (String) -> Unit,
     onSavePairingPayload: () -> Unit,
@@ -104,16 +108,18 @@ fun SettingsRoute(
                             Button(
                                 onClick = onConnectHostBridge,
                                 modifier = Modifier.fillMaxWidth(),
+                                enabled = canAttemptHostBridgeConnect,
                             ) {
                                 Text(text = "Подключиться к host bridge")
                             }
                             Button(
                                 onClick = onReconnectHostBridge,
                                 modifier = Modifier.fillMaxWidth(),
+                                enabled = canAttemptHostBridgeConnect,
                             ) {
                                 Text(text = "Повторить подключение")
                             }
-                            if (hostBridgeState.phase == HostBridgeConnectionPhase.PermissionRequired) {
+                            if (shouldOfferNearbyDevicesPermission) {
                                 Button(
                                     onClick = onRequestLocalNetworkPermission,
                                     modifier = Modifier.fillMaxWidth(),
@@ -124,18 +130,20 @@ fun SettingsRoute(
                             TextButton(
                                 onClick = { onDisconnectHostBridge(false) },
                                 modifier = Modifier.fillMaxWidth(),
+                                enabled = canDisconnectHostBridge,
                             ) {
                                 Text(text = "Отключить")
                             }
                             TextButton(
                                 onClick = { onDisconnectHostBridge(true) },
                                 modifier = Modifier.fillMaxWidth(),
+                                enabled = canDisconnectHostBridge,
                             ) {
                                 Text(text = "Забыть pairing")
                             }
                             hostBridgeState.pairedHost?.let { pairedHost ->
                                 Text(
-                                    text = "Host: ${pairedHost.hostLabel} · ${pairedHost.endpoint}",
+                                    text = "Host: ${pairedHost.hostLabel} · ${hostBridgeEndpointDisplayValue(pairedHost.endpoint)}",
                                     style = MaterialTheme.typography.bodyMedium,
                                 )
                             }
@@ -203,7 +211,7 @@ private fun pairingSubtitle(state: HostBridgeConnectionState): String = when (st
     HostBridgeConnectionPhase.Connecting -> "Идет попытка локального подключения."
     HostBridgeConnectionPhase.Connected -> "Локальный host bridge помечен как доступный."
     HostBridgeConnectionPhase.Disconnected -> "Pairing сохранен, подключение отключено вручную."
-    HostBridgeConnectionPhase.PermissionRequired -> "Сначала выдайте Nearby devices для Android 16 local-network path."
+    HostBridgeConnectionPhase.PermissionRequired -> "Nearby devices может понадобиться для opt-in Android 16 проверки local-network path."
     HostBridgeConnectionPhase.Failed -> state.lastError ?: "Host bridge вернул ошибочное состояние."
 }
 
@@ -212,10 +220,14 @@ private fun localNetworkDetail(state: HostBridgeConnectionState): String = when 
         "Сначала добавьте pairing payload, чтобы оценить local-network path."
 
     LocalNetworkAccessState.Ready ->
-        "Private LAN endpoint разрешен для текущего slice. Следующий milestone должен заменить stub transport на реальный host bridge."
+        if (state.nearbyWifiDevicesGranted) {
+            "Private LAN endpoint разрешен для текущего slice. Nearby devices уже выдан; следующий milestone должен заменить stub transport на реальный host bridge."
+        } else {
+            "Private LAN endpoint принят для текущего slice. Nearby devices здесь не является безусловным blocker-ом, но нужен как manual/opt-in path для Android 16 local-network проверки."
+        }
 
     LocalNetworkAccessState.PermissionRequired ->
-        "Endpoint похож на private LAN или .local host, но Nearby devices еще не выдан."
+        "Endpoint похож на private LAN или .local host. Nearby devices может понадобиться только для manual Android 16 opt-in проверки."
 
     LocalNetworkAccessState.UnsupportedForSlice ->
         "Текущий endpoint не похож на private LAN / .local path. Публичный tunnel или internet endpoint вынесен за пределы этого slice."

@@ -30,3 +30,4 @@
 - `Projects` теперь показывает lightweight host status signal, а `Diagnostics` — host/connection summary.
 - В `AndroidManifest.xml` добавлены `INTERNET`, `ACCESS_NETWORK_STATE` и `NEARBY_WIFI_DEVICES` для текущего local-network slice.
 - Добавлены JVM tests для pairing payload parser и host bridge repository state transitions.
+- Поверх initial runtime slice fix pass убраны crash-path операции без pairing, выровнен restored permission state, введены runtime adapters поверх fake repositories, добавлен dedicated host/connection diagnostics tail и исключен pairing storage из backup/data-transfer rules.

@@ -133,6 +133,9 @@ fun StukayApp(
                 SettingsRoute(
                     logger = appState.logger,
                     hostBridgeState = appState.hostBridgeState,
+                    canAttemptHostBridgeConnect = appState.canAttemptHostBridgeConnect(),
+                    canDisconnectHostBridge = appState.canDisconnectHostBridge(),
+                    shouldOfferNearbyDevicesPermission = appState.shouldOfferNearbyDevicesPermission(),
                     pairingInput = appState.pairingInput,
                     onUpdatePairingInput = appState::updatePairingInput,
                     onSavePairingPayload = appState::savePairingPayload,

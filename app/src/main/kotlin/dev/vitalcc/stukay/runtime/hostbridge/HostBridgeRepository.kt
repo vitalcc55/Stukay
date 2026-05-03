@@ -24,6 +24,7 @@ interface HostBridgeRepository {
 
 class StubHostBridgeRepository(
     private val pairingStore: HostBridgePairingStore,
+    initialNearbyWifiDevicesGranted: Boolean,
     private val timeProvider: () -> Long = System::currentTimeMillis,
 ) : HostBridgeRepository {
     private var savedPairingPayload: PairingPayload? = null
@@ -40,12 +41,13 @@ class StubHostBridgeRepository(
                 state = pairedState(
                     payload = result.getOrThrow(),
                     phase = HostBridgeConnectionPhase.Paired,
-                    localNetworkPermissionGranted = false,
+                    localNetworkPermissionGranted = initialNearbyWifiDevicesGranted,
                 )
             } else {
                 pairingStore.clear()
                 state = HostBridgeConnectionState(
                     phase = HostBridgeConnectionPhase.Failed,
+                    nearbyWifiDevicesGranted = initialNearbyWifiDevicesGranted,
                     lastError = "Сохраненный pairing payload поврежден и был очищен.",
                     lastTransitionAtEpochMs = now(),
                 )
@@ -81,22 +83,26 @@ class StubHostBridgeRepository(
                 phase = HostBridgeConnectionPhase.Failed,
                 pairedHost = payload.toPairedHost(),
                 localNetworkAccessState = localNetworkState,
+                nearbyWifiDevicesGranted = localNetworkPermissionGranted,
                 lastError = "Этот slice принимает только private LAN или .local endpoint. Публичный tunnel path вынесен в следующий milestone.",
                 lastTransitionAtEpochMs = now(),
             )
 
             LocalNetworkAccessState.PermissionRequired -> HostBridgeConnectionState(
-                phase = HostBridgeConnectionPhase.PermissionRequired,
+                phase = HostBridgeConnectionPhase.Connected,
                 pairedHost = payload.toPairedHost(),
                 localNetworkAccessState = localNetworkState,
+                nearbyWifiDevicesGranted = localNetworkPermissionGranted,
                 lastError = null,
                 lastTransitionAtEpochMs = now(),
+                lastConnectedAtEpochMs = now(),
             )
 
             LocalNetworkAccessState.Ready -> HostBridgeConnectionState(
                 phase = HostBridgeConnectionPhase.Connected,
                 pairedHost = payload.toPairedHost(),
                 localNetworkAccessState = localNetworkState,
+                nearbyWifiDevicesGranted = localNetworkPermissionGranted,
                 lastError = null,
                 lastTransitionAtEpochMs = now(),
                 lastConnectedAtEpochMs = now(),
@@ -125,15 +131,21 @@ class StubHostBridgeRepository(
                 phase = HostBridgeConnectionPhase.Failed,
                 pairedHost = payload.toPairedHost(),
                 localNetworkAccessState = localNetworkState,
+                nearbyWifiDevicesGranted = localNetworkPermissionGranted,
                 lastError = "Этот slice принимает только private LAN или .local endpoint. Публичный tunnel path вынесен в следующий milestone.",
                 lastTransitionAtEpochMs = now(),
                 lastConnectedAtEpochMs = state.lastConnectedAtEpochMs,
             )
 
             LocalNetworkAccessState.PermissionRequired -> HostBridgeConnectionState(
-                phase = HostBridgeConnectionPhase.PermissionRequired,
+                phase = if (state.phase == HostBridgeConnectionPhase.Connected) {
+                    HostBridgeConnectionPhase.Connected
+                } else {
+                    HostBridgeConnectionPhase.Paired
+                },
                 pairedHost = payload.toPairedHost(),
                 localNetworkAccessState = localNetworkState,
+                nearbyWifiDevicesGranted = localNetworkPermissionGranted,
                 lastError = null,
                 lastTransitionAtEpochMs = now(),
                 lastConnectedAtEpochMs = state.lastConnectedAtEpochMs,
@@ -147,6 +159,7 @@ class StubHostBridgeRepository(
                 },
                 pairedHost = payload.toPairedHost(),
                 localNetworkAccessState = localNetworkState,
+                nearbyWifiDevicesGranted = localNetworkPermissionGranted,
                 lastError = null,
                 lastTransitionAtEpochMs = now(),
                 lastConnectedAtEpochMs = state.lastConnectedAtEpochMs,
@@ -169,7 +182,7 @@ class StubHostBridgeRepository(
         state = pairedState(
             payload = payload,
             phase = HostBridgeConnectionPhase.Disconnected,
-            localNetworkPermissionGranted = state.localNetworkAccessState == LocalNetworkAccessState.Ready,
+            localNetworkPermissionGranted = state.nearbyWifiDevicesGranted,
             lastConnectedAtEpochMs = state.lastConnectedAtEpochMs,
         )
         return state
@@ -187,6 +200,7 @@ class StubHostBridgeRepository(
             payload = payload,
             localNetworkPermissionGranted = localNetworkPermissionGranted,
         ),
+        nearbyWifiDevicesGranted = localNetworkPermissionGranted,
         lastError = null,
         lastTransitionAtEpochMs = now(),
         lastConnectedAtEpochMs = lastConnectedAtEpochMs,
@@ -200,11 +214,7 @@ class StubHostBridgeRepository(
         if (host == null || !isSupportedLocalSliceHost(host)) {
             return LocalNetworkAccessState.UnsupportedForSlice
         }
-        return if (localNetworkPermissionGranted) {
-            LocalNetworkAccessState.Ready
-        } else {
-            LocalNetworkAccessState.PermissionRequired
-        }
+        return LocalNetworkAccessState.Ready
     }
 
     private fun requireSavedPairing(): PairingPayload = requireNotNull(savedPairingPayload) {
@@ -214,6 +224,7 @@ class StubHostBridgeRepository(
     private fun emptyState(): HostBridgeConnectionState = HostBridgeConnectionState(
         phase = HostBridgeConnectionPhase.NotPaired,
         localNetworkAccessState = LocalNetworkAccessState.NotConfigured,
+        nearbyWifiDevicesGranted = false,
         lastTransitionAtEpochMs = now(),
     )
 

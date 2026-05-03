@@ -21,6 +21,16 @@ class InMemoryLogStore(
         return entries.take(limit)
     }
 
+    fun recentMatching(
+        limit: Int = capacity,
+        predicate: (LogEvent) -> Boolean,
+    ): List<LogEvent> {
+        if (limit <= 0) {
+            return emptyList()
+        }
+        return entries.filter(predicate).take(limit)
+    }
+
     fun latestWarningOrError(): LogEvent? = entries.firstOrNull { event ->
         event.level == LogLevel.Warn || event.level == LogLevel.Error
     }

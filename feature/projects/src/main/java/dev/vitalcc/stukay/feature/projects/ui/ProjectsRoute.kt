@@ -30,6 +30,7 @@ import dev.vitalcc.stukay.core.model.HostBridgeConnectionPhase
 import dev.vitalcc.stukay.core.model.HostBridgeConnectionState
 import dev.vitalcc.stukay.core.model.ProjectId
 import dev.vitalcc.stukay.core.model.ProjectStatus
+import dev.vitalcc.stukay.core.model.hostBridgeEndpointDisplayValue
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveCard
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveStatusPill
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveStatusTone
@@ -84,7 +85,7 @@ fun ProjectsRoute(
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
                     Text(
-                        text = "Shell уже typed и observability-ready. Следующим шагом сюда лягут pairing и Host Bridge state.",
+                        text = "Shell уже typed, observability-ready и получил первый Host Bridge contract slice. Следующий шаг отсюда — реальный Host Bridge MVP.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -158,7 +159,7 @@ private fun hostBridgeLabel(state: HostBridgeConnectionState): String = when (st
     HostBridgeConnectionPhase.Connecting -> "Подключение"
     HostBridgeConnectionPhase.Connected -> "Подключен"
     HostBridgeConnectionPhase.Disconnected -> "Отключен"
-    HostBridgeConnectionPhase.PermissionRequired -> "Нужно разрешение"
+    HostBridgeConnectionPhase.PermissionRequired -> "Manual permission path"
     HostBridgeConnectionPhase.Failed -> "Ошибка"
 }
 
@@ -168,12 +169,12 @@ private fun hostBridgeTitle(state: HostBridgeConnectionState): String = when (st
     HostBridgeConnectionPhase.Connecting -> "Подготовка к подключению к локальному host."
     HostBridgeConnectionPhase.Connected -> "Локальный host bridge помечен как доступный."
     HostBridgeConnectionPhase.Disconnected -> "Pairing сохранен, подключение можно восстановить."
-    HostBridgeConnectionPhase.PermissionRequired -> "Для Android 16 local network path нужен Nearby devices."
+    HostBridgeConnectionPhase.PermissionRequired -> "Nearby devices относится к manual Android 16 opt-in path и не блокирует сам pairing contract slice."
     HostBridgeConnectionPhase.Failed -> state.lastError ?: "Host bridge вернул ошибочное состояние."
 }
 
 private fun hostBridgeDetail(state: HostBridgeConnectionState): String {
     val pairedHost = state.pairedHost ?: return "Откройте Settings и сохраните pairing payload для Windows host bridge."
     val errorPart = state.lastError?.let { " Ошибка: $it" }.orEmpty()
-    return "${pairedHost.hostLabel} · ${pairedHost.transport.name} · ${pairedHost.endpoint}.$errorPart"
+    return "${pairedHost.hostLabel} · ${pairedHost.transport.name} · ${hostBridgeEndpointDisplayValue(pairedHost.endpoint)}.$errorPart"
 }

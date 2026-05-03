@@ -104,16 +104,14 @@ Observed facts from `android docs search`:
     - `diagnostics`
   - passes callbacks instead of passing `NavController` into feature composables, which already matches official Navigation Compose guidance.
 
-### Direct fake seam
+### Runtime seam
 
 - `app/src/main/java/dev/vitalcc/stukay/runtime/StukayAppState.kt`
-  - current direct construction:
-    - `FakeProjectsRepository`
-    - `FakeThreadRepository`
-  - current problem:
-    - app-level state holder owns fake wiring directly;
-    - no runtime-aware graph/container;
-    - no host/pairing/connection state.
+  - app-level state holder now owns:
+    - `pairingInput`
+    - `hostBridgeState`
+    - host bridge control actions
+  - repository wiring now comes through runtime-owned graph/adapters, not direct fake construction.
 
 ### Repository boundaries
 
@@ -124,6 +122,7 @@ Observed facts from `android docs search`:
     - `startFakeTurn`
     - `completeFakeTurn`
     - `resolveApproval`
+  - current slice wraps this boundary through runtime adapters, so the next milestone can replace the delegate rather than rewriting app shell wiring.
 
 ### Existing entry points for this slice
 
@@ -139,13 +138,17 @@ Observed facts from `android docs search`:
 - `core/logging/.../LogArea.kt`
   - already contains `Connection`, `HostBridge`, `Codex`, `Security`, `Diagnostics`.
 - `core/logging/.../DiagnosticsSummary.kt`
-  - current summary has only:
+  - current summary now includes:
     - `sessionStartedAt`
     - `totalLogs`
     - `latestWarningOrError`
+    - `recentHostConnectionLogs`
     - `recentLogs`
 - `feature/diagnostics/.../DiagnosticsRoute.kt`
-  - current UI shows route/session/log snapshot only.
+  - current UI now shows:
+    - route/session/log snapshot
+    - host bridge summary
+    - dedicated host/connection/security event tail
 
 ### Build and manifest surface
 
@@ -155,7 +158,10 @@ Observed facts from `android docs search`:
   - current app already depends on all `core:*` and `feature:*` modules;
   - no extra networking/runtime module is wired.
 - `app/src/main/AndroidManifest.xml`
-  - no `INTERNET`, `ACCESS_NETWORK_STATE`, `NEARBY_WIFI_DEVICES`, or other network permissions yet.
+  - current slice now declares:
+    - `INTERNET`
+    - `ACCESS_NETWORK_STATE`
+    - `NEARBY_WIFI_DEVICES`
 
 ## Official Facts To Honor
 
@@ -182,7 +188,7 @@ Key facts:
 Implication for this repo:
 
 - do not write the plan as if API 36 app can simply request `ACCESS_LOCAL_NETWORK` now;
-- document Android 16 companion path honestly;
+- document Android 16 companion path honestly as manual/opt-in testing flow;
 - keep Android 17 path visible but deferred.
 
 ## Navigation and route contract
@@ -361,3 +367,10 @@ Extracted signal:
 - No new Gradle module is required right now.
 - Pairing payload input is sufficient for this slice; QR camera scanning is deferred.
 - Real host-backed thread runtime is deferred to the next milestone.
+
+## Post-Implementation Snapshot
+
+- `Settings` now owns the pairing payload control plane and manual Nearby guidance.
+- `Projects` shows a host status card.
+- `Diagnostics` includes host summary plus dedicated host/connection/security recent events.
+- `runtime graph` now wires explicit runtime adapters over fake repositories, keeping the next milestone on a bounded replacement seam.

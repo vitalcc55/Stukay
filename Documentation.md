@@ -2,7 +2,7 @@
 
 ## Current Milestone Status
 - current: Первый runtime slice для `Host Bridge contract + pairing + local network flow` реализован и локально перепроверен.
-- done: typed `Host Bridge` models, runtime graph для app state, pairing payload save/connect/reconnect/disconnect flow, Android 16 local-network permission rationale, host summary в `Projects`, host diagnostics в `Diagnostics`, JVM tests для parser/repository transitions.
+- done: typed `Host Bridge` models, runtime adapters поверх fake repositories, runtime graph для app state, pairing payload save/connect/reconnect/disconnect flow с guard-ами без crash-path, Android 16 local-network manual/opt-in permission rationale, host summary в `Projects`, отдельный host/connection diagnostics tail, JVM tests для parser/repository transitions.
 - next: Перейти к `Host Bridge MVP` и real `codex app-server` backed thread/runtime transport, не возвращаясь к foundation shell.
 
 ## Decisions
@@ -17,13 +17,13 @@
 - decision: отдельный `:feature:connection` module пока не вводится; pairing/local-network UX живет в `feature:settings`.
 - why: текущий slice single-host, engineering-first и не требует нового feature boundary до начала real multi-host/runtime transport.
 - decision: pairing flow в этом milestone начинается с `pairing payload paste/import`, а camera QR scanning и public tunnel flow отложены.
-- why: roadmap разделяет contract slice и `Host Bridge MVP`, поэтому сначала фиксируется typed seam и permission UX.
+- why: roadmap разделяет contract slice и `Host Bridge MVP`, поэтому сначала фиксируется typed seam, guard-нутый control flow и permission UX.
 
 ## How To Run And Demo
 - command: `python C:\Users\v.vlasov\.codex\skills\repo-harness-lifecycle\scripts\validate_lifecycle_stack.py --root .`
 - expected result: validator проходит без contract failures; допустимы только осознанные `warn` до заполнения placeholder-ов.
 - command: `.\gradlew.bat :app:assembleDebug :app:testDebugUnitTest --console=plain`
-- expected result: runtime slice собирается, а JVM tests для pairing/parser/runtime state проходят.
+- expected result: runtime slice собирается, а JVM tests для pairing/parser/runtime state и restore/guard transitions проходят.
 - command: `android describe --project_dir .`
 - expected result: CLI распознает `:app`, варианты `debug/release` и APK output surface.
 - command: `codex mcp get jetbrains`
@@ -33,7 +33,7 @@
 
 ## Latest Review Outcome
 - findings: локальный compile/test loop для runtime slice чист; blocker regressions по `app:testDebugUnitTest` и `app:assembleDebug` не обнаружены.
-- residual risks: transport остается stubbed, camera QR pairing не реализован, public/tunnel endpoint path вынесен в следующий milestone, diagnostics все еще без persistence/export.
+- residual risks: transport остается stubbed, camera QR pairing не реализован, public/tunnel endpoint path вынесен в следующий milestone, diagnostics все еще без persistence/export, parser остается intentionally lightweight boundary.
 
 ## Known Issues And Follow-ups
 - item: В текущем runtime JetBrains MCP tools могут быть недоступны как native namespace до перезапуска Codex App, хотя server-side конфиг уже работает.
@@ -42,8 +42,9 @@
 - item: Notion workspace запрещает standalone private page creation; проект привязан к базе `Проекты`, и этот parent constraint надо учитывать дальше.
 - item: adaptive UI для двух режимов рендера Pixel (`1008×2244` и `1344×2992`) пока решён через width-constrained shell, а не через `NavigationSuiteScaffold` или отдельный adaptive toolkit layer.
 - item: `feature:thread` по-прежнему использует fake-only action contract (`startFakeTurn`, `completeFakeTurn`, `resolveApproval`); его real runtime замена вынесена в `Host Bridge MVP`.
-- item: local network permission path для current API 36 intentionally опирается на `NEARBY_WIFI_DEVICES` rationale; `ACCESS_LOCAL_NETWORK` остается Android 17+ follow-up.
+- item: local network permission path для current API 36 intentionally подается как manual/opt-in path вокруг `NEARBY_WIFI_DEVICES`, а не как unconditional blocker; `ACCESS_LOCAL_NETWORK` остается Android 17+ follow-up.
 - item: текущий host bridge repository остается stubbed и принимает только private LAN / `.local` endpoints; public tunnel path пока считается out of scope.
+- item: pairing payload хранится raw в `SharedPreferences`, но backup/data-transfer для `stukay_host_bridge.xml` теперь исключены; полноценный at-rest hardening остается follow-up.
 
 ## Evidence Index
 - artifact: `.tmp/.codex/task_state/latest.md`

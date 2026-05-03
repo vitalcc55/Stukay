@@ -28,6 +28,7 @@ import dev.vitalcc.stukay.core.model.ProjectId
 import dev.vitalcc.stukay.core.model.RouteContext
 import dev.vitalcc.stukay.core.model.ThreadId
 import dev.vitalcc.stukay.core.model.TimelineItem
+import dev.vitalcc.stukay.core.model.hostBridgeEndpointDisplayValue
 import dev.vitalcc.stukay.feature.projects.domain.LoadProjectsUseCase
 import dev.vitalcc.stukay.feature.projects.domain.OpenProjectUseCase
 import dev.vitalcc.stukay.feature.thread.domain.CompleteFakeTurnUseCase
@@ -42,10 +43,14 @@ class StukayAppState(
     application: Application,
 ) {
     private val appContext = application.applicationContext
+    private var localNetworkPermissionGranted by mutableStateOf(checkLocalNetworkPermissionGranted())
     private val logStore = InMemoryLogStore(capacity = 250)
     private var logRevisionState by mutableIntStateOf(0)
     private var domainRevisionState by mutableIntStateOf(0)
-    private val runtimeGraph = createStukayRuntimeGraph(appContext)
+    private val runtimeGraph = createStukayRuntimeGraph(
+        context = appContext,
+        localNetworkPermissionGranted = localNetworkPermissionGranted,
+    )
     private val projectsRepository = runtimeGraph.projectsRepository
     private val threadRepository = runtimeGraph.threadRepository
     private val hostBridgeRepository = runtimeGraph.hostBridgeRepository
@@ -72,7 +77,6 @@ class StukayAppState(
 
     val logger: AppLogger = StructuredLogger(liveSink)
     private val diagnosticsSummaryProvider = DiagnosticsSummaryProvider(store = logStore)
-    private var localNetworkPermissionGranted by mutableStateOf(checkLocalNetworkPermissionGranted())
 
     var currentRouteContext by mutableStateOf(RouteContext(routePattern = "projects"))
         private set
@@ -224,6 +228,10 @@ class StukayAppState(
     }
 
     fun connectHostBridge() {
+        if (!hasSavedPairing()) {
+            hostBridgeState = failedHostBridgeState("Сначала сохраните pairing payload.")
+            return
+        }
         logger.info(
             logEvent(
                 area = LogArea.Connection,
@@ -232,11 +240,19 @@ class StukayAppState(
                 fields = hostBridgeFields(),
             ),
         )
-        hostBridgeState = hostBridgeRepository.connect(localNetworkPermissionGranted)
+        hostBridgeState = runCatching {
+            hostBridgeRepository.connect(localNetworkPermissionGranted)
+        }.getOrElse { error ->
+            failedHostBridgeState(error.message ?: "Не удалось подключиться к host bridge.")
+        }
         logHostBridgeTransition()
     }
 
     fun reconnectHostBridge() {
+        if (!hasSavedPairing()) {
+            hostBridgeState = failedHostBridgeState("Сначала сохраните pairing payload.")
+            return
+        }
         logger.info(
             logEvent(
                 area = LogArea.Connection,
@@ -245,12 +261,29 @@ class StukayAppState(
                 fields = hostBridgeFields(),
             ),
         )
-        hostBridgeState = hostBridgeRepository.reconnect(localNetworkPermissionGranted)
+        hostBridgeState = runCatching {
+            hostBridgeRepository.reconnect(localNetworkPermissionGranted)
+        }.getOrElse { error ->
+            failedHostBridgeState(error.message ?: "Не удалось повторно подключиться к host bridge.")
+        }
         logHostBridgeTransition()
     }
 
     fun disconnectHostBridge(clearPairing: Boolean = false) {
-        hostBridgeState = hostBridgeRepository.disconnect(clearPairing = clearPairing)
+        if (!hasSavedPairing()) {
+            if (clearPairing) {
+                pairingInput = ""
+                hostBridgeState = hostBridgeRepository.refreshPermissionState(localNetworkPermissionGranted)
+            } else {
+                hostBridgeState = failedHostBridgeState("Сохраненного pairing payload нет.")
+            }
+            return
+        }
+        hostBridgeState = runCatching {
+            hostBridgeRepository.disconnect(clearPairing = clearPairing)
+        }.getOrElse { error ->
+            failedHostBridgeState(error.message ?: "Не удалось завершить host bridge action.")
+        }
         if (clearPairing) {
             pairingInput = ""
         }
@@ -296,17 +329,23 @@ class StukayAppState(
                 fields = mapOf("granted" to granted.toString()),
             ),
         )
-        if (granted && hostBridgeState.phase == HostBridgeConnectionPhase.PermissionRequired) {
-            reconnectHostBridge()
-            return
-        }
         hostBridgeState = hostBridgeRepository.refreshPermissionState(granted)
     }
+
+    fun canAttemptHostBridgeConnect(): Boolean = hasSavedPairing()
+
+    fun canDisconnectHostBridge(): Boolean = hasSavedPairing()
+
+    fun shouldOfferNearbyDevicesPermission(): Boolean =
+        hasSavedPairing() &&
+            !hostBridgeState.nearbyWifiDevicesGranted &&
+            hostBridgeState.localNetworkAccessState != dev.vitalcc.stukay.core.model.LocalNetworkAccessState.UnsupportedForSlice
 
     private fun failedHostBridgeState(message: String): HostBridgeConnectionState = HostBridgeConnectionState(
         phase = HostBridgeConnectionPhase.Failed,
         pairedHost = hostBridgeState.pairedHost,
         localNetworkAccessState = hostBridgeState.localNetworkAccessState,
+        nearbyWifiDevicesGranted = hostBridgeState.nearbyWifiDevicesGranted,
         lastError = message,
         lastTransitionAtEpochMs = System.currentTimeMillis(),
         lastConnectedAtEpochMs = hostBridgeState.lastConnectedAtEpochMs,
@@ -316,7 +355,9 @@ class StukayAppState(
         hostBridgeState.pairedHost?.hostId?.value?.let { put("hostId", it) }
         hostBridgeState.pairedHost?.transport?.name?.let { put("transport", it) }
         endpointHostOrNull(hostBridgeState.pairedHost?.endpoint.orEmpty())?.let { put("endpointHost", it) }
+        hostBridgeState.pairedHost?.endpoint?.let { put("endpointDisplay", hostBridgeEndpointDisplayValue(it)) }
         put("phase", hostBridgeState.phase.name)
+        put("nearbyGranted", hostBridgeState.nearbyWifiDevicesGranted.toString())
     }
 
     private fun logHostBridgeTransition() {
@@ -363,4 +404,6 @@ class StukayAppState(
         appContext,
         Manifest.permission.NEARBY_WIFI_DEVICES,
     ) == PackageManager.PERMISSION_GRANTED
+
+    private fun hasSavedPairing(): Boolean = hostBridgeState.pairedHost != null
 }

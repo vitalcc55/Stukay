@@ -12,6 +12,11 @@ class DiagnosticsSummaryProvider(
         sessionStartedAt = sessionStartedAt,
         totalLogs = store.totalAcceptedEvents(),
         latestWarningOrError = store.latestWarningOrError(),
+        recentHostConnectionLogs = store.recentMatching(limit = recentLimit) { event ->
+            event.area == LogArea.Connection ||
+                event.area == LogArea.HostBridge ||
+                event.area == LogArea.Security
+        },
         recentLogs = store.recent(limit = recentLimit),
     )
 }

@@ -27,6 +27,7 @@ import dev.vitalcc.stukay.core.logging.LogArea
 import dev.vitalcc.stukay.core.logging.logEvent
 import dev.vitalcc.stukay.core.model.HostBridgeConnectionState
 import dev.vitalcc.stukay.core.model.RouteContext
+import dev.vitalcc.stukay.core.model.hostBridgeEndpointDisplayValue
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveCard
 import dev.vitalcc.stukay.core.design.layout.ScreenFrame
 
@@ -123,9 +124,10 @@ fun DiagnosticsRoute(
                         } else {
                             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 Text(text = "Host: ${pairedHost.hostLabel}")
-                                Text(text = "Endpoint: ${pairedHost.endpoint}")
+                                Text(text = "Endpoint: ${hostBridgeEndpointDisplayValue(pairedHost.endpoint)}")
                                 Text(text = "Transport: ${pairedHost.transport.name}")
                                 Text(text = "Local network: ${hostBridgeState.localNetworkAccessState.name}")
+                                Text(text = "Nearby devices granted: ${hostBridgeState.nearbyWifiDevicesGranted}")
                                 hostBridgeState.lastConnectedAtEpochMs?.let { lastConnectedAt ->
                                     Text(text = "Последнее готовое подключение: $lastConnectedAt")
                                 }
@@ -135,6 +137,26 @@ fun DiagnosticsRoute(
                                         color = MaterialTheme.colorScheme.error,
                                     )
                                 }
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    ExpressiveCard(
+                        title = "Recent host and connection events",
+                        subtitle = if (diagnosticsSummary.recentHostConnectionLogs.isEmpty()) {
+                            "Host/connection events пока не попадали в лог."
+                        } else {
+                            "Последние события по Host Bridge и connection state."
+                        },
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            diagnosticsSummary.recentHostConnectionLogs.forEach { event ->
+                                Text(
+                                    text = "${event.level.name} · ${event.eventName} · ${event.messageHuman}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
                             }
                         }
                     }

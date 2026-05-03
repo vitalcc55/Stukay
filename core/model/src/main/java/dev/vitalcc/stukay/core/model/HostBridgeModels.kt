@@ -1,5 +1,7 @@
 package dev.vitalcc.stukay.core.model
 
+import java.net.URI
+
 @JvmInline
 value class HostId(val value: String)
 
@@ -60,7 +62,25 @@ data class HostBridgeConnectionState(
     val phase: HostBridgeConnectionPhase,
     val pairedHost: PairedHost? = null,
     val localNetworkAccessState: LocalNetworkAccessState = LocalNetworkAccessState.NotConfigured,
+    val nearbyWifiDevicesGranted: Boolean = false,
     val lastError: String? = null,
     val lastTransitionAtEpochMs: Long = 0L,
     val lastConnectedAtEpochMs: Long? = null,
 )
+
+fun hostBridgeEndpointDisplayValue(endpoint: String): String = runCatching {
+    val uri = URI(endpoint)
+    buildString {
+        append(uri.scheme)
+        append("://")
+        append(uri.host)
+        if (uri.port >= 0) {
+            append(":")
+            append(uri.port)
+        }
+        val normalizedPath = uri.path.orEmpty()
+        if (normalizedPath.isNotBlank() && normalizedPath != "/") {
+            append(normalizedPath)
+        }
+    }
+}.getOrElse { endpoint }

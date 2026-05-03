@@ -38,13 +38,30 @@ class HostBridgePairingParserTest {
         assertTrue(error.message.orEmpty().contains("http/https/ws/wss"))
     }
 
-    private fun validPayload(endpoint: String): String = """
+    @Test
+    fun rejectsTransportEndpointMismatch() {
+        val error = assertThrows(IllegalArgumentException::class.java) {
+            parsePairingPayload(
+                validPayload(
+                    endpoint = "http://192.168.0.24:4500",
+                    transport = "ws",
+                ),
+            )
+        }
+
+        assertTrue(error.message.orEmpty().contains("scheme"))
+    }
+
+    private fun validPayload(
+        endpoint: String,
+        transport: String = "ws",
+    ): String = """
         {
           "version": 1,
           "hostId": "host-main",
           "hostLabel": "Office Windows",
           "endpoint": "$endpoint",
-          "transport": "ws",
+          "transport": "$transport",
           "sessionToken": "secret-token"
         }
     """.trimIndent()
