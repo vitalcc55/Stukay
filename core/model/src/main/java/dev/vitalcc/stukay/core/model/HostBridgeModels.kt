@@ -34,6 +34,12 @@ enum class HostRuntimeStatus {
     Unreachable,
 }
 
+enum class HostRuntimeSnapshotScope {
+    None,
+    Live,
+    LastKnown,
+}
+
 data class PairedHost(
     val hostId: HostId,
     val hostLabel: String,
@@ -86,6 +92,27 @@ data class HostBridgeConnectionState(
     val lastTransitionAtEpochMs: Long = 0L,
     val lastConnectedAtEpochMs: Long? = null,
 )
+
+fun HostBridgeConnectionState.runtimeSummaryScope(): HostRuntimeSnapshotScope = when {
+    runtimeSummary.isEmpty() -> HostRuntimeSnapshotScope.None
+    phase == HostBridgeConnectionPhase.Connected || phase == HostBridgeConnectionPhase.Degraded ->
+        HostRuntimeSnapshotScope.Live
+    phase == HostBridgeConnectionPhase.Failed && runtimeSummary.hostStatus in setOf(
+        HostRuntimeStatus.Unauthorized,
+        HostRuntimeStatus.Unreachable,
+        HostRuntimeStatus.Unknown,
+    ) -> HostRuntimeSnapshotScope.Live
+    else -> HostRuntimeSnapshotScope.LastKnown
+}
+
+private fun HostRuntimeSummary.isEmpty(): Boolean = hostStatus == HostRuntimeStatus.Unknown &&
+    !runtimeReady &&
+    appListCount == null &&
+    lastRoundTripMs == null &&
+    lastProbeAtEpochMs == null &&
+    retryAttempt == 0 &&
+    degradedReason == null &&
+    lastTransportError == null
 
 fun hostBridgeEndpointDisplayValue(endpoint: String): String = runCatching {
     val uri = URI(endpoint)

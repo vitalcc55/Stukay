@@ -26,8 +26,10 @@ import dev.vitalcc.stukay.core.logging.DiagnosticsSummary
 import dev.vitalcc.stukay.core.logging.LogArea
 import dev.vitalcc.stukay.core.logging.logEvent
 import dev.vitalcc.stukay.core.model.HostBridgeConnectionState
+import dev.vitalcc.stukay.core.model.HostRuntimeSnapshotScope
 import dev.vitalcc.stukay.core.model.RouteContext
 import dev.vitalcc.stukay.core.model.hostBridgeEndpointDisplayValue
+import dev.vitalcc.stukay.core.model.runtimeSummaryScope
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveCard
 import dev.vitalcc.stukay.core.design.layout.ScreenFrame
 
@@ -116,18 +118,41 @@ fun DiagnosticsRoute(
                 item {
                     ExpressiveCard(
                         title = "Host Bridge summary",
-                        subtitle = hostBridgeState.phase.name,
+                        subtitle = "${hostBridgeState.phase.name} · ${hostBridgeState.runtimeSummary.hostStatus.name} · ${snapshotScopeLabel(hostBridgeState.runtimeSummaryScope())}",
                     ) {
                         val pairedHost = hostBridgeState.pairedHost
                         if (pairedHost == null) {
                             Text(text = "Pairing payload еще не сохранен.")
                         } else {
+                            val runtimeSummary = hostBridgeState.runtimeSummary
                             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 Text(text = "Host: ${pairedHost.hostLabel}")
                                 Text(text = "Endpoint: ${hostBridgeEndpointDisplayValue(pairedHost.endpoint)}")
                                 Text(text = "Transport: ${pairedHost.transport.name}")
                                 Text(text = "Local network: ${hostBridgeState.localNetworkAccessState.name}")
                                 Text(text = "Nearby devices granted: ${hostBridgeState.nearbyWifiDevicesGranted}")
+                                Text(text = "Snapshot scope: ${snapshotScopeLabel(hostBridgeState.runtimeSummaryScope())}")
+                                Text(text = "Runtime status: ${runtimeSummary.hostStatus.name}")
+                                Text(text = "Runtime ready: ${runtimeSummary.runtimeReady}")
+                                runtimeSummary.appListCount?.let { appListCount ->
+                                    Text(text = "app/list count: $appListCount")
+                                }
+                                runtimeSummary.lastRoundTripMs?.let { lastRoundTripMs ->
+                                    Text(text = "Последний round trip: ${lastRoundTripMs}ms")
+                                }
+                                runtimeSummary.lastProbeAtEpochMs?.let { lastProbeAt ->
+                                    Text(text = "Последний probe: $lastProbeAt")
+                                }
+                                Text(text = "Retry attempt: ${runtimeSummary.retryAttempt}")
+                                runtimeSummary.degradedReason?.let { degradedReason ->
+                                    Text(text = "Degraded reason: $degradedReason")
+                                }
+                                runtimeSummary.lastTransportError?.let { transportError ->
+                                    Text(
+                                        text = "Transport error: $transportError",
+                                        color = MaterialTheme.colorScheme.error,
+                                    )
+                                }
                                 hostBridgeState.lastConnectedAtEpochMs?.let { lastConnectedAt ->
                                     Text(text = "Последнее готовое подключение: $lastConnectedAt")
                                 }
@@ -184,4 +209,10 @@ fun DiagnosticsRoute(
             }
         }
     }
+}
+
+private fun snapshotScopeLabel(scope: HostRuntimeSnapshotScope): String = when (scope) {
+    HostRuntimeSnapshotScope.None -> "none"
+    HostRuntimeSnapshotScope.Live -> "live"
+    HostRuntimeSnapshotScope.LastKnown -> "last_known"
 }

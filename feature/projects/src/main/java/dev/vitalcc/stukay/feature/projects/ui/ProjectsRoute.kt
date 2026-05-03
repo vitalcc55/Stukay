@@ -28,9 +28,11 @@ import dev.vitalcc.stukay.core.logging.logEvent
 import dev.vitalcc.stukay.core.model.CodexProject
 import dev.vitalcc.stukay.core.model.HostBridgeConnectionPhase
 import dev.vitalcc.stukay.core.model.HostBridgeConnectionState
+import dev.vitalcc.stukay.core.model.HostRuntimeSnapshotScope
 import dev.vitalcc.stukay.core.model.ProjectId
 import dev.vitalcc.stukay.core.model.ProjectStatus
 import dev.vitalcc.stukay.core.model.hostBridgeEndpointDisplayValue
+import dev.vitalcc.stukay.core.model.runtimeSummaryScope
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveCard
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveStatusPill
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveStatusTone
@@ -85,7 +87,7 @@ fun ProjectsRoute(
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
                     Text(
-                        text = "Shell уже typed, observability-ready и получил первый Host Bridge contract slice. Следующий шаг отсюда — реальный Host Bridge MVP.",
+                        text = "Shell уже ходит в реальный Host Bridge path для host health/status и app/list count. Thread runtime пока честно остается fake-only.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -177,7 +179,7 @@ private fun hostBridgeTitle(state: HostBridgeConnectionState): String = when (st
             "Host сохранен и готов к подключению."
         }
     HostBridgeConnectionPhase.Connecting -> "Подготовка к подключению к локальному host."
-    HostBridgeConnectionPhase.Connected -> "Локальный host bridge помечен как доступный."
+    HostBridgeConnectionPhase.Connected -> "Локальный host bridge отвечает и вернул runtime summary."
     HostBridgeConnectionPhase.Degraded -> state.lastError ?: "Локальный host bridge отвечает нестабильно."
     HostBridgeConnectionPhase.Disconnected -> "Pairing сохранен, подключение можно восстановить."
     HostBridgeConnectionPhase.Failed -> state.lastError ?: "Host bridge вернул ошибочное состояние."
@@ -186,5 +188,17 @@ private fun hostBridgeTitle(state: HostBridgeConnectionState): String = when (st
 private fun hostBridgeDetail(state: HostBridgeConnectionState): String {
     val pairedHost = state.pairedHost ?: return "Откройте Settings и сохраните pairing payload для Windows host bridge."
     val errorPart = state.lastError?.let { " Ошибка: $it" }.orEmpty()
-    return "${pairedHost.hostLabel} · ${pairedHost.transport.name} · ${hostBridgeEndpointDisplayValue(pairedHost.endpoint)}.$errorPart"
+    val runtimeSummary = state.runtimeSummary
+    val scopePrefix = when (state.runtimeSummaryScope()) {
+        HostRuntimeSnapshotScope.None -> "Runtime snapshot еще не получен"
+        HostRuntimeSnapshotScope.Live -> "Live runtime"
+        HostRuntimeSnapshotScope.LastKnown -> "Last known runtime"
+    }
+    val runtimeParts = buildList {
+        add(scopePrefix)
+        add(runtimeSummary.hostStatus.name)
+        add("ready=${runtimeSummary.runtimeReady}")
+        runtimeSummary.appListCount?.let { add("apps=$it") }
+    }.joinToString(" · ")
+    return "${pairedHost.hostLabel} · ${pairedHost.transport.name} · ${hostBridgeEndpointDisplayValue(pairedHost.endpoint)} · $runtimeParts.$errorPart"
 }

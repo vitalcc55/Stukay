@@ -32,6 +32,7 @@ import dev.vitalcc.stukay.core.model.RouteContext
 import dev.vitalcc.stukay.core.model.ThreadId
 import dev.vitalcc.stukay.core.model.TimelineItem
 import dev.vitalcc.stukay.core.model.hostBridgeEndpointDisplayValue
+import dev.vitalcc.stukay.core.model.runtimeSummaryScope
 import dev.vitalcc.stukay.feature.projects.domain.LoadProjectsUseCase
 import dev.vitalcc.stukay.feature.projects.domain.OpenProjectUseCase
 import dev.vitalcc.stukay.feature.thread.domain.CompleteFakeTurnUseCase
@@ -571,6 +572,17 @@ class StukayAppState(
         hostBridgeState.pairedHost?.endpoint?.let { put("endpointDisplay", hostBridgeEndpointDisplayValue(it)) }
         put("phase", hostBridgeState.phase.name)
         put("nearbyGranted", hostBridgeState.nearbyWifiDevicesGranted.toString())
+        put("runtimeSnapshotScope", hostBridgeState.runtimeSummaryScope().name)
+        put("runtimeStatus", hostBridgeState.runtimeSummary.hostStatus.name)
+        put("runtimeReady", hostBridgeState.runtimeSummary.runtimeReady.toString())
+        hostBridgeState.runtimeSummary.appListCount?.let { put("appListCount", it.toString()) }
+        hostBridgeState.runtimeSummary.lastRoundTripMs?.let { put("lastRoundTripMs", it.toString()) }
+        hostBridgeState.runtimeSummary.lastProbeAtEpochMs?.let { put("lastProbeAtEpochMs", it.toString()) }
+        if (hostBridgeState.runtimeSummary.retryAttempt > 0) {
+            put("retryAttempt", hostBridgeState.runtimeSummary.retryAttempt.toString())
+        }
+        hostBridgeState.runtimeSummary.degradedReason?.let { put("degradedReason", it) }
+        hostBridgeState.runtimeSummary.lastTransportError?.let { put("lastTransportError", it) }
     }
 
     fun dispose() {

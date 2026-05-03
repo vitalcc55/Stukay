@@ -1,5 +1,6 @@
 package dev.vitalcc.stukay.core.model
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -43,5 +44,57 @@ class HostBridgeModelsTest {
         assertTrue(state.runtimeSummary.hostStatus == HostRuntimeStatus.Degraded)
         assertTrue(state.runtimeSummary.appListCount == 3)
         assertTrue(state.runtimeSummary.lastTransportError == "Socket timeout")
+    }
+
+    @Test
+    fun runtimeSummaryScopeIsLiveWhenConnectionIsConnected() {
+        val state = HostBridgeConnectionState(
+            phase = HostBridgeConnectionPhase.Connected,
+            runtimeSummary = HostRuntimeSummary(
+                hostStatus = HostRuntimeStatus.Ready,
+                runtimeReady = true,
+                appListCount = 4,
+            ),
+        )
+
+        assertEquals(HostRuntimeSnapshotScope.Live, state.runtimeSummaryScope())
+    }
+
+    @Test
+    fun runtimeSummaryScopeIsLastKnownWhenDisconnectedKeepsSnapshot() {
+        val state = HostBridgeConnectionState(
+            phase = HostBridgeConnectionPhase.Disconnected,
+            runtimeSummary = HostRuntimeSummary(
+                hostStatus = HostRuntimeStatus.Ready,
+                runtimeReady = true,
+                appListCount = 4,
+            ),
+        )
+
+        assertEquals(HostRuntimeSnapshotScope.LastKnown, state.runtimeSummaryScope())
+    }
+
+    @Test
+    fun runtimeSummaryScopeIsNoneWhenSnapshotIsEmpty() {
+        val state = HostBridgeConnectionState(
+            phase = HostBridgeConnectionPhase.NotPaired,
+            runtimeSummary = HostRuntimeSummary(),
+        )
+
+        assertEquals(HostRuntimeSnapshotScope.None, state.runtimeSummaryScope())
+    }
+
+    @Test
+    fun runtimeSummaryScopeIsLiveForFreshUnauthorizedFailure() {
+        val state = HostBridgeConnectionState(
+            phase = HostBridgeConnectionPhase.Failed,
+            runtimeSummary = HostRuntimeSummary(
+                hostStatus = HostRuntimeStatus.Unauthorized,
+                runtimeReady = false,
+                lastTransportError = "unauthorized",
+            ),
+        )
+
+        assertEquals(HostRuntimeSnapshotScope.Live, state.runtimeSummaryScope())
     }
 }

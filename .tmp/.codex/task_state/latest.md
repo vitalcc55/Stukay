@@ -1,54 +1,31 @@
 # Task State
 
 - goal: Реализовать `Host Bridge MVP`: первый реальный Android -> Host Bridge -> local Codex runtime path без ухода в полный real thread runtime.
-- stage: host_bridge_mvp_stage3_real_repository_complete
+- stage: host_bridge_mvp_stage4_shell_summary_complete
 - done:
   - предыдущий runtime-contract slice завершен и локально верифицирован
   - собраны repo/code/official/reference findings для `Host Bridge MVP`
   - сохранен active plan `docs/exec-plans/active/host-bridge-mvp-plan.md`
-  - закрыты core decisions milestone до начала кодинга:
-    - `transport=http_json`
-    - explicit Android cleartext opt-in + runtime endpoint validation as real boundary
-    - first runtime payload = `host health/status + app/list count`
-    - address policy = `RFC1918 + .local + 100.64/10`
-  - Stage 1 выполнен:
-    - Kotlin Host Bridge transport contract ограничен `http_json`
-    - `ws` / `wss` переведены в explicit fast-fail unsupported path
-    - в модель добавлены `Degraded` и `HostRuntimeSummary`
-    - allowlist расширен до `100.64/10`
-    - `169.254/16` остается reject path
-    - explicit Android cleartext opt-in выражен через `network_security_config`
-  - Stage 2 выполнен:
-    - добавлен Windows Host Bridge helper under `tools/hostbridge`
-    - helper держит `codex app-server --listen stdio://`
-    - helper делает `initialize` + `initialized`
-    - helper тянет `app/list` и строит runtime summary
-    - helper требует `Authorization: Bearer <sessionToken>`
-    - helper отдает `degraded` summary и сохраняет last good snapshot при probe failure
-  - Stage 3 выполнен:
-    - добавлен Android-side `OkHttpHostBridgeClient`
-    - stub repository заменен на `HttpJsonHostBridgeRepository`
-    - runtime graph переведен на real host-backed repository
-    - `StukayAppState` переведен на background executor для host bridge actions
-    - добавлены periodic probe loop и immediate probe на network-change signal
-    - добавлен lifecycle teardown через `AndroidNetworkMonitor.stop()`, `StukayAppState.dispose()` и `StukayAppViewModel.onCleared()`
-    - закрыт truthfulness defect: `refreshPermissionState()` больше не маскирует `Unauthorized` как `Paired`
+  - Stage 1 выполнен: transport contract закрыт на `http_json`, `ws/wss` fast-fail, `Degraded` и `HostRuntimeSummary` добавлены, cleartext opt-in и allowlist policy зафиксированы
+  - Stage 2 выполнен: Windows Host Bridge helper поднимает локальный `codex app-server`, требует bearer auth и отдает runtime summary по `app/list`
+  - Stage 3 выполнен: Android-side `OkHttpHostBridgeClient` и `HttpJsonHostBridgeRepository` внедрены, runtime graph переведен на real host-backed repository, `StukayAppState` получил background executor, periodic probe loop и lifecycle teardown
+  - Stage 4 выполнен:
+    - `Settings`, `Projects` и `Diagnostics` читают единый `HostBridgeConnectionState`
+    - `Settings` и `Projects` показывают summary-only runtime signal
+    - `Diagnostics` показывает полную transport telemetry
+    - введен model-level `HostRuntimeSnapshotScope` для различения `live` и `last_known` snapshots
+    - закрыт edge case, где свежий `Unauthorized` verdict ошибочно выглядел как cached snapshot
 - next:
-  - перейти к `M4` из `docs/exec-plans/active/host-bridge-mvp-plan.md`
-  - вывести реальный runtime summary в `Settings`, `Projects` и `Diagnostics`
+  - перейти к `M5` из `docs/exec-plans/active/host-bridge-mvp-plan.md`
+  - пройти security scan, Android QA / emulator / Pixel proof
   - после завершения stage снова обновить checklist и `Stage Report`
 - edited_files:
-  - app/build.gradle.kts
-  - gradle/libs.versions.toml
-  - app/src/main/kotlin/dev/vitalcc/stukay/StukayAppViewModel.kt
+  - core/model/src/main/java/dev/vitalcc/stukay/core/model/HostBridgeModels.kt
+  - core/model/src/test/java/dev/vitalcc/stukay/core/model/HostBridgeModelsTest.kt
   - app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayAppState.kt
-  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayRuntimeGraph.kt
-  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/AndroidNetworkMonitor.kt
-  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeClient.kt
-  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeRepository.kt
-  - app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeClientTest.kt
-  - app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HttpJsonHostBridgeRepositoryTest.kt
-  - app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/StubHostBridgeRepositoryTest.kt
+  - feature/settings/src/main/java/dev/vitalcc/stukay/feature/settings/ui/SettingsRoute.kt
+  - feature/projects/src/main/java/dev/vitalcc/stukay/feature/projects/ui/ProjectsRoute.kt
+  - feature/diagnostics/src/main/java/dev/vitalcc/stukay/feature/diagnostics/ui/DiagnosticsRoute.kt
   - Documentation.md
   - docs/exec-plans/active/host-bridge-mvp-plan.md
   - docs/CHANGELOG.md
@@ -56,8 +33,6 @@
   - .tmp/.codex/task_state/latest.json
 - verify_status:
   - `mcp__jetbrains__.build_project(filesToRebuild=...)` passes
-  - `.\gradlew.bat :app:testDebugUnitTest --tests "dev.vitalcc.stukay.runtime.hostbridge.HostBridgeClientTest" --tests "dev.vitalcc.stukay.runtime.hostbridge.HttpJsonHostBridgeRepositoryTest" --console=plain` passes
-  - `.\gradlew.bat :app:testDebugUnitTest --tests "dev.vitalcc.stukay.runtime.hostbridge.HttpJsonHostBridgeRepositoryTest.refreshPermissionStateDoesNotMaskUnauthorizedFailure" --console=plain` passes
-  - `.\gradlew.bat :app:testDebugUnitTest :app:assembleDebug --console=plain` passes
+  - `.\gradlew.bat :core:model:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug --console=plain` passes
 - open_questions:
-  - нет блокирующих открытых вопросов для начала `M4`
+  - нет блокирующих открытых вопросов для начала `M5`

@@ -27,8 +27,10 @@ import dev.vitalcc.stukay.core.logging.LogArea
 import dev.vitalcc.stukay.core.logging.logEvent
 import dev.vitalcc.stukay.core.model.HostBridgeConnectionPhase
 import dev.vitalcc.stukay.core.model.HostBridgeConnectionState
+import dev.vitalcc.stukay.core.model.HostRuntimeSnapshotScope
 import dev.vitalcc.stukay.core.model.LocalNetworkAccessState
 import dev.vitalcc.stukay.core.model.hostBridgeEndpointDisplayValue
+import dev.vitalcc.stukay.core.model.runtimeSummaryScope
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveCard
 import dev.vitalcc.stukay.core.design.layout.ScreenFrame
 
@@ -142,10 +144,17 @@ fun SettingsRoute(
                                 Text(text = "Забыть pairing")
                             }
                             hostBridgeState.pairedHost?.let { pairedHost ->
-                                Text(
-                                    text = "Host: ${pairedHost.hostLabel} · ${hostBridgeEndpointDisplayValue(pairedHost.endpoint)}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text(
+                                        text = "Host: ${pairedHost.hostLabel} · ${hostBridgeEndpointDisplayValue(pairedHost.endpoint)}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                    Text(
+                                        text = runtimeSummaryText(hostBridgeState),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                             }
                             hostBridgeState.lastError?.let { errorText ->
                                 Text(
@@ -195,7 +204,7 @@ fun SettingsRoute(
                 item {
                     ExpressiveCard(title = "Workflow surface") {
                         Text(
-                            text = "JetBrains MCP и Android CLI остаются engineering surfaces. Этот экран отвечает только за pairing и локальный host path.",
+                            text = "JetBrains MCP и Android CLI остаются engineering surfaces. Этот экран отвечает за pairing, connect/reconnect/disconnect и live host runtime summary; thread runtime пока не входит в этот milestone.",
                             style = MaterialTheme.typography.bodyMedium,
                         )
                     }
@@ -232,4 +241,20 @@ private fun localNetworkDetail(state: HostBridgeConnectionState): String = when 
 
     LocalNetworkAccessState.UnsupportedForSlice ->
         "Текущий endpoint не похож на private LAN / .local path. Публичный tunnel или internet endpoint вынесен за пределы этого slice."
+}
+
+private fun runtimeSummaryText(state: HostBridgeConnectionState): String {
+    val summary = state.runtimeSummary
+    val scopePrefix = when (state.runtimeSummaryScope()) {
+        HostRuntimeSnapshotScope.None -> "Runtime snapshot еще не получен"
+        HostRuntimeSnapshotScope.Live -> "Live runtime"
+        HostRuntimeSnapshotScope.LastKnown -> "Last known runtime"
+    }
+    val parts = buildList {
+        add(scopePrefix)
+        add(summary.hostStatus.name)
+        add("ready=${summary.runtimeReady}")
+        summary.appListCount?.let { add("apps=$it") }
+    }
+    return parts.joinToString(" · ")
 }

@@ -7,7 +7,7 @@
 ## Progress Tracker
 
 - overall_status: `in_progress`
-- current_milestone: `M4`
+- current_milestone: `M5`
 - implementation_started: `yes`
 - active_plan_owner: текущий execution thread `codex/host-bridge-mvp`
 
@@ -536,26 +536,39 @@ Rule:
 
 ### M4. Surface real runtime summary into shell
 
-- status: `planned`
+- status: `completed`
 - owner_surface:
   - `SettingsRoute.kt`
   - `ProjectsRoute.kt`
   - `DiagnosticsRoute.kt`
   - `StukayApp.kt`
 
-- [ ] `Settings` показывает реальный connect/reconnect/degraded status.
-- [ ] `Projects` показывает runtime-backed host summary и `app/list` count.
-- [ ] `Diagnostics` показывает transport transitions, retry state и last error.
-- [ ] Не затрагивать current fake thread action contract beyond honest labeling.
+- [x] `Settings` показывает реальный connect/reconnect/degraded status.
+- [x] `Projects` показывает runtime-backed host summary и `app/list` count.
+- [x] `Diagnostics` показывает transport transitions, retry state и last error.
+- [x] Не затрагивать current fake thread action contract beyond honest labeling.
 
 #### Stage Report
 
-- summary:
+- summary: Stage 4 завершен. Shell surface теперь честно читает `HostBridgeConnectionState`: `Settings` и `Projects` показывают только summary-level runtime signal, `Diagnostics` держит полную telemetry detail, а freshness contract `HostRuntimeSnapshotScope` различает `live` и `last_known` snapshot без ложных claims про full thread runtime.
 - evidence:
+  - `mcp__jetbrains__.build_project(filesToRebuild=...)`
+  - `.\gradlew.bat :core:model:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug --console=plain`
 - commands_run:
+  - `mcp__jetbrains__.build_project(filesToRebuild=...)`
+  - `.\gradlew.bat :app:testDebugUnitTest :app:assembleDebug --console=plain`
+  - `.\gradlew.bat :core:model:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug --console=plain`
 - files_changed:
+  - `core/model/src/main/java/dev/vitalcc/stukay/core/model/HostBridgeModels.kt`
+  - `core/model/src/test/java/dev/vitalcc/stukay/core/model/HostBridgeModelsTest.kt`
+  - `app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayAppState.kt`
+  - `feature/settings/src/main/java/dev/vitalcc/stukay/feature/settings/ui/SettingsRoute.kt`
+  - `feature/projects/src/main/java/dev/vitalcc/stukay/feature/projects/ui/ProjectsRoute.kt`
+  - `feature/diagnostics/src/main/java/dev/vitalcc/stukay/feature/diagnostics/ui/DiagnosticsRoute.kt`
 - residual_risks:
-- next_milestone:
+  - security scan и Android QA/device proof еще не пройдены
+  - thread runtime по-прежнему fake-only и сознательно не входит в acceptance Stage 4
+- next_milestone: `M5`
 
 ### M5. Verification and proof gates
 

@@ -1,9 +1,9 @@
 # Documentation.md
 
 ## Current Milestone Status
-- current: `Host Bridge MVP` в активной реализации; Stage 3 с Android-side real client/repository path завершен локально и прошел static review loop.
-- done: предыдущий runtime-contract slice закрыт; в Stage 1 зафиксированы `http_json`-only transport semantics, explicit unsupported `ws/wss` path, `Degraded` + `HostRuntimeSummary`, `100.64/10` в allowlist, reject для `169.254/16`, explicit Android cleartext opt-in через `network_security_config`, и правдивая permission-gated stub semantics без false-ready для private LAN. В Stage 2 добавлен stdlib-only helper под `tools/hostbridge`, который поднимает локальный `codex app-server` по `stdio://`, делает `initialize`/`initialized`, требует `Authorization: Bearer <sessionToken>` и отдает narrow runtime summary для `app/list` + host health. В Stage 3 добавлены Android-side `OkHttpHostBridgeClient` и `HttpJsonHostBridgeRepository`, runtime graph переведен на real host-backed repository, а `StukayAppState` получил background executor, periodic probe loop, network-change triggered immediate probe и lifecycle teardown.
-- next: Перейти к Stage 4 и вывести реальный runtime summary path в `Settings` / `Projects` / `Diagnostics`, не смешивая это с full real thread runtime.
+- current: `Host Bridge MVP` в активной реализации; Stage 4 с shell runtime-summary surface завершен локально и прошел static review loop.
+- done: предыдущий runtime-contract slice закрыт; в Stage 1 зафиксированы `http_json`-only transport semantics, explicit unsupported `ws/wss` path, `Degraded` + `HostRuntimeSummary`, `100.64/10` в allowlist, reject для `169.254/16`, explicit Android cleartext opt-in через `network_security_config`, и правдивая permission-gated stub semantics без false-ready для private LAN. В Stage 2 добавлен stdlib-only helper под `tools/hostbridge`, который поднимает локальный `codex app-server` по `stdio://`, делает `initialize`/`initialized`, требует `Authorization: Bearer <sessionToken>` и отдает narrow runtime summary для `app/list` + host health. В Stage 3 добавлены Android-side `OkHttpHostBridgeClient` и `HttpJsonHostBridgeRepository`, runtime graph переведен на real host-backed repository, а `StukayAppState` получил background executor, periodic probe loop, network-change triggered immediate probe и lifecycle teardown. В Stage 4 shell surfaces переведены на честный runtime summary contract: `Settings` и `Projects` показывают summary-only signal, `Diagnostics` держит полную telemetry detail, а model-level `HostRuntimeSnapshotScope` различает `live` и `last_known` snapshots.
+- next: Перейти к Stage 5: security scan, Android QA / emulator / Pixel proof и финальная синхронизация lifecycle artifacts.
 
 ## Decisions
 - decision: Сначала поднимаем harness, docs и observability, а не меняем продуктовый код.
@@ -36,8 +36,8 @@
 - expected result: lifecycle validator проходит; допустимы только известные `warn`, без `fail`.
 
 ## Latest Review Outcome
-- findings: Stage 3 review loop подтвердил и закрыл четыре класса дефектов: гонки между main-thread и background repository mutations, отсутствие teardown path для network callback/executor, неверное использование `NET_CAPABILITY_INTERNET` как proxy для private-host reachability и truthfulness drift в `refreshPermissionState()`, который маскировал `Unauthorized` как `Paired`. Повторный static review loop после фиксов вернул `no findings`.
-- residual risks: shell routes еще не выводят весь runtime summary contract, security scan и Android emulator/device proofs еще впереди, public/tunnel endpoint path остается out of scope, diagnostics все еще без persistence/export, а suppression `Instantiatable` нужно будет пересмотреть после стабилизации AGP/SDK 36.
+- findings: Stage 4 review loop подтвердил и закрыл еще два класса truth-surface дефектов: shell сначала дублировал diagnostics telemetry в `Settings` / `Projects`, а затем неправильно смешивал `live` и `last_known` runtime snapshots для `Disconnected` / `Unauthorized` paths. После введения model-level freshness contract и повторного static review loop оба reviewer-а вернули `no findings`.
+- residual risks: security scan и Android emulator/device proofs еще впереди, public/tunnel endpoint path остается out of scope, diagnostics все еще без persistence/export, а suppression `Instantiatable` нужно будет пересмотреть после стабилизации AGP/SDK 36.
 
 ## Known Issues And Follow-ups
 - item: В текущем runtime JetBrains MCP tools могут быть недоступны как native namespace до перезапуска Codex App, хотя server-side конфиг уже работает.
@@ -80,5 +80,7 @@
 - purpose: verified Stage 3 client/repository contract, unauthorized mapping, degraded snapshot preservation and disconnect semantics
 - artifact: `.\gradlew.bat :app:testDebugUnitTest --tests "dev.vitalcc.stukay.runtime.hostbridge.HttpJsonHostBridgeRepositoryTest.refreshPermissionStateDoesNotMaskUnauthorizedFailure" --console=plain`
 - purpose: verified Stage 3 review-driven fix for permission refresh truthfulness after unauthorized failure
+- artifact: `.\gradlew.bat :core:model:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug --console=plain`
+- purpose: verified Stage 4 model-level freshness contract plus shell runtime-summary surfaces after Settings/Projects/Diagnostics update
 - artifact: `.\gradlew.bat :app:lintDebug --console=plain`
 - purpose: verified final lint gate after manifest-scoped suppression of preview false positive

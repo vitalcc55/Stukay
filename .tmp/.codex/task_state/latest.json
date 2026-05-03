@@ -1,39 +1,31 @@
 {
   "goal": "Реализовать Host Bridge MVP: первый реальный Android -> Host Bridge -> local Codex runtime path без ухода в полный real thread runtime.",
-  "stage": "host_bridge_mvp_stage3_real_repository_complete",
+  "stage": "host_bridge_mvp_stage4_shell_summary_complete",
   "done": [
-    "previous runtime-contract slice completed and verified",
-    "repo, code, official-doc and reference findings collected for Host Bridge MVP",
-    "active plan saved at docs/exec-plans/active/host-bridge-mvp-plan.md",
-    "core pre-coding decisions closed: transport=http_json, explicit Android cleartext opt-in plus runtime endpoint validation, first runtime payload=host health/status plus app/list count, address policy=RFC1918 plus .local plus 100.64/10",
-    "stage 1 completed: transport contract locked to http_json, ws and wss moved to explicit unsupported path, degraded runtime summary contract added, 100.64/10 accepted, 169.254/16 rejected, stubbed LAN permission semantics no longer claim false readiness, and explicit Android cleartext opt-in is expressed via network_security_config",
-    "stage 2 completed: Windows Host Bridge helper added under tools/hostbridge with bearer auth, stdio app-server client, app/list summary path, degraded caching, and auth-first reject behavior",
-    "stage 3 completed: Android-side OkHttpHostBridgeClient added, HttpJsonHostBridgeRepository replaced the stub path, runtime graph now wires the real host-backed repository, StukayAppState runs host bridge actions on a background executor with periodic probe loop and network-change triggered immediate probe, lifecycle teardown was added, and refreshPermissionState no longer masks unauthorized failures"
+    "stage 1 completed: transport contract locked to http_json, ws/wss moved to explicit unsupported path, degraded runtime summary contract added, cleartext opt-in and allowlist policy fixed",
+    "stage 2 completed: Windows Host Bridge helper added with bearer auth, stdio app-server client, app/list summary path, degraded caching, and auth-first reject behavior",
+    "stage 3 completed: Android-side OkHttpHostBridgeClient and HttpJsonHostBridgeRepository integrated, runtime graph now wires the real host-backed repository, StukayAppState runs host bridge actions on a background executor with periodic probe loop and lifecycle teardown",
+    "stage 4 completed: Settings, Projects, and Diagnostics now read the shared HostBridgeConnectionState, Settings and Projects stay on summary-only runtime signal, Diagnostics keeps full telemetry detail, HostRuntimeSnapshotScope distinguishes live vs last_known snapshots, and fresh unauthorized failures no longer look cached"
   ],
   "next": [
-    "start M4 from docs/exec-plans/active/host-bridge-mvp-plan.md",
-    "surface the real runtime summary in Settings, Projects, and Diagnostics",
+    "start M5 from docs/exec-plans/active/host-bridge-mvp-plan.md",
+    "run security scan and Android QA / emulator / Pixel proof",
     "update milestone checklist and stage report after the next completed stage"
   ],
   "edited_files": [
-    "app/build.gradle.kts",
-    "gradle/libs.versions.toml",
-    "app/src/main/kotlin/dev/vitalcc/stukay/StukayAppViewModel.kt",
+    "core/model/src/main/java/dev/vitalcc/stukay/core/model/HostBridgeModels.kt",
+    "core/model/src/test/java/dev/vitalcc/stukay/core/model/HostBridgeModelsTest.kt",
     "app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayAppState.kt",
-    "app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayRuntimeGraph.kt",
-    "app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/AndroidNetworkMonitor.kt",
-    "app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeClient.kt",
-    "app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeRepository.kt",
-    "app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeClientTest.kt",
-    "app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HttpJsonHostBridgeRepositoryTest.kt",
-    "app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/StubHostBridgeRepositoryTest.kt",
+    "feature/settings/src/main/java/dev/vitalcc/stukay/feature/settings/ui/SettingsRoute.kt",
+    "feature/projects/src/main/java/dev/vitalcc/stukay/feature/projects/ui/ProjectsRoute.kt",
+    "feature/diagnostics/src/main/java/dev/vitalcc/stukay/feature/diagnostics/ui/DiagnosticsRoute.kt",
     "Documentation.md",
     "docs/exec-plans/active/host-bridge-mvp-plan.md",
     "docs/CHANGELOG.md",
     ".tmp/.codex/task_state/latest.md",
     ".tmp/.codex/task_state/latest.json"
   ],
-  "verify_status": "JetBrains file rebuild passes; Stage 3 targeted HostBridgeClient and HttpJsonHostBridgeRepository tests pass; the review-driven refreshPermissionState test passes; and :app:testDebugUnitTest plus :app:assembleDebug are green",
+  "verify_status": "JetBrains file rebuild passes; :core:model:testDebugUnitTest plus :app:testDebugUnitTest and :app:assembleDebug are green after the Stage 4 runtime-summary surface update",
   "open_questions": [],
-  "updated_at_utc": "2026-05-03T19:10:00Z"
+  "updated_at_utc": "2026-05-03T20:05:00Z"
 }
