@@ -2,11 +2,12 @@
 
 `Stukay` — personal-first Android 16 / Pixel 9 Pro XL приложение, задуманное как мобильная control surface для локального Codex runtime на Windows.
 
-Сейчас репозиторий находится в phase `post-foundation shell`. Это означает:
+Сейчас репозиторий находится в phase `post-runtime-contract slice`. Это означает:
 
 - template уже вытеснен multi-module shell;
+- Android-side Host Bridge contract, pairing payload flow и local-network UX уже подняты на stubbed transport;
 - repo-local lifecycle stack, architecture direction, observability policy и process docs являются source of truth;
-- следующий milestone должен идти в runtime slice, а не возвращаться к базовой перестройке shell.
+- следующий milestone должен идти в Host Bridge MVP, а не возвращаться к базовой перестройке shell или contract slice.
 
 ## Current State
 
@@ -27,7 +28,9 @@
 - current package / namespace: `dev.vitalcc.stukay`;
 - root shell уже включает `Projects`, `Project`, `Thread`, `Settings`, `Diagnostics`;
 - runtime logging и diagnostics snapshot уже работают;
-- typed fake domain и approval shell уже реализованы.
+- typed fake domain и approval shell уже реализованы;
+- `Settings` содержит pairing payload controls, local-network rationale и connect/reconnect/disconnect flow поверх stubbed Host Bridge repository;
+- `Projects` и `Diagnostics` показывают host status / connection summary.
 
 ## Target Direction
 
@@ -57,9 +60,11 @@
 
 ## Validation Snapshot
 
-Проверено 2026-05-02:
+Проверено 2026-05-03:
 
 - lifecycle validator проходит без contract failures;
 - `android describe --project_dir .` распознает проект и его APK outputs;
-- `.\gradlew.bat :core:model:testDebugUnitTest :feature:projects:testDebugUnitTest :feature:thread:testDebugUnitTest :core:logging:testDebugUnitTest :app:assembleDebug :app:testDebugUnitTest` проходит успешно;
+- `.\gradlew.bat :app:lintDebug --console=plain` проходит после manifest-scoped suppression preview lint false positive;
+- `.\gradlew.bat :app:testDebugUnitTest --console=plain` проходит успешно;
+- `.\gradlew.bat :app:assembleDebug --console=plain` проходит успешно;
 - `codex mcp get jetbrains` показывает рабочий stdio-config для Android Studio MCP.

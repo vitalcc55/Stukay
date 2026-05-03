@@ -39,3 +39,4 @@
 - Для `SDK 36 Preview + AGP 9.2.0` зафиксирован manifest-scoped `tools:ignore="Instantiatable"` на `MainActivity`, потому что lint дает ложное срабатывание на цепочке наследования `ComponentActivity -> Activity`, тогда как build/test surface остаются корректными.
 - `gradle.properties` обновлен до `org.gradle.jvmargs=-Xmx4g`, чтобы уменьшить нестабильность Gradle/Kotlin daemon во время local verification.
 - Финальный verification gate по runtime slice теперь включает `:app:lintDebug`, `:app:testDebugUnitTest` и `:app:assembleDebug`.
+- Перед merge выровнены README, AGENTS, generated commands/test-matrix/stack-inventory и Notion sync note под фактический post-runtime-contract state.

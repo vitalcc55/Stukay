@@ -22,7 +22,7 @@
 - JetBrains MCP Server для Android Studio считается частью штатного рабочего контура Codex. При наличии MCP tools сначала используй IDE-aware surfaces: project modules, run configurations, inspections, symbol/file navigation, rename refactoring, formatter.
 - `android` CLI считается обязательным Android-specific control plane. Используй его для Android docs search, project describe, SDK/emulator/device flows и Android runtime diagnostics.
 - Источник истины для сборки и проверки — Gradle Wrapper (`gradlew.bat` / `gradlew`), а не IDE-only действия.
-- Multi-module foundation shell, runtime logging и DDD-lite fake domain уже внедрены; следующий шаг — runtime slice для Host Bridge/pairing/local network flow, а не возврат к template cleanup.
+- Multi-module foundation shell, runtime logging, DDD-lite fake domain и Android-side Host Bridge contract slice уже внедрены; следующий шаг — Host Bridge MVP с real host-backed transport, а не возврат к shell/runtime-contract cleanup.
 
 <!-- repo-harness-lifecycle:start -->
 ## Lifecycle Artifacts

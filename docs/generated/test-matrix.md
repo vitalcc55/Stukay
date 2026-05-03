@@ -1,6 +1,6 @@
 # Test Matrix
 
-Обновлено: `2026-05-02`
+Обновлено: `2026-05-03`
 
 ## Current Matrix
 
@@ -12,7 +12,7 @@
 | Domain rules | state helpers + fake repositories + use cases | `.\gradlew.bat :core:model:testDebugUnitTest :feature:projects:testDebugUnitTest :feature:thread:testDebugUnitTest --console=plain` | verified |
 | Logging core | structured logger, store, diagnostics summary | `.\gradlew.bat :core:logging:testDebugUnitTest --console=plain` | verified |
 | Android instrumented tests | template `androidTest` exists | `.\gradlew.bat :app:connectedDebugAndroidTest --console=plain` | not_yet_verified |
-| Lint | debug lint | `.\gradlew.bat :app:lintDebug --console=plain` | not_yet_verified |
+| Lint | debug lint | `.\gradlew.bat :app:lintDebug --console=plain` | verified |
 
 ## Target Matrix
 

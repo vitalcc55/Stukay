@@ -1,6 +1,6 @@
 # Commands Inventory
 
-Обновлено: `2026-05-02`
+Обновлено: `2026-05-03`
 
 Этот документ фиксирует только реальные и желательные для Codex entry points. Если команда здесь указана, она должна быть воспроизводимой в текущем repo state или явно помеченной как `planned`.
 
@@ -20,7 +20,7 @@
 | `.\gradlew.bat :app:assembleDebug :app:testDebugUnitTest --console=plain` | Быстрый local confidence loop | verified |
 | `.\gradlew.bat :core:logging:testDebugUnitTest --console=plain` | TDD verification для logging core | verified |
 | `.\gradlew.bat :core:model:testDebugUnitTest :feature:projects:testDebugUnitTest :feature:thread:testDebugUnitTest --console=plain` | Проверка fake domain и stage 3 use cases | verified |
-| `.\gradlew.bat :app:lintDebug --console=plain` | Android Lint для debug variant | not_yet_verified |
+| `.\gradlew.bat :app:lintDebug --console=plain` | Android Lint для debug variant | verified |
 
 ## Android CLI
 
