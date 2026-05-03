@@ -102,7 +102,7 @@ fun ProjectsRoute(
                             label = hostBridgeLabel(hostBridgeState),
                             tone = when (hostBridgeState.phase) {
                                 HostBridgeConnectionPhase.Connected -> ExpressiveStatusTone.Positive
-                                HostBridgeConnectionPhase.PermissionRequired -> ExpressiveStatusTone.Warning
+                                HostBridgeConnectionPhase.Degraded -> ExpressiveStatusTone.Warning
                                 HostBridgeConnectionPhase.Failed -> ExpressiveStatusTone.Critical
                                 else -> ExpressiveStatusTone.Neutral
                             },
@@ -155,21 +155,31 @@ fun ProjectsRoute(
 
 private fun hostBridgeLabel(state: HostBridgeConnectionState): String = when (state.phase) {
     HostBridgeConnectionPhase.NotPaired -> "Не настроен"
-    HostBridgeConnectionPhase.Paired -> "Сохранен"
+    HostBridgeConnectionPhase.Paired ->
+        if (state.localNetworkAccessState == dev.vitalcc.stukay.core.model.LocalNetworkAccessState.PermissionRequired) {
+            "Нужно разрешение"
+        } else {
+            "Сохранен"
+        }
     HostBridgeConnectionPhase.Connecting -> "Подключение"
     HostBridgeConnectionPhase.Connected -> "Подключен"
+    HostBridgeConnectionPhase.Degraded -> "Degraded"
     HostBridgeConnectionPhase.Disconnected -> "Отключен"
-    HostBridgeConnectionPhase.PermissionRequired -> "Manual permission path"
     HostBridgeConnectionPhase.Failed -> "Ошибка"
 }
 
 private fun hostBridgeTitle(state: HostBridgeConnectionState): String = when (state.phase) {
     HostBridgeConnectionPhase.NotPaired -> "Pairing payload еще не добавлен."
-    HostBridgeConnectionPhase.Paired -> "Host сохранен и готов к подключению."
+    HostBridgeConnectionPhase.Paired ->
+        if (state.localNetworkAccessState == dev.vitalcc.stukay.core.model.LocalNetworkAccessState.PermissionRequired) {
+            "Host сохранен, но nearby devices access еще не выдан."
+        } else {
+            "Host сохранен и готов к подключению."
+        }
     HostBridgeConnectionPhase.Connecting -> "Подготовка к подключению к локальному host."
     HostBridgeConnectionPhase.Connected -> "Локальный host bridge помечен как доступный."
+    HostBridgeConnectionPhase.Degraded -> state.lastError ?: "Локальный host bridge отвечает нестабильно."
     HostBridgeConnectionPhase.Disconnected -> "Pairing сохранен, подключение можно восстановить."
-    HostBridgeConnectionPhase.PermissionRequired -> "Nearby devices относится к manual Android 16 opt-in path и не блокирует сам pairing contract slice."
     HostBridgeConnectionPhase.Failed -> state.lastError ?: "Host bridge вернул ошибочное состояние."
 }
 

@@ -89,13 +89,12 @@ class StubHostBridgeRepository(
             )
 
             LocalNetworkAccessState.PermissionRequired -> HostBridgeConnectionState(
-                phase = HostBridgeConnectionPhase.Connected,
+                phase = HostBridgeConnectionPhase.Paired,
                 pairedHost = payload.toPairedHost(),
                 localNetworkAccessState = localNetworkState,
                 nearbyWifiDevicesGranted = localNetworkPermissionGranted,
-                lastError = null,
+                lastError = "Для local network path сначала выдайте Nearby devices.",
                 lastTransitionAtEpochMs = now(),
-                lastConnectedAtEpochMs = now(),
             )
 
             LocalNetworkAccessState.Ready -> HostBridgeConnectionState(
@@ -138,11 +137,7 @@ class StubHostBridgeRepository(
             )
 
             LocalNetworkAccessState.PermissionRequired -> HostBridgeConnectionState(
-                phase = if (state.phase == HostBridgeConnectionPhase.Connected) {
-                    HostBridgeConnectionPhase.Connected
-                } else {
-                    HostBridgeConnectionPhase.Paired
-                },
+                phase = HostBridgeConnectionPhase.Paired,
                 pairedHost = payload.toPairedHost(),
                 localNetworkAccessState = localNetworkState,
                 nearbyWifiDevicesGranted = localNetworkPermissionGranted,
@@ -214,6 +209,9 @@ class StubHostBridgeRepository(
         if (host == null || !isSupportedLocalSliceHost(host)) {
             return LocalNetworkAccessState.UnsupportedForSlice
         }
+        if (!localNetworkPermissionGranted) {
+            return LocalNetworkAccessState.PermissionRequired
+        }
         return LocalNetworkAccessState.Ready
     }
 
@@ -245,6 +243,7 @@ private fun isSupportedLocalSliceHost(host: String): Boolean {
     val first = octets[0]
     val second = octets[1]
     return first == 10 ||
+        (first == 100 && second in 64..127) ||
         (first == 172 && second in 16..31) ||
         (first == 192 && second == 168)
 }

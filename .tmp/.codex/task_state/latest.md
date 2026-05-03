@@ -1,7 +1,7 @@
 # Task State
 
 - goal: Реализовать `Host Bridge MVP`: первый реальный Android -> Host Bridge -> local Codex runtime path без ухода в полный real thread runtime.
-- stage: host_bridge_mvp_planned
+- stage: host_bridge_mvp_stage1_complete
 - done:
   - предыдущий runtime-contract slice завершен и локально верифицирован
   - собраны repo/code/official/reference findings для `Host Bridge MVP`
@@ -19,18 +19,38 @@
     - raw token не должен попадать в logs/diagnostics
   - текущий stubbed `Connected/Ready` host bridge state явно не считается truth surface для реального LAN runtime path
   - зафиксированы `@codex-security` и `@test-android-apps` как обязательные gates следующего milestone
+  - Stage 1 выполнен:
+    - Kotlin Host Bridge transport contract ограничен `http_json`
+    - `ws` / `wss` переведены в explicit fast-fail unsupported path
+    - в модель добавлены `Degraded` и `HostRuntimeSummary`
+    - allowlist расширен до `100.64/10`
+    - `169.254/16` остается reject path
+    - stubbed permission semantics больше не выдают false-ready для private LAN без permission
+    - explicit Android cleartext opt-in выражен через `network_security_config`
 - next:
-  - дождаться отдельной команды на реализацию
-  - начать `M1` из `docs/exec-plans/active/host-bridge-mvp-plan.md`
-  - после каждого milestone обновлять checklist и `Stage Report` в plan file
+  - перейти к `M2` из `docs/exec-plans/active/host-bridge-mvp-plan.md`
+  - добавить Android-side real client к Host Bridge
+  - после завершения stage снова обновить checklist и `Stage Report`
 - edited_files:
-  - docs/exec-plans/active/ExecPlan.md
+  - core/model/src/main/java/dev/vitalcc/stukay/core/model/HostBridgeModels.kt
+  - core/model/src/test/java/dev/vitalcc/stukay/core/model/HostBridgeModelsTest.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgePairingParser.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeRepository.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayAppState.kt
+  - app/src/main/AndroidManifest.xml
+  - app/src/main/res/xml/network_security_config.xml
+  - feature/settings/src/main/java/dev/vitalcc/stukay/feature/settings/ui/SettingsRoute.kt
+  - feature/projects/src/main/java/dev/vitalcc/stukay/feature/projects/ui/ProjectsRoute.kt
+  - app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgePairingParserTest.kt
+  - app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/StubHostBridgeRepositoryTest.kt
   - docs/exec-plans/active/host-bridge-mvp-plan.md
   - Documentation.md
   - docs/CHANGELOG.md
   - .tmp/.codex/task_state/latest.md
   - .tmp/.codex/task_state/latest.json
-- verify_status: новый plan file сохранен; реализация `Host Bridge MVP` еще не начиналась
+- verify_status:
+  - `mcp__jetbrains__.build_project(filesToRebuild=...)` passes
+  - `.\gradlew.bat :core:model:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug --console=plain` passes
 - open_questions:
   - host-side helper exact package/layout inside `tools/hostbridge/`
   - Android HTTP client choice

@@ -8,16 +8,16 @@ import org.junit.Test
 
 class HostBridgePairingParserTest {
     @Test
-    fun parsesValidWebSocketPayload() {
+    fun parsesValidHttpJsonPayload() {
         val payload = parsePairingPayload(
-            validPayload(endpoint = "ws://192.168.0.24:4500"),
+            validPayload(endpoint = "http://192.168.0.24:4500"),
         )
 
         assertEquals(1, payload.version)
         assertEquals("host-main", payload.hostId.value)
         assertEquals("Office Windows", payload.hostLabel)
-        assertEquals("ws://192.168.0.24:4500", payload.endpoint)
-        assertEquals(HostBridgeTransport.WebSocketJsonRpc, payload.transport)
+        assertEquals("http://192.168.0.24:4500", payload.endpoint)
+        assertEquals(HostBridgeTransport.HttpJson, payload.transport)
     }
 
     @Test
@@ -35,26 +35,40 @@ class HostBridgePairingParserTest {
             parsePairingPayload(validPayload(endpoint = "ftp://192.168.0.24:4500"))
         }
 
-        assertTrue(error.message.orEmpty().contains("http/https/ws/wss"))
+        assertTrue(error.message.orEmpty().contains("http/https"))
     }
 
     @Test
-    fun rejectsTransportEndpointMismatch() {
+    fun rejectsWebSocketTransportForMvp() {
         val error = assertThrows(IllegalArgumentException::class.java) {
             parsePairingPayload(
                 validPayload(
-                    endpoint = "http://192.168.0.24:4500",
+                    endpoint = "ws://192.168.0.24:4500",
                     transport = "ws",
                 ),
             )
         }
 
-        assertTrue(error.message.orEmpty().contains("scheme"))
+        assertTrue(error.message.orEmpty().contains("http_json"))
+    }
+
+    @Test
+    fun rejectsWebSocketEndpointSchemeForMvp() {
+        val error = assertThrows(IllegalArgumentException::class.java) {
+            parsePairingPayload(
+                validPayload(
+                    endpoint = "wss://192.168.0.24:4500",
+                    transport = "http_json",
+                ),
+            )
+        }
+
+        assertTrue(error.message.orEmpty().contains("http_json"))
     }
 
     private fun validPayload(
         endpoint: String,
-        transport: String = "ws",
+        transport: String = "http_json",
     ): String = """
         {
           "version": 1,

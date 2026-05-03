@@ -1,9 +1,9 @@
 # Documentation.md
 
 ## Current Milestone Status
-- current: Первый runtime slice для `Host Bridge contract + pairing + local network flow` реализован, review-нут и доведен до чистого local verification gate.
-- done: typed `Host Bridge` models, runtime adapters поверх fake repositories, runtime graph для app state, pairing payload save/connect/reconnect/disconnect flow с guard-ами без crash-path, Android 16 local-network manual/opt-in permission rationale, host summary в `Projects`, отдельный host/connection diagnostics tail, JVM tests для parser/repository transitions, перенос `:app` на `src/*/kotlin`, manifest-scoped suppression ложного `Instantiatable` lint blocker на `SDK 36 Preview`.
-- next: План для `Host Bridge MVP` сохранен в `docs/exec-plans/active/host-bridge-mvp-plan.md`; core decisions уже закрыты до начала кодинга: `transport=http_json`, Android cleartext opt-in + runtime endpoint validation как реальная private/local boundary, helper auth contract = `Authorization: Bearer <sessionToken>`, first runtime payload = `host health/status + app/list count`, а текущий stubbed `Connected/Ready` state не считается truth surface для MVP.
+- current: `Host Bridge MVP` начат; Stage 1 завершен локально и подготовлен к отдельному commit как domain-contract stage.
+- done: предыдущий runtime-contract slice закрыт; в Stage 1 зафиксированы `http_json`-only transport semantics, explicit unsupported `ws/wss` path, `Degraded` + `HostRuntimeSummary`, `100.64/10` в allowlist, reject для `169.254/16`, explicit Android cleartext opt-in через `network_security_config`, и правдивая permission-gated stub semantics без false-ready для private LAN.
+- next: Перейти к host-side helper и реальному transport path для `Host Bridge MVP`, не смешивая это с full real thread runtime.
 
 ## Decisions
 - decision: Сначала поднимаем harness, docs и observability, а не меняем продуктовый код.
@@ -36,8 +36,8 @@
 - expected result: lifecycle validator проходит; допустимы только известные `warn`, без `fail`.
 
 ## Latest Review Outcome
-- findings: локальный verification loop для runtime slice чист; `app:lintDebug`, `app:testDebugUnitTest` и `app:assembleDebug` проходят после точечного manifest suppression для preview lint bug.
-- residual risks: transport остается stubbed, camera QR pairing не реализован, public/tunnel endpoint path вынесен в следующий milestone, diagnostics все еще без persistence/export, parser остается intentionally lightweight boundary, а suppression `Instantiatable` нужно будет пересмотреть после стабилизации AGP/SDK 36.
+- findings: Stage 1 review loop по Host Bridge MVP подтвердил и закрыл drift вокруг transport contract, local-network permission truthfulness и lifecycle/docs sync для active milestone status.
+- residual risks: transport все еще stubbed, host-side helper и bearer-auth gate еще не реализованы, public/tunnel endpoint path остается out of scope, diagnostics все еще без persistence/export, а suppression `Instantiatable` нужно будет пересмотреть после стабилизации AGP/SDK 36.
 
 ## Known Issues And Follow-ups
 - item: В текущем runtime JetBrains MCP tools могут быть недоступны как native namespace до перезапуска Codex App, хотя server-side конфиг уже работает.

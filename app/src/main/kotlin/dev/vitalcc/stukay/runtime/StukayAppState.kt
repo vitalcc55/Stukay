@@ -344,6 +344,7 @@ class StukayAppState(
     private fun failedHostBridgeState(message: String): HostBridgeConnectionState = HostBridgeConnectionState(
         phase = HostBridgeConnectionPhase.Failed,
         pairedHost = hostBridgeState.pairedHost,
+        runtimeSummary = hostBridgeState.runtimeSummary,
         localNetworkAccessState = hostBridgeState.localNetworkAccessState,
         nearbyWifiDevicesGranted = hostBridgeState.nearbyWifiDevicesGranted,
         lastError = message,
@@ -371,11 +372,11 @@ class StukayAppState(
                 ),
             )
 
-            HostBridgeConnectionPhase.PermissionRequired -> logger.warn(
+            HostBridgeConnectionPhase.Degraded -> logger.warn(
                 logEvent(
                     area = LogArea.Connection,
-                    eventName = "host_bridge_permission_required",
-                    messageHuman = "Для local network path требуется Nearby devices permission.",
+                    eventName = "host_bridge_degraded",
+                    messageHuman = hostBridgeState.lastError ?: "Host bridge перешел в degraded state.",
                     fields = hostBridgeFields(),
                 ),
             )
@@ -388,6 +389,27 @@ class StukayAppState(
                     fields = hostBridgeFields(),
                 ),
             )
+
+            HostBridgeConnectionPhase.Paired ->
+                if (hostBridgeState.localNetworkAccessState == dev.vitalcc.stukay.core.model.LocalNetworkAccessState.PermissionRequired) {
+                    logger.warn(
+                        logEvent(
+                            area = LogArea.Connection,
+                            eventName = "host_bridge_permission_required",
+                            messageHuman = "Для local network path требуется Nearby devices permission.",
+                            fields = hostBridgeFields(),
+                        ),
+                    )
+                } else {
+                    logger.info(
+                        logEvent(
+                            area = LogArea.Connection,
+                            eventName = "host_bridge_state_updated",
+                            messageHuman = "Состояние host bridge обновлено.",
+                            fields = hostBridgeFields(),
+                        ),
+                    )
+                }
 
             else -> logger.info(
                 logEvent(

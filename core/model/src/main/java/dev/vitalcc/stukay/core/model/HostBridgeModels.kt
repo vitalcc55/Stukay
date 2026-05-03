@@ -7,7 +7,6 @@ value class HostId(val value: String)
 
 enum class HostBridgeTransport {
     HttpJson,
-    WebSocketJsonRpc,
 }
 
 enum class LocalNetworkAccessState {
@@ -22,9 +21,17 @@ enum class HostBridgeConnectionPhase {
     Paired,
     Connecting,
     Connected,
+    Degraded,
     Disconnected,
-    PermissionRequired,
     Failed,
+}
+
+enum class HostRuntimeStatus {
+    Unknown,
+    Ready,
+    Degraded,
+    Unauthorized,
+    Unreachable,
 }
 
 data class PairedHost(
@@ -58,9 +65,21 @@ data class PairingPayload(
         "sessionToken=<redacted>)"
 }
 
+data class HostRuntimeSummary(
+    val hostStatus: HostRuntimeStatus = HostRuntimeStatus.Unknown,
+    val runtimeReady: Boolean = false,
+    val appListCount: Int? = null,
+    val lastRoundTripMs: Long? = null,
+    val lastProbeAtEpochMs: Long? = null,
+    val retryAttempt: Int = 0,
+    val degradedReason: String? = null,
+    val lastTransportError: String? = null,
+)
+
 data class HostBridgeConnectionState(
     val phase: HostBridgeConnectionPhase,
     val pairedHost: PairedHost? = null,
+    val runtimeSummary: HostRuntimeSummary = HostRuntimeSummary(),
     val localNetworkAccessState: LocalNetworkAccessState = LocalNetworkAccessState.NotConfigured,
     val nearbyWifiDevicesGranted: Boolean = false,
     val lastError: String? = null,

@@ -18,7 +18,7 @@ fun parsePairingPayload(rawInput: String): PairingPayload {
     val hostId = (fields["hostId"] ?: fields["sessionId"]).orEmpty().trim()
     val hostLabel = (fields["hostLabel"] ?: fields["relay"] ?: "Windows Host Bridge").trim()
     val endpoint = (fields["endpoint"] ?: fields["relay"]).orEmpty().trim()
-    val transport = parseTransport(fields["transport"] ?: fields["mode"] ?: "ws")
+    val transport = parseTransport(fields["transport"] ?: fields["mode"] ?: "http_json")
     val sessionToken = (fields["sessionToken"] ?: fields["token"]).orEmpty().trim()
 
     require(hostId.isNotEmpty()) { "Pairing payload не содержит hostId." }
@@ -43,7 +43,9 @@ fun endpointHostOrNull(endpoint: String): String? = runCatching {
 
 private fun parseTransport(rawValue: String): HostBridgeTransport = when (rawValue.trim().lowercase()) {
     "http", "http_json" -> HostBridgeTransport.HttpJson
-    "ws", "wss", "websocket", "ws_jsonrpc", "jsonrpc_ws" -> HostBridgeTransport.WebSocketJsonRpc
+    "ws", "wss", "websocket", "ws_jsonrpc", "jsonrpc_ws" -> throw IllegalArgumentException(
+        "Transport ws/wss не поддерживается в Host Bridge MVP. Используйте http_json endpoint.",
+    )
     else -> throw IllegalArgumentException("Pairing payload содержит неподдерживаемый transport: $rawValue")
 }
 
@@ -58,18 +60,17 @@ private fun validateEndpoint(
     }
 
     val scheme = uri.scheme?.lowercase().orEmpty()
-    require(scheme in setOf("http", "https", "ws", "wss")) {
-        "Endpoint должен использовать http/https/ws/wss."
+    if (scheme in setOf("ws", "wss")) {
+        throw IllegalArgumentException("Transport ws/wss не поддерживается в Host Bridge MVP. Используйте http_json endpoint.")
+    }
+    require(scheme in setOf("http", "https")) {
+        "Endpoint должен использовать http/https."
     }
     require(!uri.host.isNullOrBlank()) { "Endpoint должен содержать host." }
     require(uri.userInfo.isNullOrBlank()) { "Endpoint не должен содержать embedded credentials." }
     require(uri.query.isNullOrBlank()) { "Endpoint не должен содержать query secrets." }
     require(uri.fragment.isNullOrBlank()) { "Endpoint не должен содержать fragment." }
-    val endpointTransport = when (scheme) {
-        "http", "https" -> HostBridgeTransport.HttpJson
-        "ws", "wss" -> HostBridgeTransport.WebSocketJsonRpc
-        else -> error("unreachable")
-    }
+    val endpointTransport = HostBridgeTransport.HttpJson
     require(transport == endpointTransport) {
         "Endpoint transport scheme должен совпадать с transport."
     }

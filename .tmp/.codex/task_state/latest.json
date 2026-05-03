@@ -1,6 +1,6 @@
 {
   "goal": "Реализовать Host Bridge MVP: первый реальный Android -> Host Bridge -> local Codex runtime path без ухода в полный real thread runtime.",
-  "stage": "host_bridge_mvp_planned",
+  "stage": "host_bridge_mvp_stage1_complete",
   "done": [
     "previous runtime-contract slice completed and verified",
     "repo, code, official-doc and reference findings collected for Host Bridge MVP",
@@ -10,26 +10,37 @@
     "cleartext contract clarified: exact private-local boundary must be enforced by runtime validation, not assumed to be fully expressible in Android XML policy",
     "auth contract clarified: Android uses Authorization Bearer sessionToken and helper must reject unauthorized requests before local app-server access while redacting the token from logs and diagnostics",
     "current stubbed Connected-Ready host bridge state explicitly marked as non-truth-surface for the real LAN runtime path",
-    "codex-security and test-android-apps gates captured for the next milestone"
+    "codex-security and test-android-apps gates captured for the next milestone",
+    "stage 1 completed: transport contract locked to http_json, ws and wss moved to explicit unsupported path, degraded runtime summary contract added, 100.64/10 accepted, 169.254/16 rejected, stubbed LAN permission semantics no longer claim false readiness, and explicit Android cleartext opt-in is expressed via network_security_config"
   ],
   "next": [
-    "wait for explicit implementation command",
-    "start M1 from docs/exec-plans/active/host-bridge-mvp-plan.md",
-    "update milestone checklist and stage report in the plan file after each completed stage"
+    "start M2 from docs/exec-plans/active/host-bridge-mvp-plan.md",
+    "add the Android-side real host bridge client",
+    "update milestone checklist and stage report after the next completed stage"
   ],
   "edited_files": [
-    "docs/exec-plans/active/ExecPlan.md",
+    "core/model/src/main/java/dev/vitalcc/stukay/core/model/HostBridgeModels.kt",
+    "core/model/src/test/java/dev/vitalcc/stukay/core/model/HostBridgeModelsTest.kt",
+    "app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgePairingParser.kt",
+    "app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeRepository.kt",
+    "app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayAppState.kt",
+    "app/src/main/AndroidManifest.xml",
+    "app/src/main/res/xml/network_security_config.xml",
+    "feature/settings/src/main/java/dev/vitalcc/stukay/feature/settings/ui/SettingsRoute.kt",
+    "feature/projects/src/main/java/dev/vitalcc/stukay/feature/projects/ui/ProjectsRoute.kt",
+    "app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgePairingParserTest.kt",
+    "app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/StubHostBridgeRepositoryTest.kt",
     "docs/exec-plans/active/host-bridge-mvp-plan.md",
     "Documentation.md",
     "docs/CHANGELOG.md",
     ".tmp/.codex/task_state/latest.md",
     ".tmp/.codex/task_state/latest.json"
   ],
-  "verify_status": "Host Bridge MVP plan file saved; implementation has not started yet",
+  "verify_status": "JetBrains file rebuild passes; core:model and app unit tests plus app:assembleDebug pass for the stage-1 Host Bridge contract changes; Android cleartext opt-in is declared through network_security_config",
   "open_questions": [
     "host-side helper exact package and layout inside tools/hostbridge",
     "Android HTTP client choice",
     "diagnostics-only secondary probe if implementation needs it"
   ],
-  "updated_at_utc": "2026-05-03T17:08:00Z"
+  "updated_at_utc": "2026-05-03T17:18:00Z"
 }

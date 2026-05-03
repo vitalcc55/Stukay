@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!--
+      Host Bridge MVP intentionally opts in to cleartext at the Android policy layer.
+      The real private/local boundary is enforced by runtime endpoint validation, not by
+      CIDR-aware XML allowlisting, because Network Security Config cannot express the
+      required RFC1918/CGNAT ranges precisely for literal IP endpoints.
+    -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

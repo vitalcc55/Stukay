@@ -22,12 +22,12 @@ class StubHostBridgeRepositoryTest {
         )
 
         assertEquals(HostBridgeConnectionPhase.Paired, state.phase)
-        assertEquals(LocalNetworkAccessState.Ready, state.localNetworkAccessState)
+        assertEquals(LocalNetworkAccessState.PermissionRequired, state.localNetworkAccessState)
         assertEquals("Office Windows", state.pairedHost?.hostLabel)
     }
 
     @Test
-    fun connectAllowsPrivateLanWithoutNearbyDevices() {
+    fun connectKeepsPairedStateWhenPermissionIsMissing() {
         val repository = StubHostBridgeRepository(
             pairingStore = InMemoryHostBridgePairingStore(),
             initialNearbyWifiDevicesGranted = false,
@@ -40,9 +40,9 @@ class StubHostBridgeRepositoryTest {
 
         val state = repository.connect(localNetworkPermissionGranted = false)
 
-        assertEquals(HostBridgeConnectionPhase.Connected, state.phase)
-        assertEquals(LocalNetworkAccessState.Ready, state.localNetworkAccessState)
-        assertNull(state.lastError)
+        assertEquals(HostBridgeConnectionPhase.Paired, state.phase)
+        assertEquals(LocalNetworkAccessState.PermissionRequired, state.localNetworkAccessState)
+        assertEquals(null, state.lastConnectedAtEpochMs)
     }
 
     @Test
@@ -65,6 +65,25 @@ class StubHostBridgeRepositoryTest {
     }
 
     @Test
+    fun connectAcceptsCarrierGradeNatWhenPermissionIsGranted() {
+        val repository = StubHostBridgeRepository(
+            pairingStore = InMemoryHostBridgePairingStore(),
+            initialNearbyWifiDevicesGranted = true,
+            timeProvider = { 35L },
+        )
+        repository.savePairingPayload(
+            rawPayload = carrierGradeNatPayload(),
+            localNetworkPermissionGranted = true,
+        )
+
+        val state = repository.connect(localNetworkPermissionGranted = true)
+
+        assertEquals(HostBridgeConnectionPhase.Connected, state.phase)
+        assertEquals(LocalNetworkAccessState.Ready, state.localNetworkAccessState)
+        assertEquals(35L, state.lastConnectedAtEpochMs)
+    }
+
+    @Test
     fun publicEndpointIsRejectedForCurrentSlice() {
         val repository = StubHostBridgeRepository(
             pairingStore = InMemoryHostBridgePairingStore(),
@@ -81,6 +100,24 @@ class StubHostBridgeRepositoryTest {
         assertEquals(HostBridgeConnectionPhase.Failed, state.phase)
         assertEquals(LocalNetworkAccessState.UnsupportedForSlice, state.localNetworkAccessState)
         assertTrue(state.lastError.orEmpty().contains("private LAN"))
+    }
+
+    @Test
+    fun linkLocalEndpointIsRejectedForCurrentSlice() {
+        val repository = StubHostBridgeRepository(
+            pairingStore = InMemoryHostBridgePairingStore(),
+            initialNearbyWifiDevicesGranted = true,
+            timeProvider = { 45L },
+        )
+        repository.savePairingPayload(
+            rawPayload = linkLocalPayload(),
+            localNetworkPermissionGranted = true,
+        )
+
+        val state = repository.connect(localNetworkPermissionGranted = true)
+
+        assertEquals(HostBridgeConnectionPhase.Failed, state.phase)
+        assertEquals(LocalNetworkAccessState.UnsupportedForSlice, state.localNetworkAccessState)
     }
 
     @Test
@@ -122,8 +159,30 @@ class StubHostBridgeRepositoryTest {
           "version": 1,
           "hostId": "host-main",
           "hostLabel": "Office Windows",
-          "endpoint": "ws://192.168.0.24:4500",
-          "transport": "ws",
+          "endpoint": "http://192.168.0.24:4500",
+          "transport": "http_json",
+          "sessionToken": "secret-token"
+        }
+    """.trimIndent()
+
+    private fun carrierGradeNatPayload(): String = """
+        {
+          "version": 1,
+          "hostId": "host-cgnat",
+          "hostLabel": "Carrier Grade NAT",
+          "endpoint": "http://100.64.12.34:8421",
+          "transport": "http_json",
+          "sessionToken": "secret-token"
+        }
+    """.trimIndent()
+
+    private fun linkLocalPayload(): String = """
+        {
+          "version": 1,
+          "hostId": "host-link-local",
+          "hostLabel": "Link Local",
+          "endpoint": "http://169.254.1.12:8421",
+          "transport": "http_json",
           "sessionToken": "secret-token"
         }
     """.trimIndent()
@@ -133,8 +192,8 @@ class StubHostBridgeRepositoryTest {
           "version": 1,
           "hostId": "host-public",
           "hostLabel": "Cloud Tunnel",
-          "endpoint": "wss://codex.example.com",
-          "transport": "ws",
+          "endpoint": "https://codex.example.com",
+          "transport": "http_json",
           "sessionToken": "secret-token"
         }
     """.trimIndent()

@@ -7,8 +7,8 @@
 ## Progress Tracker
 
 - overall_status: `planned`
-- current_milestone: `M1`
-- implementation_started: `no`
+- current_milestone: `M2`
+- implementation_started: `yes`
 - active_plan_owner: следующий агент, который начнет реализацию по явной команде пользователя
 
 ### Update Rules
@@ -91,7 +91,11 @@ Milestone `Host Bridge MVP` считается закрытым, когда:
   - `resolveApproval`
 - `StukayAppState` остается главным owner-ом app-level state и runtime wiring seam.
 - Current pairing parser принимает `http_json` и `ws` family, но MVP не должен оставлять `ws` рабочим success path.
-- Current host policy helper в коде все еще знает только RFC1918 + `.local`; поддержка `100.64/10` должна быть введена как часть Stage 1, а не предполагаться уже существующей.
+- Current host policy helper в коде уже знает:
+  - RFC1918
+  - `.local`
+  - `100.64/10`
+  - `169.254/16` по-прежнему reject path
 - Current stubbed host bridge state machine не считается truth surface для реального local-network transport path:
   - она еще не доказывает реальную permission-gated готовность LAN path;
   - `Connected/Ready` в текущем stubbed state не должно трактоваться как доказанный runtime-ready сигнал для MVP.
@@ -386,29 +390,54 @@ Rule:
   - `AndroidManifest.xml`
   - `app/build.gradle.kts`
 
-- [ ] Зафиксировать `http_json` как единственный рабочий success path в code/docs.
-- [ ] Перевести `ws` / `wss` в explicit fast-fail unsupported case.
-- [ ] Зафиксировать bounded cleartext opt-in в code/docs:
+- [x] Зафиксировать `http_json` как единственный рабочий success path в code/docs.
+- [x] Перевести `ws` / `wss` в explicit fast-fail unsupported case.
+- [x] Зафиксировать bounded cleartext opt-in в code/docs:
   - Android cleartext opt-in explicit
   - runtime endpoint validation is the real allowlist boundary
-- [ ] Добавить `Degraded` и retry/probe metadata в model contract.
-- [ ] Описать exact pairing payload fields и address policy:
+- [x] Добавить `Degraded` и retry/probe metadata в model contract.
+- [x] Описать exact pairing payload fields и address policy:
   - RFC1918
   - `.local`
   - `100.64/10`
-- [ ] Зафиксировать reject policy для:
+- [x] Зафиксировать reject policy для:
   - public endpoint
   - tunnel endpoint
   - automatic `169.254/16`
 
 #### Stage Report
 
-- summary:
+- summary: Stage 1 завершен. Kotlin Host Bridge contract очищен от `ws` success path, добавлен `Degraded` phase и `HostRuntimeSummary`, parser переведен на `http_json`, allowlist расширен до `100.64/10`, а `169.254/16` остался reject path.
 - evidence:
+  - `:core:model:testDebugUnitTest`
+  - `:app:testDebugUnitTest`
+  - `:app:assembleDebug`
+  - JetBrains file rebuild for touched files
 - commands_run:
+  - `mcp__jetbrains__.build_project(filesToRebuild=...)`
+  - `.\gradlew.bat :core:model:testDebugUnitTest :app:testDebugUnitTest --console=plain`
+  - `.\gradlew.bat :core:model:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug --console=plain`
 - files_changed:
+  - `core/model/src/main/java/dev/vitalcc/stukay/core/model/HostBridgeModels.kt`
+  - `core/model/src/test/java/dev/vitalcc/stukay/core/model/HostBridgeModelsTest.kt`
+  - `app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgePairingParser.kt`
+  - `app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeRepository.kt`
+  - `app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayAppState.kt`
+  - `app/src/main/AndroidManifest.xml`
+  - `app/src/main/res/xml/network_security_config.xml`
+  - `feature/settings/src/main/java/dev/vitalcc/stukay/feature/settings/ui/SettingsRoute.kt`
+  - `feature/projects/src/main/java/dev/vitalcc/stukay/feature/projects/ui/ProjectsRoute.kt`
+  - `app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgePairingParserTest.kt`
+  - `app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/StubHostBridgeRepositoryTest.kt`
+  - `Documentation.md`
+  - `docs/exec-plans/active/host-bridge-mvp-plan.md`
+  - `.tmp/.codex/task_state/latest.md`
+  - `.tmp/.codex/task_state/latest.json`
+  - `docs/CHANGELOG.md`
 - residual_risks:
-- next_milestone:
+  - helper auth and real runtime summary still not implemented
+  - current repository remains stubbed and cannot yet prove real transport truth
+- next_milestone: `M2`
 
 ### M2. Build Android-side real client and repository
 

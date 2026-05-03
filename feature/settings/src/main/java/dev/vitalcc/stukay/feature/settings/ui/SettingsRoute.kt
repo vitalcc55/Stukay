@@ -207,11 +207,16 @@ fun SettingsRoute(
 
 private fun pairingSubtitle(state: HostBridgeConnectionState): String = when (state.phase) {
     HostBridgeConnectionPhase.NotPaired -> "Сначала сохраните pairing payload для одного Windows host."
-    HostBridgeConnectionPhase.Paired -> "Host сохранен, можно запускать локальный connect flow."
+    HostBridgeConnectionPhase.Paired ->
+        if (state.localNetworkAccessState == LocalNetworkAccessState.PermissionRequired) {
+            "Host сохранен, но для local-network path сначала нужен Nearby devices access."
+        } else {
+            "Host сохранен, можно запускать локальный connect flow."
+        }
     HostBridgeConnectionPhase.Connecting -> "Идет попытка локального подключения."
     HostBridgeConnectionPhase.Connected -> "Локальный host bridge помечен как доступный."
+    HostBridgeConnectionPhase.Degraded -> state.lastError ?: "Host bridge доступен частично и требует повторной проверки."
     HostBridgeConnectionPhase.Disconnected -> "Pairing сохранен, подключение отключено вручную."
-    HostBridgeConnectionPhase.PermissionRequired -> "Nearby devices может понадобиться для opt-in Android 16 проверки local-network path."
     HostBridgeConnectionPhase.Failed -> state.lastError ?: "Host bridge вернул ошибочное состояние."
 }
 
@@ -220,14 +225,10 @@ private fun localNetworkDetail(state: HostBridgeConnectionState): String = when 
         "Сначала добавьте pairing payload, чтобы оценить local-network path."
 
     LocalNetworkAccessState.Ready ->
-        if (state.nearbyWifiDevicesGranted) {
-            "Private LAN endpoint разрешен для текущего slice. Nearby devices уже выдан; следующий milestone должен заменить stub transport на реальный host bridge."
-        } else {
-            "Private LAN endpoint принят для текущего slice. Nearby devices здесь не является безусловным blocker-ом, но нужен как manual/opt-in path для Android 16 local-network проверки."
-        }
+        "Private LAN endpoint разрешен для текущего slice. Android cleartext opt-in включен явно, а точная private/local boundary должна удерживаться runtime-валидацией host endpoint."
 
     LocalNetworkAccessState.PermissionRequired ->
-        "Endpoint похож на private LAN или .local host. Nearby devices может понадобиться только для manual Android 16 opt-in проверки."
+        "Endpoint похож на private LAN или .local host. Пока Nearby devices не выдано, local-network path для этого slice не считается готовым."
 
     LocalNetworkAccessState.UnsupportedForSlice ->
         "Текущий endpoint не похож на private LAN / .local path. Публичный tunnel или internet endpoint вынесен за пределы этого slice."
