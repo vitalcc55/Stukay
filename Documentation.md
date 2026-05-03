@@ -3,7 +3,7 @@
 ## Current Milestone Status
 - current: Первый runtime slice для `Host Bridge contract + pairing + local network flow` реализован, review-нут и доведен до чистого local verification gate.
 - done: typed `Host Bridge` models, runtime adapters поверх fake repositories, runtime graph для app state, pairing payload save/connect/reconnect/disconnect flow с guard-ами без crash-path, Android 16 local-network manual/opt-in permission rationale, host summary в `Projects`, отдельный host/connection diagnostics tail, JVM tests для parser/repository transitions, перенос `:app` на `src/*/kotlin`, manifest-scoped suppression ложного `Instantiatable` lint blocker на `SDK 36 Preview`.
-- next: Перейти к `Host Bridge MVP` и real `codex app-server` backed thread/runtime transport, не возвращаясь к foundation shell.
+- next: План для `Host Bridge MVP` сохранен в `docs/exec-plans/active/host-bridge-mvp-plan.md`; core decisions уже закрыты до начала кодинга: `transport=http_json`, Android cleartext opt-in + runtime endpoint validation как реальная private/local boundary, helper auth contract = `Authorization: Bearer <sessionToken>`, first runtime payload = `host health/status + app/list count`, а текущий stubbed `Connected/Ready` state не считается truth surface для MVP.
 
 ## Decisions
 - decision: Сначала поднимаем harness, docs и observability, а не меняем продуктовый код.
@@ -68,6 +68,8 @@
 - purpose: verified domain, logging and app shell surfaces after stage 3
 - artifact: `docs/exec-plans/active/runtime-slice-host-bridge-research.md`
 - purpose: evidence-backed research substrate for runtime slice scope, official facts and reference signals
+- artifact: `docs/exec-plans/active/host-bridge-mvp-plan.md`
+- purpose: active implementation-oriented plan for the next Host Bridge MVP milestone with progress checklist and stage reports
 - artifact: `.\gradlew.bat :app:testDebugUnitTest --console=plain`
 - purpose: verified pairing parser and host bridge repository state transitions
 - artifact: `.\gradlew.bat :app:assembleDebug --console=plain`

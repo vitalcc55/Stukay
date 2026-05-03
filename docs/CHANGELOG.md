@@ -40,3 +40,8 @@
 - `gradle.properties` обновлен до `org.gradle.jvmargs=-Xmx4g`, чтобы уменьшить нестабильность Gradle/Kotlin daemon во время local verification.
 - Финальный verification gate по runtime slice теперь включает `:app:lintDebug`, `:app:testDebugUnitTest` и `:app:assembleDebug`.
 - Перед merge выровнены README, AGENTS, generated commands/test-matrix/stack-inventory и Notion sync note под фактический post-runtime-contract state.
+- Добавлен новый active plan `docs/exec-plans/active/host-bridge-mvp-plan.md` для следующего milestone `Host Bridge MVP` с milestone checklist, progress tracker и stage report секциями для продолжения реализации после прерываний.
+- В `Documentation.md` и `.tmp/.codex/task_state/latest.*` зафиксировано, что план Host Bridge MVP сохранен, а реализация milestone еще не начата.
+- По user decision до начала кодинга закрыты четыре ключевых решения Host Bridge MVP: `transport=http_json`, explicit Android cleartext opt-in + runtime endpoint validation как реальная private/local boundary, первый runtime payload = `host health/status + app/list count`, address policy = `RFC1918 + .local + 100.64/10` без public tunnel и без автоматического `169.254/16`.
+- `docs/exec-plans/active/ExecPlan.md` переведен в канонический pointer на `host-bridge-mvp-plan.md`, чтобы lifecycle stack не продолжал ссылаться на старый runtime-slice plan как на active execution source of truth.
+- Формулировка bounded cleartext policy уточнена: `network_security_config` здесь фиксирует explicit Android cleartext opt-in, а точная private/local allowlist boundary обеспечивается runtime-валидацией endpoint policy, а не CIDR-выражением внутри Android XML.

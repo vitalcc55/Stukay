@@ -1,62 +1,37 @@
 # Task State
 
-- goal: Реализовать первый Android-side runtime slice для Host Bridge contract, pairing и local network flow без ухода в полный real thread runtime.
-- stage: runtime_slice_host_bridge_complete
+- goal: Реализовать `Host Bridge MVP`: первый реальный Android -> Host Bridge -> local Codex runtime path без ухода в полный real thread runtime.
+- stage: host_bridge_mvp_planned
 - done:
-  - rewrite active ExecPlan for Host Bridge runtime slice
-  - add runtime slice research substrate with official Android/OpenAI facts and reference signals
-  - add typed Host Bridge / pairing / connection models in `core:model`
-  - move app wiring to runtime graph and runtime adapters instead of direct fake repository construction
-  - add pairing payload save/connect/reconnect/disconnect flow in `Settings`
-  - add Android 16 local network rationale as manual opt-in path instead of hard blocker
-  - add host summary to `Projects` and dedicated host diagnostics tail
-  - add manifest network permissions for current local-network slice
-  - add JVM tests for pairing parser and host bridge repository state transitions
-  - fix NotPaired crash paths in host bridge actions
-  - fix restored host bridge permission state after cold start
-  - harden endpoint contract and exclude pairing storage from backup/data-transfer
-  - align `:app` Kotlin source layout with built-in Kotlin expectations
-  - suppress preview lint false positive `Instantiatable` on `MainActivity`
-  - increase Gradle daemon heap to stabilize local verification
-  - verify `:app:testDebugUnitTest`
-  - verify `:app:assembleDebug`
-  - verify `:app:lintDebug`
-  - verify `android describe --project_dir .`
-  - verify `codex mcp get jetbrains`
+  - предыдущий runtime-contract slice завершен и локально верифицирован
+  - собраны repo/code/official/reference findings для `Host Bridge MVP`
+  - сохранен active plan `docs/exec-plans/active/host-bridge-mvp-plan.md`
+  - закрыты core decisions milestone до начала кодинга:
+    - `transport=http_json`
+    - explicit Android cleartext opt-in + runtime endpoint validation as real boundary
+    - first runtime payload = `host health/status + app/list count`
+    - address policy = `RFC1918 + .local + 100.64/10`
+  - `docs/exec-plans/active/ExecPlan.md` переведен в канонический pointer на текущий active milestone document
+  - cleartext contract уточнен: exact private/local boundary должна обеспечиваться runtime-валидацией, а не только Android XML policy
+  - auth contract зафиксирован до начала кодинга:
+    - Android -> helper = `Authorization: Bearer <sessionToken>`
+    - helper отказывает неавторизованным запросам до доступа к локальному `codex app-server`
+    - raw token не должен попадать в logs/diagnostics
+  - текущий stubbed `Connected/Ready` host bridge state явно не считается truth surface для реального LAN runtime path
+  - зафиксированы `@codex-security` и `@test-android-apps` как обязательные gates следующего milestone
 - next:
-  - перейти к Host Bridge MVP
-  - заменить stub transport на реальный host-backed transport
-  - начать real thread/runtime integration поверх уже введенного seam
+  - дождаться отдельной команды на реализацию
+  - начать `M1` из `docs/exec-plans/active/host-bridge-mvp-plan.md`
+  - после каждого milestone обновлять checklist и `Stage Report` в plan file
 - edited_files:
-  - app/src/main/AndroidManifest.xml
-  - app/src/main/kotlin/dev/vitalcc/stukay/StukayApp.kt
-  - app/src/main/kotlin/dev/vitalcc/stukay/StukayAppViewModel.kt
-  - app/src/main/kotlin/dev/vitalcc/stukay/MainActivity.kt
-  - app/src/main/kotlin/dev/vitalcc/stukay/StukayApplication.kt
-  - app/src/main/kotlin/dev/vitalcc/stukay/navigation/StukayDestination.kt
-  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayAppState.kt
-  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayRuntimeGraph.kt
-  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/RuntimeProjectsRepository.kt
-  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/RuntimeThreadRepository.kt
-  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgePairingParser.kt
-  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgePairingStore.kt
-  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeRepository.kt
-  - app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgePairingParserTest.kt
-  - app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/StubHostBridgeRepositoryTest.kt
-  - app/src/test/kotlin/dev/vitalcc/stukay/navigation/StukayDestinationTest.kt
-  - app/src/androidTest/kotlin/dev/vitalcc/stukay/ExampleInstrumentedTest.kt
-  - core/model/src/main/java/dev/vitalcc/stukay/core/model/HostBridgeModels.kt
-  - feature/projects/src/main/java/dev/vitalcc/stukay/feature/projects/ui/ProjectsRoute.kt
-  - feature/settings/build.gradle.kts
-  - feature/settings/src/main/java/dev/vitalcc/stukay/feature/settings/ui/SettingsRoute.kt
-  - feature/diagnostics/src/main/java/dev/vitalcc/stukay/feature/diagnostics/ui/DiagnosticsRoute.kt
-  - gradle.properties
-  - Documentation.md
   - docs/exec-plans/active/ExecPlan.md
-  - docs/exec-plans/active/runtime-slice-host-bridge-research.md
+  - docs/exec-plans/active/host-bridge-mvp-plan.md
+  - Documentation.md
+  - docs/CHANGELOG.md
   - .tmp/.codex/task_state/latest.md
   - .tmp/.codex/task_state/latest.json
-  - docs/CHANGELOG.md
-- verify_status: `:app:lintDebug`, `:app:testDebugUnitTest`, `:app:assembleDebug`, `android describe --project_dir .` и `codex mcp get jetbrains` проходят; lifecycle validator должен остаться в warn-only после docs sync
+- verify_status: новый plan file сохранен; реализация `Host Bridge MVP` еще не начиналась
 - open_questions:
-  - camera QR scan и public tunnel path сознательно отложены в Host Bridge MVP
+  - host-side helper exact package/layout inside `tools/hostbridge/`
+  - Android HTTP client choice
+  - diagnostics-only secondary probe, если он действительно понадобится
