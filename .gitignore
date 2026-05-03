@@ -37,6 +37,10 @@ google-services.json
 # OS Files
 .DS_Store
 
+# Python helper cache
+__pycache__/
+*.pyc
+
 # Reference projects
 references/
 

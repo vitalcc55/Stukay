@@ -6,8 +6,8 @@
 
 ## Progress Tracker
 
-- overall_status: `planned`
-- current_milestone: `M2`
+- overall_status: `in_progress`
+- current_milestone: `M3`
 - implementation_started: `yes`
 - active_plan_owner: следующий агент, который начнет реализацию по явной команде пользователя
 
@@ -439,7 +439,56 @@ Rule:
   - current repository remains stubbed and cannot yet prove real transport truth
 - next_milestone: `M2`
 
-### M2. Build Android-side real client and repository
+### M2. Add Windows Host Bridge helper
+
+- status: `planned`
+- owner_surface:
+  - `tools/hostbridge/`
+  - host-side tests
+
+- [x] Добавить Windows-native helper/service.
+- [x] Реализовать lifecycle `spawn / probe / restart / shutdown` для локального `codex app-server`.
+- [x] Реализовать `initialize` handshake.
+- [x] Реализовать первый real request path к `app/list`.
+- [x] Реализовать host health/status snapshot.
+- [x] Зафиксировать auth contract:
+  - `Authorization: Bearer <sessionToken>`
+  - reject unauthorized before any local `codex app-server` access
+  - never log raw token
+- [x] Ограничить наружу narrow JSON API без проброса raw protocol payloads.
+
+#### Stage Report
+
+- summary: Stage 2 завершен локально. Добавлен stdlib-only Windows Host Bridge helper с bearer auth, общим runtime client к `codex app-server` по `stdio://`, narrow `/v1/runtime/summary` API, degraded caching и auth-first reject path.
+- evidence:
+  - `python -W error::ResourceWarning -m unittest discover -s tools/hostbridge/tests -p 'test_*.py'`
+  - `python -m compileall tools/hostbridge`
+- commands_run:
+  - `python -m unittest discover -s tools/hostbridge/tests -p 'test_*.py'`
+  - `python -W error::ResourceWarning -m unittest discover -s tools/hostbridge/tests -p 'test_*.py'`
+  - `python -m compileall tools/hostbridge`
+- files_changed:
+  - `tools/__init__.py`
+  - `tools/hostbridge/__init__.py`
+  - `tools/hostbridge/auth.py`
+  - `tools/hostbridge/models.py`
+  - `tools/hostbridge/runtime_client.py`
+  - `tools/hostbridge/server.py`
+  - `tools/hostbridge/tests/test_auth.py`
+  - `tools/hostbridge/tests/test_runtime_client.py`
+  - `tools/hostbridge/tests/test_server.py`
+  - `docs/exec-plans/active/host-bridge-mvp-plan.md`
+  - `Documentation.md`
+  - `docs/CHANGELOG.md`
+  - `.tmp/.codex/task_state/latest.md`
+  - `.tmp/.codex/task_state/latest.json`
+- residual_risks:
+  - helper пока не интегрирован с Android repository path
+  - JSON summary contract еще не отображается в Compose shell
+  - request path пока ограничен `app/list` and health summary only
+- next_milestone: `M3`
+
+### M3. Build Android-side real client and repository
 
 - status: `planned`
 - owner_surface:
@@ -453,33 +502,6 @@ Rule:
 - [ ] Добавить `ConnectivityManager`-backed connectivity monitor.
 - [ ] Перевести `HostBridgeRepository` с stub на real transport path.
 - [ ] Оставить single source of truth в `StukayAppState`.
-
-#### Stage Report
-
-- summary:
-- evidence:
-- commands_run:
-- files_changed:
-- residual_risks:
-- next_milestone:
-
-### M3. Add Windows Host Bridge helper
-
-- status: `planned`
-- owner_surface:
-  - `tools/hostbridge/`
-  - host-side tests
-
-- [ ] Добавить Windows-native helper/service.
-- [ ] Реализовать lifecycle `spawn / probe / restart / shutdown` для локального `codex app-server`.
-- [ ] Реализовать `initialize` handshake.
-- [ ] Реализовать первый real request path к `app/list`.
-- [ ] Реализовать host health/status snapshot.
-- [ ] Зафиксировать auth contract:
-  - `Authorization: Bearer <sessionToken>`
-  - reject unauthorized before any local `codex app-server` access
-  - never log raw token
-- [ ] Ограничить наружу narrow JSON API без проброса raw protocol payloads.
 
 #### Stage Report
 

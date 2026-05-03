@@ -1,7 +1,7 @@
 # Task State
 
 - goal: Реализовать `Host Bridge MVP`: первый реальный Android -> Host Bridge -> local Codex runtime path без ухода в полный real thread runtime.
-- stage: host_bridge_mvp_stage1_complete
+- stage: host_bridge_mvp_stage2_helper_complete
 - done:
   - предыдущий runtime-contract slice завершен и локально верифицирован
   - собраны repo/code/official/reference findings для `Host Bridge MVP`
@@ -27,11 +27,27 @@
     - `169.254/16` остается reject path
     - stubbed permission semantics больше не выдают false-ready для private LAN без permission
     - explicit Android cleartext opt-in выражен через `network_security_config`
+  - Stage 2 выполнен локально:
+    - добавлен Windows Host Bridge helper under `tools/hostbridge`
+    - helper держит `codex app-server --listen stdio://`
+    - helper делает `initialize` + `initialized`
+    - helper тянет `app/list` и строит runtime summary
+    - helper требует `Authorization: Bearer <sessionToken>`
+    - helper отдает `degraded` summary и сохраняет last good snapshot при probe failure
 - next:
-  - перейти к `M2` из `docs/exec-plans/active/host-bridge-mvp-plan.md`
+  - перейти к `M3` из `docs/exec-plans/active/host-bridge-mvp-plan.md`
   - добавить Android-side real client к Host Bridge
   - после завершения stage снова обновить checklist и `Stage Report`
 - edited_files:
+  - tools/__init__.py
+  - tools/hostbridge/__init__.py
+  - tools/hostbridge/auth.py
+  - tools/hostbridge/models.py
+  - tools/hostbridge/runtime_client.py
+  - tools/hostbridge/server.py
+  - tools/hostbridge/tests/test_auth.py
+  - tools/hostbridge/tests/test_runtime_client.py
+  - tools/hostbridge/tests/test_server.py
   - core/model/src/main/java/dev/vitalcc/stukay/core/model/HostBridgeModels.kt
   - core/model/src/test/java/dev/vitalcc/stukay/core/model/HostBridgeModelsTest.kt
   - app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgePairingParser.kt
@@ -51,7 +67,8 @@
 - verify_status:
   - `mcp__jetbrains__.build_project(filesToRebuild=...)` passes
   - `.\gradlew.bat :core:model:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug --console=plain` passes
+  - `python -W error::ResourceWarning -m unittest discover -s tools/hostbridge/tests -p 'test_*.py'` passes
+  - `python -m compileall tools/hostbridge` passes
 - open_questions:
-  - host-side helper exact package/layout inside `tools/hostbridge/`
   - Android HTTP client choice
   - diagnostics-only secondary probe, если он действительно понадобится

@@ -1,9 +1,9 @@
 # Documentation.md
 
 ## Current Milestone Status
-- current: `Host Bridge MVP` начат; Stage 1 завершен локально и подготовлен к отдельному commit как domain-contract stage.
-- done: предыдущий runtime-contract slice закрыт; в Stage 1 зафиксированы `http_json`-only transport semantics, explicit unsupported `ws/wss` path, `Degraded` + `HostRuntimeSummary`, `100.64/10` в allowlist, reject для `169.254/16`, explicit Android cleartext opt-in через `network_security_config`, и правдивая permission-gated stub semantics без false-ready для private LAN.
-- next: Перейти к host-side helper и реальному transport path для `Host Bridge MVP`, не смешивая это с full real thread runtime.
+- current: `Host Bridge MVP` начат; Stage 2 с Windows Host Bridge helper завершен локально и готов к review/commit loop.
+- done: предыдущий runtime-contract slice закрыт; в Stage 1 зафиксированы `http_json`-only transport semantics, explicit unsupported `ws/wss` path, `Degraded` + `HostRuntimeSummary`, `100.64/10` в allowlist, reject для `169.254/16`, explicit Android cleartext opt-in через `network_security_config`, и правдивая permission-gated stub semantics без false-ready для private LAN. В Stage 2 добавлен stdlib-only helper под `tools/hostbridge`, который поднимает локальный `codex app-server` по `stdio://`, делает `initialize`/`initialized`, требует `Authorization: Bearer <sessionToken>` и отдает narrow runtime summary для `app/list` + host health.
+- next: Перейти к Android-side real client/repository path для `Host Bridge MVP`, не смешивая это с full real thread runtime.
 
 ## Decisions
 - decision: Сначала поднимаем harness, docs и observability, а не меняем продуктовый код.
@@ -36,8 +36,8 @@
 - expected result: lifecycle validator проходит; допустимы только известные `warn`, без `fail`.
 
 ## Latest Review Outcome
-- findings: Stage 1 review loop по Host Bridge MVP подтвердил и закрыл drift вокруг transport contract, local-network permission truthfulness и lifecycle/docs sync для active milestone status.
-- residual risks: transport все еще stubbed, host-side helper и bearer-auth gate еще не реализованы, public/tunnel endpoint path остается out of scope, diagnostics все еще без persistence/export, а suppression `Instantiatable` нужно будет пересмотреть после стабилизации AGP/SDK 36.
+- findings: Stage 1 review loop по Host Bridge MVP подтвердил и закрыл drift вокруг transport contract, local-network permission truthfulness и lifecycle/docs sync для active milestone status. Stage 2 local verification для helper green, но stage еще не прошел финальный static review loop и не закоммичен.
+- residual risks: Android-side repository/client еще не реализован, Compose shell еще не читает runtime summary из helper path, public/tunnel endpoint path остается out of scope, diagnostics все еще без persistence/export, а suppression `Instantiatable` нужно будет пересмотреть после стабилизации AGP/SDK 36.
 
 ## Known Issues And Follow-ups
 - item: В текущем runtime JetBrains MCP tools могут быть недоступны как native namespace до перезапуска Codex App, хотя server-side конфиг уже работает.
