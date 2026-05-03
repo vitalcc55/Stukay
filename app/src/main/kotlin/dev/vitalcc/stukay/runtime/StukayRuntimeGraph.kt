@@ -6,8 +6,9 @@ import dev.vitalcc.stukay.feature.projects.data.ProjectsRepository
 import dev.vitalcc.stukay.feature.thread.data.FakeThreadRepository
 import dev.vitalcc.stukay.feature.thread.data.ThreadRepository
 import dev.vitalcc.stukay.runtime.hostbridge.HostBridgeRepository
+import dev.vitalcc.stukay.runtime.hostbridge.HttpJsonHostBridgeRepository
+import dev.vitalcc.stukay.runtime.hostbridge.OkHttpHostBridgeClient
 import dev.vitalcc.stukay.runtime.hostbridge.SharedPreferencesHostBridgePairingStore
-import dev.vitalcc.stukay.runtime.hostbridge.StubHostBridgeRepository
 
 data class StukayRuntimeGraph(
     val hostBridgeRepository: HostBridgeRepository,
@@ -19,8 +20,9 @@ fun createStukayRuntimeGraph(
     context: Context,
     localNetworkPermissionGranted: Boolean,
 ): StukayRuntimeGraph {
-    val hostBridgeRepository = StubHostBridgeRepository(
+    val hostBridgeRepository = HttpJsonHostBridgeRepository(
         pairingStore = SharedPreferencesHostBridgePairingStore(context),
+        client = OkHttpHostBridgeClient(),
         initialNearbyWifiDevicesGranted = localNetworkPermissionGranted,
     )
     val fakeProjectsRepository = FakeProjectsRepository()

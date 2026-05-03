@@ -1,9 +1,9 @@
 # Documentation.md
 
 ## Current Milestone Status
-- current: `Host Bridge MVP` начат; Stage 2 с Windows Host Bridge helper завершен локально и готов к review/commit loop.
-- done: предыдущий runtime-contract slice закрыт; в Stage 1 зафиксированы `http_json`-only transport semantics, explicit unsupported `ws/wss` path, `Degraded` + `HostRuntimeSummary`, `100.64/10` в allowlist, reject для `169.254/16`, explicit Android cleartext opt-in через `network_security_config`, и правдивая permission-gated stub semantics без false-ready для private LAN. В Stage 2 добавлен stdlib-only helper под `tools/hostbridge`, который поднимает локальный `codex app-server` по `stdio://`, делает `initialize`/`initialized`, требует `Authorization: Bearer <sessionToken>` и отдает narrow runtime summary для `app/list` + host health.
-- next: Перейти к Android-side real client/repository path для `Host Bridge MVP`, не смешивая это с full real thread runtime.
+- current: `Host Bridge MVP` в активной реализации; Stage 3 с Android-side real client/repository path завершен локально и прошел static review loop.
+- done: предыдущий runtime-contract slice закрыт; в Stage 1 зафиксированы `http_json`-only transport semantics, explicit unsupported `ws/wss` path, `Degraded` + `HostRuntimeSummary`, `100.64/10` в allowlist, reject для `169.254/16`, explicit Android cleartext opt-in через `network_security_config`, и правдивая permission-gated stub semantics без false-ready для private LAN. В Stage 2 добавлен stdlib-only helper под `tools/hostbridge`, который поднимает локальный `codex app-server` по `stdio://`, делает `initialize`/`initialized`, требует `Authorization: Bearer <sessionToken>` и отдает narrow runtime summary для `app/list` + host health. В Stage 3 добавлены Android-side `OkHttpHostBridgeClient` и `HttpJsonHostBridgeRepository`, runtime graph переведен на real host-backed repository, а `StukayAppState` получил background executor, periodic probe loop, network-change triggered immediate probe и lifecycle teardown.
+- next: Перейти к Stage 4 и вывести реальный runtime summary path в `Settings` / `Projects` / `Diagnostics`, не смешивая это с full real thread runtime.
 
 ## Decisions
 - decision: Сначала поднимаем harness, docs и observability, а не меняем продуктовый код.
@@ -36,8 +36,8 @@
 - expected result: lifecycle validator проходит; допустимы только известные `warn`, без `fail`.
 
 ## Latest Review Outcome
-- findings: Stage 1 review loop по Host Bridge MVP подтвердил и закрыл drift вокруг transport contract, local-network permission truthfulness и lifecycle/docs sync для active milestone status. Stage 2 local verification для helper green, но stage еще не прошел финальный static review loop и не закоммичен.
-- residual risks: Android-side repository/client еще не реализован, Compose shell еще не читает runtime summary из helper path, public/tunnel endpoint path остается out of scope, diagnostics все еще без persistence/export, а suppression `Instantiatable` нужно будет пересмотреть после стабилизации AGP/SDK 36.
+- findings: Stage 3 review loop подтвердил и закрыл четыре класса дефектов: гонки между main-thread и background repository mutations, отсутствие teardown path для network callback/executor, неверное использование `NET_CAPABILITY_INTERNET` как proxy для private-host reachability и truthfulness drift в `refreshPermissionState()`, который маскировал `Unauthorized` как `Paired`. Повторный static review loop после фиксов вернул `no findings`.
+- residual risks: shell routes еще не выводят весь runtime summary contract, security scan и Android emulator/device proofs еще впереди, public/tunnel endpoint path остается out of scope, diagnostics все еще без persistence/export, а suppression `Instantiatable` нужно будет пересмотреть после стабилизации AGP/SDK 36.
 
 ## Known Issues And Follow-ups
 - item: В текущем runtime JetBrains MCP tools могут быть недоступны как native namespace до перезапуска Codex App, хотя server-side конфиг уже работает.
@@ -47,7 +47,7 @@
 - item: adaptive UI для двух режимов рендера Pixel (`1008×2244` и `1344×2992`) пока решён через width-constrained shell, а не через `NavigationSuiteScaffold` или отдельный adaptive toolkit layer.
 - item: `feature:thread` по-прежнему использует fake-only action contract (`startFakeTurn`, `completeFakeTurn`, `resolveApproval`); его real runtime замена вынесена в `Host Bridge MVP`.
 - item: local network permission path для current API 36 intentionally подается как manual/opt-in path вокруг `NEARBY_WIFI_DEVICES`, а не как unconditional blocker; `ACCESS_LOCAL_NETWORK` остается Android 17+ follow-up.
-- item: текущий host bridge repository остается stubbed и принимает только private LAN / `.local` endpoints; public tunnel path пока считается out of scope.
+- item: текущий host bridge repository уже real host-backed и принимает только private LAN / `.local` / `100.64/10` endpoints; public tunnel path по-прежнему считается out of scope.
 - item: pairing payload хранится raw в `SharedPreferences`, но backup/data-transfer для `stukay_host_bridge.xml` теперь исключены; полноценный at-rest hardening остается follow-up.
 - item: `tools:ignore="Instantiatable"` на `MainActivity` считается допустимым tooling debt для `SDK 36 Preview + AGP 9.2.0`; его надо снять, когда стабильный lint снова начнет корректно видеть `ComponentActivity -> Activity`.
 
@@ -58,6 +58,8 @@
 - purpose: machine-readable checkpoint surface
 - artifact: `.\gradlew.bat :app:assembleDebug :app:testDebugUnitTest --console=plain`
 - purpose: verified current build/test surface
+- artifact: `mcp__jetbrains__.build_project(filesToRebuild=...)`
+- purpose: IDE-backed sync-preflight and file-level compilation proof before Android builds/tests
 - artifact: `android describe --project_dir .`
 - purpose: verified Android CLI project surface
 - artifact: `codex mcp get jetbrains`
@@ -74,5 +76,9 @@
 - purpose: verified pairing parser and host bridge repository state transitions
 - artifact: `.\gradlew.bat :app:assembleDebug --console=plain`
 - purpose: verified compile/build surface after runtime slice UI and manifest changes
+- artifact: `.\gradlew.bat :app:testDebugUnitTest --tests "dev.vitalcc.stukay.runtime.hostbridge.HostBridgeClientTest" --tests "dev.vitalcc.stukay.runtime.hostbridge.HttpJsonHostBridgeRepositoryTest" --console=plain`
+- purpose: verified Stage 3 client/repository contract, unauthorized mapping, degraded snapshot preservation and disconnect semantics
+- artifact: `.\gradlew.bat :app:testDebugUnitTest --tests "dev.vitalcc.stukay.runtime.hostbridge.HttpJsonHostBridgeRepositoryTest.refreshPermissionStateDoesNotMaskUnauthorizedFailure" --console=plain`
+- purpose: verified Stage 3 review-driven fix for permission refresh truthfulness after unauthorized failure
 - artifact: `.\gradlew.bat :app:lintDebug --console=plain`
 - purpose: verified final lint gate after manifest-scoped suppression of preview false positive

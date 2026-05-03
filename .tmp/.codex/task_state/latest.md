@@ -1,7 +1,7 @@
 # Task State
 
 - goal: Реализовать `Host Bridge MVP`: первый реальный Android -> Host Bridge -> local Codex runtime path без ухода в полный real thread runtime.
-- stage: host_bridge_mvp_stage2_helper_complete
+- stage: host_bridge_mvp_stage3_real_repository_complete
 - done:
   - предыдущий runtime-contract slice завершен и локально верифицирован
   - собраны repo/code/official/reference findings для `Host Bridge MVP`
@@ -11,64 +11,53 @@
     - explicit Android cleartext opt-in + runtime endpoint validation as real boundary
     - first runtime payload = `host health/status + app/list count`
     - address policy = `RFC1918 + .local + 100.64/10`
-  - `docs/exec-plans/active/ExecPlan.md` переведен в канонический pointer на текущий active milestone document
-  - cleartext contract уточнен: exact private/local boundary должна обеспечиваться runtime-валидацией, а не только Android XML policy
-  - auth contract зафиксирован до начала кодинга:
-    - Android -> helper = `Authorization: Bearer <sessionToken>`
-    - helper отказывает неавторизованным запросам до доступа к локальному `codex app-server`
-    - raw token не должен попадать в logs/diagnostics
-  - текущий stubbed `Connected/Ready` host bridge state явно не считается truth surface для реального LAN runtime path
-  - зафиксированы `@codex-security` и `@test-android-apps` как обязательные gates следующего milestone
   - Stage 1 выполнен:
     - Kotlin Host Bridge transport contract ограничен `http_json`
     - `ws` / `wss` переведены в explicit fast-fail unsupported path
     - в модель добавлены `Degraded` и `HostRuntimeSummary`
     - allowlist расширен до `100.64/10`
     - `169.254/16` остается reject path
-    - stubbed permission semantics больше не выдают false-ready для private LAN без permission
     - explicit Android cleartext opt-in выражен через `network_security_config`
-  - Stage 2 выполнен локально:
+  - Stage 2 выполнен:
     - добавлен Windows Host Bridge helper under `tools/hostbridge`
     - helper держит `codex app-server --listen stdio://`
     - helper делает `initialize` + `initialized`
     - helper тянет `app/list` и строит runtime summary
     - helper требует `Authorization: Bearer <sessionToken>`
     - helper отдает `degraded` summary и сохраняет last good snapshot при probe failure
+  - Stage 3 выполнен:
+    - добавлен Android-side `OkHttpHostBridgeClient`
+    - stub repository заменен на `HttpJsonHostBridgeRepository`
+    - runtime graph переведен на real host-backed repository
+    - `StukayAppState` переведен на background executor для host bridge actions
+    - добавлены periodic probe loop и immediate probe на network-change signal
+    - добавлен lifecycle teardown через `AndroidNetworkMonitor.stop()`, `StukayAppState.dispose()` и `StukayAppViewModel.onCleared()`
+    - закрыт truthfulness defect: `refreshPermissionState()` больше не маскирует `Unauthorized` как `Paired`
 - next:
-  - перейти к `M3` из `docs/exec-plans/active/host-bridge-mvp-plan.md`
-  - добавить Android-side real client к Host Bridge
+  - перейти к `M4` из `docs/exec-plans/active/host-bridge-mvp-plan.md`
+  - вывести реальный runtime summary в `Settings`, `Projects` и `Diagnostics`
   - после завершения stage снова обновить checklist и `Stage Report`
 - edited_files:
-  - tools/__init__.py
-  - tools/hostbridge/__init__.py
-  - tools/hostbridge/auth.py
-  - tools/hostbridge/models.py
-  - tools/hostbridge/runtime_client.py
-  - tools/hostbridge/server.py
-  - tools/hostbridge/tests/test_auth.py
-  - tools/hostbridge/tests/test_runtime_client.py
-  - tools/hostbridge/tests/test_server.py
-  - core/model/src/main/java/dev/vitalcc/stukay/core/model/HostBridgeModels.kt
-  - core/model/src/test/java/dev/vitalcc/stukay/core/model/HostBridgeModelsTest.kt
-  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgePairingParser.kt
-  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeRepository.kt
+  - app/build.gradle.kts
+  - gradle/libs.versions.toml
+  - app/src/main/kotlin/dev/vitalcc/stukay/StukayAppViewModel.kt
   - app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayAppState.kt
-  - app/src/main/AndroidManifest.xml
-  - app/src/main/res/xml/network_security_config.xml
-  - feature/settings/src/main/java/dev/vitalcc/stukay/feature/settings/ui/SettingsRoute.kt
-  - feature/projects/src/main/java/dev/vitalcc/stukay/feature/projects/ui/ProjectsRoute.kt
-  - app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgePairingParserTest.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayRuntimeGraph.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/AndroidNetworkMonitor.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeClient.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeRepository.kt
+  - app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeClientTest.kt
+  - app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HttpJsonHostBridgeRepositoryTest.kt
   - app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/StubHostBridgeRepositoryTest.kt
-  - docs/exec-plans/active/host-bridge-mvp-plan.md
   - Documentation.md
+  - docs/exec-plans/active/host-bridge-mvp-plan.md
   - docs/CHANGELOG.md
   - .tmp/.codex/task_state/latest.md
   - .tmp/.codex/task_state/latest.json
 - verify_status:
   - `mcp__jetbrains__.build_project(filesToRebuild=...)` passes
-  - `.\gradlew.bat :core:model:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug --console=plain` passes
-  - `python -W error::ResourceWarning -m unittest discover -s tools/hostbridge/tests -p 'test_*.py'` passes
-  - `python -m compileall tools/hostbridge` passes
+  - `.\gradlew.bat :app:testDebugUnitTest --tests "dev.vitalcc.stukay.runtime.hostbridge.HostBridgeClientTest" --tests "dev.vitalcc.stukay.runtime.hostbridge.HttpJsonHostBridgeRepositoryTest" --console=plain` passes
+  - `.\gradlew.bat :app:testDebugUnitTest --tests "dev.vitalcc.stukay.runtime.hostbridge.HttpJsonHostBridgeRepositoryTest.refreshPermissionStateDoesNotMaskUnauthorizedFailure" --console=plain` passes
+  - `.\gradlew.bat :app:testDebugUnitTest :app:assembleDebug --console=plain` passes
 - open_questions:
-  - Android HTTP client choice
-  - diagnostics-only secondary probe, если он действительно понадобится
+  - нет блокирующих открытых вопросов для начала `M4`

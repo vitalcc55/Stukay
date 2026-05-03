@@ -3,6 +3,8 @@ package dev.vitalcc.stukay.runtime
 import android.Manifest
 import android.app.Application
 import android.content.pm.PackageManager
+import android.os.Handler
+import android.os.Looper
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -24,6 +26,7 @@ import dev.vitalcc.stukay.core.model.CodexProject
 import dev.vitalcc.stukay.core.model.CodexThread
 import dev.vitalcc.stukay.core.model.HostBridgeConnectionPhase
 import dev.vitalcc.stukay.core.model.HostBridgeConnectionState
+import dev.vitalcc.stukay.core.model.LocalNetworkAccessState
 import dev.vitalcc.stukay.core.model.ProjectId
 import dev.vitalcc.stukay.core.model.RouteContext
 import dev.vitalcc.stukay.core.model.ThreadId
@@ -37,13 +40,23 @@ import dev.vitalcc.stukay.feature.thread.domain.ObserveThreadTimelineUseCase
 import dev.vitalcc.stukay.feature.thread.domain.OpenThreadUseCase
 import dev.vitalcc.stukay.feature.thread.domain.ResolveFakeApprovalUseCase
 import dev.vitalcc.stukay.feature.thread.domain.StartFakeTurnUseCase
+import dev.vitalcc.stukay.runtime.hostbridge.AndroidNetworkMonitor
 import dev.vitalcc.stukay.runtime.hostbridge.endpointHostOrNull
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit
 
 class StukayAppState(
     application: Application,
 ) {
     private val appContext = application.applicationContext
     private var localNetworkPermissionGranted by mutableStateOf(checkLocalNetworkPermissionGranted())
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val hostBridgeExecutor = Executors.newSingleThreadScheduledExecutor { runnable ->
+        Thread(runnable, "stukay-hostbridge").apply {
+            isDaemon = true
+        }
+    }
     private val logStore = InMemoryLogStore(capacity = 250)
     private var logRevisionState by mutableIntStateOf(0)
     private var domainRevisionState by mutableIntStateOf(0)
@@ -62,6 +75,11 @@ class StukayAppState(
     private val startFakeTurnUseCase = StartFakeTurnUseCase(threadRepository)
     private val completeFakeTurnUseCase = CompleteFakeTurnUseCase(threadRepository)
     private val resolveFakeApprovalUseCase = ResolveFakeApprovalUseCase(threadRepository)
+    private val networkMonitor = AndroidNetworkMonitor(appContext) {
+        mainHandler.post {
+            onAndroidNetworkChanged()
+        }
+    }
 
     private val liveSink = LogSink { event ->
         compositeSink.log(event)
@@ -87,7 +105,12 @@ class StukayAppState(
     var hostBridgeState by mutableStateOf(hostBridgeRepository.currentState())
         private set
 
+    @Volatile
+    private var hostBridgeGeneration: Long = 0L
+    private var hostBridgeProbeFuture: ScheduledFuture<*>? = null
+
     init {
+        networkMonitor.start()
         logger.info(
             logEvent(
                 area = LogArea.App,
@@ -196,34 +219,49 @@ class StukayAppState(
     }
 
     fun savePairingPayload() {
-        runCatching {
-            hostBridgeRepository.savePairingPayload(
-                rawPayload = pairingInput,
-                localNetworkPermissionGranted = localNetworkPermissionGranted,
-            )
-        }.onSuccess { nextState ->
-            hostBridgeState = nextState
-            logger.info(
-                logEvent(
-                    area = LogArea.HostBridge,
-                    eventName = "pairing_saved",
-                    messageHuman = "Сохранен pairing payload host bridge.",
-                    fields = buildMap {
-                        nextState.pairedHost?.hostId?.value?.let { put("hostId", it) }
-                        nextState.pairedHost?.transport?.name?.let { put("transport", it) }
-                        endpointHostOrNull(nextState.pairedHost?.endpoint.orEmpty())?.let { put("endpointHost", it) }
-                    },
-                ),
-            )
-        }.onFailure { error ->
-            hostBridgeState = failedHostBridgeState(error.message ?: "Не удалось сохранить pairing payload.")
-            logger.error(
-                logEvent(
-                    area = LogArea.Security,
-                    eventName = "pairing_save_failed",
-                    messageHuman = hostBridgeState.lastError ?: "Не удалось сохранить pairing payload.",
-                ),
-            )
+        hostBridgeGeneration += 1
+        cancelHostBridgeProbeLoop()
+        val generation = hostBridgeGeneration
+        val rawPayload = pairingInput
+        hostBridgeExecutor.execute {
+            if (generation != hostBridgeGeneration) {
+                return@execute
+            }
+            val result = runCatching {
+                hostBridgeRepository.savePairingPayload(
+                    rawPayload = rawPayload,
+                    localNetworkPermissionGranted = localNetworkPermissionGranted,
+                )
+            }
+            mainHandler.post {
+                if (generation != hostBridgeGeneration) {
+                    return@post
+                }
+                result.onSuccess { nextState ->
+                    applyHostBridgeState(nextState)
+                    logger.info(
+                        logEvent(
+                            area = LogArea.HostBridge,
+                            eventName = "pairing_saved",
+                            messageHuman = "Сохранен pairing payload host bridge.",
+                            fields = buildMap {
+                                nextState.pairedHost?.hostId?.value?.let { put("hostId", it) }
+                                nextState.pairedHost?.transport?.name?.let { put("transport", it) }
+                                endpointHostOrNull(nextState.pairedHost?.endpoint.orEmpty())?.let { put("endpointHost", it) }
+                            },
+                        ),
+                    )
+                }.onFailure { error ->
+                    hostBridgeState = failedHostBridgeState(error.message ?: "Не удалось сохранить pairing payload.")
+                    logger.error(
+                        logEvent(
+                            area = LogArea.Security,
+                            eventName = "pairing_save_failed",
+                            messageHuman = hostBridgeState.lastError ?: "Не удалось сохранить pairing payload.",
+                        ),
+                    )
+                }
+            }
         }
     }
 
@@ -240,12 +278,25 @@ class StukayAppState(
                 fields = hostBridgeFields(),
             ),
         )
-        hostBridgeState = runCatching {
-            hostBridgeRepository.connect(localNetworkPermissionGranted)
-        }.getOrElse { error ->
-            failedHostBridgeState(error.message ?: "Не удалось подключиться к host bridge.")
+        val generation = beginHostBridgeConnectTransition()
+        hostBridgeExecutor.execute {
+            if (generation != hostBridgeGeneration) {
+                return@execute
+            }
+            val result = runCatching {
+                hostBridgeRepository.connect(localNetworkPermissionGranted)
+            }
+            mainHandler.post {
+                if (generation != hostBridgeGeneration) {
+                    return@post
+                }
+                applyHostBridgeState(
+                    result.getOrElse { error ->
+                        failedHostBridgeState(error.message ?: "Не удалось подключиться к host bridge.")
+                    },
+                )
+            }
         }
-        logHostBridgeTransition()
     }
 
     fun reconnectHostBridge() {
@@ -261,48 +312,76 @@ class StukayAppState(
                 fields = hostBridgeFields(),
             ),
         )
-        hostBridgeState = runCatching {
-            hostBridgeRepository.reconnect(localNetworkPermissionGranted)
-        }.getOrElse { error ->
-            failedHostBridgeState(error.message ?: "Не удалось повторно подключиться к host bridge.")
+        val generation = beginHostBridgeConnectTransition()
+        hostBridgeExecutor.execute {
+            if (generation != hostBridgeGeneration) {
+                return@execute
+            }
+            val result = runCatching {
+                hostBridgeRepository.reconnect(localNetworkPermissionGranted)
+            }
+            mainHandler.post {
+                if (generation != hostBridgeGeneration) {
+                    return@post
+                }
+                applyHostBridgeState(
+                    result.getOrElse { error ->
+                        failedHostBridgeState(error.message ?: "Не удалось повторно подключиться к host bridge.")
+                    },
+                )
+            }
         }
-        logHostBridgeTransition()
     }
 
     fun disconnectHostBridge(clearPairing: Boolean = false) {
+        hostBridgeGeneration += 1
+        cancelHostBridgeProbeLoop()
         if (!hasSavedPairing()) {
             if (clearPairing) {
                 pairingInput = ""
-                hostBridgeState = hostBridgeRepository.refreshPermissionState(localNetworkPermissionGranted)
+                applyHostBridgeState(hostBridgeRepository.currentState(), shouldLogTransition = false)
             } else {
                 hostBridgeState = failedHostBridgeState("Сохраненного pairing payload нет.")
             }
             return
         }
-        hostBridgeState = runCatching {
-            hostBridgeRepository.disconnect(clearPairing = clearPairing)
-        }.getOrElse { error ->
-            failedHostBridgeState(error.message ?: "Не удалось завершить host bridge action.")
+        val generation = hostBridgeGeneration
+        hostBridgeExecutor.execute {
+            if (generation != hostBridgeGeneration) {
+                return@execute
+            }
+            val result = runCatching {
+                hostBridgeRepository.disconnect(clearPairing = clearPairing)
+            }
+            mainHandler.post {
+                if (generation != hostBridgeGeneration) {
+                    return@post
+                }
+                val nextState = result.getOrElse { error ->
+                    failedHostBridgeState(error.message ?: "Не удалось завершить host bridge action.")
+                }
+                applyHostBridgeState(nextState, shouldLogTransition = false)
+                if (clearPairing) {
+                    pairingInput = ""
+                }
+                logger.info(
+                    logEvent(
+                        area = LogArea.Connection,
+                        eventName = if (clearPairing) {
+                            "pairing_cleared"
+                        } else {
+                            "host_bridge_disconnected"
+                        },
+                        messageHuman = if (clearPairing) {
+                            "Сохраненный pairing payload удален."
+                        } else {
+                            "Подключение к host bridge остановлено."
+                        },
+                        fields = hostBridgeFields(),
+                    ),
+                )
+            }
         }
-        if (clearPairing) {
-            pairingInput = ""
-        }
-        logger.info(
-            logEvent(
-                area = LogArea.Connection,
-                eventName = if (clearPairing) {
-                    "pairing_cleared"
-                } else {
-                    "host_bridge_disconnected"
-                },
-                messageHuman = if (clearPairing) {
-                    "Сохраненный pairing payload удален."
-                } else {
-                    "Подключение к host bridge остановлено."
-                },
-                fields = hostBridgeFields(),
-            ),
-        )
     }
 
     fun requestLocalNetworkPermission() {
@@ -329,7 +408,21 @@ class StukayAppState(
                 fields = mapOf("granted" to granted.toString()),
             ),
         )
-        hostBridgeState = hostBridgeRepository.refreshPermissionState(granted)
+        hostBridgeGeneration += 1
+        cancelHostBridgeProbeLoop()
+        val generation = hostBridgeGeneration
+        hostBridgeExecutor.execute {
+            if (generation != hostBridgeGeneration) {
+                return@execute
+            }
+            val nextState = hostBridgeRepository.refreshPermissionState(granted)
+            mainHandler.post {
+                if (generation != hostBridgeGeneration) {
+                    return@post
+                }
+                applyHostBridgeState(nextState)
+            }
+        }
     }
 
     fun canAttemptHostBridgeConnect(): Boolean = hasSavedPairing()
@@ -339,7 +432,7 @@ class StukayAppState(
     fun shouldOfferNearbyDevicesPermission(): Boolean =
         hasSavedPairing() &&
             !hostBridgeState.nearbyWifiDevicesGranted &&
-            hostBridgeState.localNetworkAccessState != dev.vitalcc.stukay.core.model.LocalNetworkAccessState.UnsupportedForSlice
+            hostBridgeState.localNetworkAccessState != LocalNetworkAccessState.UnsupportedForSlice
 
     private fun failedHostBridgeState(message: String): HostBridgeConnectionState = HostBridgeConnectionState(
         phase = HostBridgeConnectionPhase.Failed,
@@ -352,6 +445,125 @@ class StukayAppState(
         lastConnectedAtEpochMs = hostBridgeState.lastConnectedAtEpochMs,
     )
 
+    private fun beginHostBridgeConnectTransition(): Long {
+        hostBridgeGeneration += 1
+        cancelHostBridgeProbeLoop()
+        hostBridgeState = hostBridgeState.copy(
+            phase = HostBridgeConnectionPhase.Connecting,
+            lastError = null,
+            lastTransitionAtEpochMs = System.currentTimeMillis(),
+        )
+        return hostBridgeGeneration
+    }
+
+    private fun applyHostBridgeState(
+        nextState: HostBridgeConnectionState,
+        shouldLogTransition: Boolean = true,
+    ) {
+        val previousState = hostBridgeState
+        hostBridgeState = nextState
+        if (shouldLogTransition && didHostBridgeStateMeaningfullyChange(previousState, nextState)) {
+            logHostBridgeTransition()
+        }
+        when (nextState.phase) {
+            HostBridgeConnectionPhase.Connected,
+            HostBridgeConnectionPhase.Degraded,
+            -> ensureHostBridgeProbeLoop()
+
+            else -> cancelHostBridgeProbeLoop()
+        }
+    }
+
+    private fun ensureHostBridgeProbeLoop() {
+        val currentFuture = hostBridgeProbeFuture
+        if (currentFuture != null && !currentFuture.isDone && !currentFuture.isCancelled) {
+            return
+        }
+        val generation = hostBridgeGeneration
+        hostBridgeProbeFuture = hostBridgeExecutor.scheduleWithFixedDelay(
+            {
+                if (generation != hostBridgeGeneration) {
+                    return@scheduleWithFixedDelay
+                }
+                val result = runCatching {
+                    hostBridgeRepository.probe(localNetworkPermissionGranted)
+                }
+                mainHandler.post {
+                    if (generation != hostBridgeGeneration) {
+                        return@post
+                    }
+                    val nextState = result.getOrElse { error ->
+                        failedHostBridgeState(error.message ?: "Не удалось выполнить probe к host bridge.")
+                    }
+                    val shouldLog = didHostBridgeStateMeaningfullyChange(hostBridgeState, nextState)
+                    applyHostBridgeState(nextState, shouldLogTransition = shouldLog)
+                }
+            },
+            HOST_BRIDGE_PROBE_INTERVAL_MS,
+            HOST_BRIDGE_PROBE_INTERVAL_MS,
+            TimeUnit.MILLISECONDS,
+        )
+    }
+
+    private fun cancelHostBridgeProbeLoop() {
+        hostBridgeProbeFuture?.cancel(false)
+        hostBridgeProbeFuture = null
+    }
+
+    private fun onAndroidNetworkChanged() {
+        logger.info(
+            logEvent(
+                area = LogArea.Connection,
+                eventName = "android_network_changed",
+                messageHuman = "Android network path изменился.",
+                fields = hostBridgeFields(),
+            ),
+        )
+        if (shouldAutoProbeAfterNetworkChange()) {
+            submitImmediateHostBridgeProbe()
+        }
+    }
+
+    private fun submitImmediateHostBridgeProbe() {
+        val generation = hostBridgeGeneration
+        hostBridgeExecutor.execute {
+            if (generation != hostBridgeGeneration) {
+                return@execute
+            }
+            val result = runCatching {
+                hostBridgeRepository.probe(localNetworkPermissionGranted)
+            }
+            mainHandler.post {
+                if (generation != hostBridgeGeneration) {
+                    return@post
+                }
+                val nextState = result.getOrElse { error ->
+                    failedHostBridgeState(error.message ?: "Не удалось восстановить probe после возврата сети.")
+                }
+                val shouldLog = didHostBridgeStateMeaningfullyChange(hostBridgeState, nextState)
+                applyHostBridgeState(nextState, shouldLogTransition = shouldLog)
+            }
+        }
+    }
+
+    private fun shouldAutoProbeAfterNetworkChange(): Boolean =
+        hasSavedPairing() &&
+            hostBridgeState.localNetworkAccessState == LocalNetworkAccessState.Ready &&
+            hostBridgeState.phase in setOf(
+                HostBridgeConnectionPhase.Connected,
+                HostBridgeConnectionPhase.Degraded,
+            )
+
+    private fun didHostBridgeStateMeaningfullyChange(
+        previousState: HostBridgeConnectionState,
+        nextState: HostBridgeConnectionState,
+    ): Boolean = previousState.phase != nextState.phase ||
+        previousState.lastError != nextState.lastError ||
+        previousState.localNetworkAccessState != nextState.localNetworkAccessState ||
+        previousState.runtimeSummary.hostStatus != nextState.runtimeSummary.hostStatus ||
+        previousState.runtimeSummary.appListCount != nextState.runtimeSummary.appListCount ||
+        previousState.runtimeSummary.retryAttempt != nextState.runtimeSummary.retryAttempt
+
     private fun hostBridgeFields(): Map<String, String> = buildMap {
         hostBridgeState.pairedHost?.hostId?.value?.let { put("hostId", it) }
         hostBridgeState.pairedHost?.transport?.name?.let { put("transport", it) }
@@ -359,6 +571,13 @@ class StukayAppState(
         hostBridgeState.pairedHost?.endpoint?.let { put("endpointDisplay", hostBridgeEndpointDisplayValue(it)) }
         put("phase", hostBridgeState.phase.name)
         put("nearbyGranted", hostBridgeState.nearbyWifiDevicesGranted.toString())
+    }
+
+    fun dispose() {
+        hostBridgeGeneration += 1
+        cancelHostBridgeProbeLoop()
+        networkMonitor.stop()
+        hostBridgeExecutor.shutdownNow()
     }
 
     private fun logHostBridgeTransition() {
@@ -391,7 +610,7 @@ class StukayAppState(
             )
 
             HostBridgeConnectionPhase.Paired ->
-                if (hostBridgeState.localNetworkAccessState == dev.vitalcc.stukay.core.model.LocalNetworkAccessState.PermissionRequired) {
+                if (hostBridgeState.localNetworkAccessState == LocalNetworkAccessState.PermissionRequired) {
                     logger.warn(
                         logEvent(
                             area = LogArea.Connection,
@@ -428,4 +647,8 @@ class StukayAppState(
     ) == PackageManager.PERMISSION_GRANTED
 
     private fun hasSavedPairing(): Boolean = hostBridgeState.pairedHost != null
+
+    private companion object {
+        const val HOST_BRIDGE_PROBE_INTERVAL_MS = 5_000L
+    }
 }

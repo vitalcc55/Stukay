@@ -7,9 +7,9 @@
 ## Progress Tracker
 
 - overall_status: `in_progress`
-- current_milestone: `M3`
+- current_milestone: `M4`
 - implementation_started: `yes`
-- active_plan_owner: следующий агент, который начнет реализацию по явной команде пользователя
+- active_plan_owner: текущий execution thread `codex/host-bridge-mvp`
 
 ### Update Rules
 
@@ -382,7 +382,7 @@ Rule:
 
 ### M1. Implement locked transport and state contract
 
-- status: `planned`
+- status: `completed`
 - owner_surface:
   - `HostBridgeModels.kt`
   - `HostBridgePairingParser.kt`
@@ -441,7 +441,7 @@ Rule:
 
 ### M2. Add Windows Host Bridge helper
 
-- status: `planned`
+- status: `completed`
 - owner_surface:
   - `tools/hostbridge/`
   - host-side tests
@@ -490,27 +490,49 @@ Rule:
 
 ### M3. Build Android-side real client and repository
 
-- status: `planned`
+- status: `completed`
 - owner_surface:
   - `app/runtime/hostbridge/*`
   - `StukayRuntimeGraph.kt`
   - `StukayAppState.kt`
 
-- [ ] Добавить Android-side client к Host Bridge.
-- [ ] Добавить timeout handling.
-- [ ] Добавить retry/backoff mapping.
-- [ ] Добавить `ConnectivityManager`-backed connectivity monitor.
-- [ ] Перевести `HostBridgeRepository` с stub на real transport path.
-- [ ] Оставить single source of truth в `StukayAppState`.
+- [x] Добавить Android-side client к Host Bridge.
+- [x] Добавить timeout handling.
+- [x] Добавить retry/backoff mapping.
+- [x] Добавить `ConnectivityManager`-backed connectivity monitor.
+- [x] Перевести `HostBridgeRepository` с stub на real transport path.
+- [x] Оставить single source of truth в `StukayAppState`.
 
 #### Stage Report
 
-- summary:
+- summary: Stage 3 завершен. Android-side `OkHttpHostBridgeClient` подключен к helper `GET /v1/runtime/summary`, stub repository заменен на `HttpJsonHostBridgeRepository`, runtime graph переведен на real host-backed transport, а `StukayAppState` получил background executor, periodic probe loop, network-change triggered immediate probe и lifecycle teardown через `dispose()` / `ViewModel.onCleared()`.
 - evidence:
+  - `mcp__jetbrains__.build_project(filesToRebuild=...)`
+  - `.\gradlew.bat :app:testDebugUnitTest --tests "dev.vitalcc.stukay.runtime.hostbridge.HostBridgeClientTest" --tests "dev.vitalcc.stukay.runtime.hostbridge.HttpJsonHostBridgeRepositoryTest" --console=plain`
+  - `.\gradlew.bat :app:testDebugUnitTest --tests "dev.vitalcc.stukay.runtime.hostbridge.HttpJsonHostBridgeRepositoryTest.refreshPermissionStateDoesNotMaskUnauthorizedFailure" --console=plain`
+  - `.\gradlew.bat :app:testDebugUnitTest :app:assembleDebug --console=plain`
 - commands_run:
+  - `mcp__jetbrains__.build_project(filesToRebuild=...)`
+  - `.\gradlew.bat :app:testDebugUnitTest --tests "dev.vitalcc.stukay.runtime.hostbridge.HostBridgeClientTest" --tests "dev.vitalcc.stukay.runtime.hostbridge.HttpJsonHostBridgeRepositoryTest" --console=plain`
+  - `.\gradlew.bat :app:testDebugUnitTest --tests "dev.vitalcc.stukay.runtime.hostbridge.HttpJsonHostBridgeRepositoryTest.refreshPermissionStateDoesNotMaskUnauthorizedFailure" --console=plain`
+  - `.\gradlew.bat :app:testDebugUnitTest :app:assembleDebug --console=plain`
 - files_changed:
+  - `app/build.gradle.kts`
+  - `gradle/libs.versions.toml`
+  - `app/src/main/kotlin/dev/vitalcc/stukay/StukayAppViewModel.kt`
+  - `app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayAppState.kt`
+  - `app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayRuntimeGraph.kt`
+  - `app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/AndroidNetworkMonitor.kt`
+  - `app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeClient.kt`
+  - `app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeRepository.kt`
+  - `app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeClientTest.kt`
+  - `app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HttpJsonHostBridgeRepositoryTest.kt`
+  - `app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/StubHostBridgeRepositoryTest.kt`
 - residual_risks:
-- next_milestone:
+  - shell routes еще не показывают весь runtime summary contract и probe telemetry
+  - `Projects` и `Diagnostics` still need deliberate Stage 4 wording/data-surface pass
+  - security scan и device proofs еще не пройдены
+- next_milestone: `M4`
 
 ### M4. Surface real runtime summary into shell
 

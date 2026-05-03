@@ -8,4 +8,9 @@ class StukayAppViewModel(
     application: Application,
 ) : AndroidViewModel(application) {
     val appState: StukayAppState = StukayAppState(application)
+
+    override fun onCleared() {
+        appState.dispose()
+        super.onCleared()
+    }
 }
