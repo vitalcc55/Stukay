@@ -17,7 +17,7 @@
 
 - milestone: `Host Bridge MVP`
 - branch: `codex/host-bridge-mvp`
-- implementation_status: `not_started`
+- implementation_status: `completed_locally_pending_final_branch_review`
 - progress_tracking:
   - checklist by milestone
   - `Stage Report` after each completed stage

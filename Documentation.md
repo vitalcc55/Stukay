@@ -72,7 +72,7 @@
 - artifact: `docs/exec-plans/active/runtime-slice-host-bridge-research.md`
 - purpose: evidence-backed research substrate for runtime slice scope, official facts and reference signals
 - artifact: `docs/exec-plans/active/host-bridge-mvp-plan.md`
-- purpose: active implementation-oriented plan for the next Host Bridge MVP milestone with progress checklist and stage reports
+- purpose: completed implementation-oriented plan and stage ledger for the locally proven Host Bridge MVP milestone
 - artifact: `.\gradlew.bat :app:testDebugUnitTest --console=plain`
 - purpose: verified pairing parser and host bridge repository state transitions
 - artifact: `.\gradlew.bat :app:assembleDebug --console=plain`

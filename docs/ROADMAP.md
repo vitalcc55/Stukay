@@ -35,54 +35,11 @@
 - проверяемый build/test baseline;
 - repo-local lifecycle/docs/control-plane surfaces.
 
-Это значит, что foundation больше не является будущим этапом. Contract slice для `Host Bridge / pairing / local network flow` уже закрыт; следующий реальный шаг — `Host Bridge MVP`, а не очередная перестройка shell.
+Это значит, что foundation больше не является будущим этапом. `Host Bridge MVP` уже локально доказан через живой Android -> Host Bridge -> local Codex runtime path; следующий реальный шаг — `Real thread runtime`, а не очередная перестройка shell.
 
 ## Now
 
-### 1. Host Bridge MVP
-
-Задача:
-
-- получить первый реальный end-to-end: Android -> Host Bridge -> local Codex runtime;
-- показать host status;
-- сделать базовый request/response;
-- показать сетевые ошибки, reconnect и degraded mode.
-
-Почему сейчас:
-
-- contract slice уже зафиксировал app-side seam, pairing payload flow и local-network UX;
-- следующий риск теперь не в структуре shell, а в реальном transport path;
-- именно эту зону сильнее всего подтверждают reference repos `relaydex`, `openconnect`, `PocketDex`.
-
-Exit criteria:
-
-- Android клиент реально ходит в Host Bridge;
-- host status и reconnect/degraded state опираются на реальный transport, а не на stub;
-- fake thread/runtime seam начинает замещаться реальным runtime data path.
-
-### 2. Quality gate stabilization
-
-Задача:
-
-- агрегировать локальный confidence loop;
-- закрепить `lintDebug` как verified surface;
-- выровнять test matrix с реальными командами;
-- определить, что считается быстрым и полным локальным gate.
-
-Почему сейчас:
-
-- build/test baseline уже есть, но quality gate еще не собран в единый рабочий контур;
-- runtime slice без этого быстро начнёт расползаться по качеству.
-
-Exit criteria:
-
-- есть единая короткая локальная команда доверия;
-- `lintDebug` и текущие unit test surfaces отражены как verified;
-- docs не обещают больше, чем реально проверяется.
-
-## Next
-
-### 3. Real thread runtime
+### 1. Real thread runtime
 
 Задача:
 
@@ -94,13 +51,19 @@ Exit criteria:
 - interrupt;
 - восстановление после reconnect.
 
-Reference emphasis:
+Почему сейчас:
 
-- `relaydex`
-- `codexdroid`
-- `openconnect`
+- `Host Bridge MVP` уже закрыл transport, pairing, reconnect/degraded path и первый real data path;
+- следующий product-value step теперь лежит в real thread lifecycle, а не в transport scaffolding;
+- именно здесь transport prove-out начинает окупаться как пользовательский runtime, а не как только host status surface.
 
-### 4. Approval safety layer
+Exit criteria:
+
+- Android клиент читает runtime-backed projects/threads;
+- shell умеет создавать и открывать реальные треды;
+- появляется real prompt/response lifecycle поверх уже доказанного Host Bridge transport.
+
+### 2. Approval safety layer
 
 Задача:
 
@@ -110,9 +73,26 @@ Reference emphasis:
 - audit trail;
 - redacted logging.
 
-Почему не раньше:
+Почему сейчас:
 
-- approval уже смоделирован fake-доменом, но реальная ценность появится вместе с runtime transport.
+- approval уже смоделирован fake-доменом, но реальная ценность появляется теперь, когда transport и reconnect/degraded path уже живые;
+- после real thread runtime approval surface станет следующим safety-critical слоем.
+
+Exit criteria:
+
+- approvals проходят через реальный runtime path;
+- stale/timeout paths честно видны оператору;
+- logs и diagnostics сохраняют redacted audit trail.
+
+## Next
+
+### 3. Review / diff / file-change surface
+
+Reference emphasis:
+
+- `farfield`
+- `codexUI`
+- `PocketDex`
 
 ## Later
 

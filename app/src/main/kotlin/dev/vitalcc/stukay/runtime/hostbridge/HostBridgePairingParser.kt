@@ -67,6 +67,10 @@ private fun validateEndpoint(
         "Endpoint должен использовать http/https."
     }
     require(!uri.host.isNullOrBlank()) { "Endpoint должен содержать host." }
+    val normalizedPath = uri.path.orEmpty()
+    require(normalizedPath.isBlank() || normalizedPath == "/") {
+        "Endpoint должен быть base host endpoint без route path; client сам добавляет /v1/runtime/summary."
+    }
     require(uri.userInfo.isNullOrBlank()) { "Endpoint не должен содержать embedded credentials." }
     require(uri.query.isNullOrBlank()) { "Endpoint не должен содержать query secrets." }
     require(uri.fragment.isNullOrBlank()) { "Endpoint не должен содержать fragment." }

@@ -68,4 +68,5 @@
 ## Known Gaps Between Current And Target
 
 - Нет repo-local aggregated `quality` task; `lintDebug` уже верифицирован как отдельный gate.
-- Нет yet persistence/export для diagnostics и нет real runtime Host Bridge transport; текущий contract slice остается stubbed.
+- Нет yet persistence/export для diagnostics.
+- Full real thread runtime, approvals-over-runtime и public/tunnel path остаются следующими milestones после локально доказанного `Host Bridge MVP`.

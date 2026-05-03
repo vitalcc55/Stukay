@@ -83,22 +83,20 @@ Milestone `Host Bridge MVP` считается закрытым, когда:
 
 - Contract slice уже закрыт.
 - Pairing/local-network UX уже живет в `feature:settings`.
-- `Projects` и `Diagnostics` уже показывают host summary, но он строится от stubbed repository state.
+- `Projects` и `Diagnostics` уже показывают runtime-backed host summary из real `HostBridgeConnectionState`.
 - `RuntimeProjectsRepository` и `RuntimeThreadRepository` остаются adapter seams, но сейчас делегируют в fake repositories.
 - `feature:thread` все еще fake-only по action contract:
   - `startFakeTurn`
   - `completeFakeTurn`
   - `resolveApproval`
 - `StukayAppState` остается главным owner-ом app-level state и runtime wiring seam.
-- Current pairing parser принимает `http_json` и `ws` family, но MVP не должен оставлять `ws` рабочим success path.
+- Current pairing parser принимает только `http_json` success path и требует base host endpoint без route path.
 - Current host policy helper в коде уже знает:
   - RFC1918
   - `.local`
   - `100.64/10`
   - `169.254/16` по-прежнему reject path
-- Current stubbed host bridge state machine не считается truth surface для реального local-network transport path:
-  - она еще не доказывает реальную permission-gated готовность LAN path;
-  - `Connected/Ready` в текущем stubbed state не должно трактоваться как доказанный runtime-ready сигнал для MVP.
+- Current host bridge state machine уже real host-backed, но full real thread runtime по-прежнему не входит в этот milestone.
 - `AndroidManifest.xml` уже содержит:
   - `INTERNET`
   - `ACCESS_NETWORK_STATE`
@@ -109,12 +107,12 @@ Milestone `Host Bridge MVP` считается закрытым, когда:
 ### Core runtime seam
 
 - `app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeRepository.kt`
-  - текущий stub state machine;
-  - точка замены на real repository;
-  - сюда добавляется `Degraded` contract, retry/backoff и runtime snapshot mapping.
+  - текущий real `HttpJsonHostBridgeRepository` plus host-state contract;
+  - здесь живут `Degraded`, retry/backoff и runtime snapshot mapping;
+  - следующий milestone трогает его уже не ради transport prove-out, а ради full thread runtime data path.
 - `app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayRuntimeGraph.kt`
-  - текущий runtime graph;
-  - сюда войдет real Host Bridge client и host-backed repository wiring.
+  - current runtime graph уже wired на real Host Bridge client и host-backed repository;
+  - следующий шаг здесь — не новый transport seam, а расширение runtime-backed data readers поверх уже доказанного Host Bridge path.
 - `app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayAppState.kt`
   - SSOT для `hostBridgeState`, connect actions и logs;
   - здесь нельзя смешивать transport DTO и UI directly.
@@ -122,19 +120,20 @@ Milestone `Host Bridge MVP` считается закрытым, когда:
 ### Transport and pairing seam
 
 - `app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgePairingParser.kt`
-  - нужно зафиксировать MVP transport shape;
-  - pairing payload должен быть strict enough, чтобы не плодить ambiguous transport branches.
+  - current parser уже locked на `http_json` success path;
+  - pairing payload теперь должен оставаться strict enough, чтобы не плодить ambiguous transport branches и endpoint-path drift.
 - `app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgePairingStore.kt`
   - storage seam для pairing payload;
   - не использовать как runtime API.
 - `core/model/src/main/java/dev/vitalcc/stukay/core/model/HostBridgeModels.kt`
-  - расширить под:
+  - current model уже несет:
     - `Degraded`
     - `retryAttempt`
     - `lastRoundTripMs`
     - `lastProbeAtEpochMs`
     - `runtimeSummary`
     - `appListCount`
+    - `HostRuntimeSnapshotScope`
 
 ### UI readers
 
@@ -166,11 +165,12 @@ Milestone `Host Bridge MVP` считается закрытым, когда:
 - `gradle/libs.versions.toml`
   - centralized dependency version pinning.
 
-### Host-side code to add
+### Host-side implementation
 
 - `tools/hostbridge/`
-  - Windows-native helper/service, который держит локальный `codex app-server --listen stdio://`;
-  - этот helper не является Android runtime API truth surface, а только host bridge process.
+  - Windows-native helper/service, который уже держит локальный `codex app-server --listen stdio://`;
+  - этот helper не является Android runtime API truth surface, а только host bridge process;
+  - следующий milestone поверх него — real thread/runtime methods, а не заново helper scaffolding.
 
 ## Official Facts To Honor
 

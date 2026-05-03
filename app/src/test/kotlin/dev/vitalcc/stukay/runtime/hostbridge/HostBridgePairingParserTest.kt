@@ -66,6 +66,19 @@ class HostBridgePairingParserTest {
         assertTrue(error.message.orEmpty().contains("http_json"))
     }
 
+    @Test
+    fun rejectsEndpointThatAlreadyContainsSummaryPath() {
+        val error = assertThrows(IllegalArgumentException::class.java) {
+            parsePairingPayload(
+                validPayload(
+                    endpoint = "http://192.168.0.24:4500/v1/runtime/summary",
+                ),
+            )
+        }
+
+        assertTrue(error.message.orEmpty().contains("base host endpoint"))
+    }
+
     private fun validPayload(
         endpoint: String,
         transport: String = "http_json",
