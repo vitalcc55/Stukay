@@ -6,8 +6,8 @@
 
 ## Progress Tracker
 
-- overall_status: `in_progress`
-- current_milestone: `M5`
+- overall_status: `ready_for_final_branch_review`
+- current_milestone: `final_branch_review`
 - implementation_started: `yes`
 - active_plan_owner: текущий execution thread `codex/host-bridge-mvp`
 
@@ -572,26 +572,55 @@ Rule:
 
 ### M5. Verification and proof gates
 
-- status: `planned`
+- status: `completed`
 - owner_surface:
   - tests
   - docs
   - checkpoint
 
-- [ ] Пройти unit/build/lint gates.
-- [ ] Пройти `@codex-security` scan по новому transport slice.
-- [ ] Пройти `@test-android-apps` emulator QA flow.
-- [ ] Пройти physical Pixel proof.
-- [ ] Обновить `Documentation.md`, `docs/CHANGELOG.md`, `.tmp/.codex/task_state/latest.*`.
+- [x] Пройти unit/build/lint gates.
+- [x] Пройти `@codex-security` scan по новому transport slice.
+- [x] Пройти `@test-android-apps` emulator QA flow.
+- [x] Пройти physical Pixel proof.
+- [x] Обновить `Documentation.md`, `docs/CHANGELOG.md`, `.tmp/.codex/task_state/latest.*`.
 
 #### Stage Report
 
-- summary:
+- summary: Stage 5 завершен. Repo-local gates зелёные, host helper runtime path дополнительно усилен по итогам live proof (`_sanitize_runtime_error` больше не валит HTTP handler, Windows spawn резолвит runnable `codex.cmd/.exe`), diff-scoped security review по transport slice не дал подтвержденных security findings, а acceptance flow `connect -> degraded -> reconnect -> disconnect` подтвержден и на физическом Pixel по USB tether LAN, и на эмуляторе `medium_phone` через `10.0.2.2`.
 - evidence:
+  - `mcp__jetbrains__.build_project(filesToRebuild=...)`
+  - `.\gradlew.bat :app:lintDebug --console=plain`
+  - `.\gradlew.bat :core:model:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug --console=plain`
+  - `python -W error::ResourceWarning -m unittest discover -s tools/hostbridge/tests -p 'test_*.py'`
+  - local helper proof `http://127.0.0.1:8421/v1/runtime/summary`
+  - sanitized acceptance proof in `docs/exec-plans/active/host-bridge-mvp-proof.md`
 - commands_run:
+  - `android describe --project_dir .`
+  - `adb devices`
+  - `adb -s <physical-device> install -r app\build\outputs\apk\debug\app-debug.apk`
+  - `adb -e install -r app\build\outputs\apk\debug\app-debug.apk`
+  - `android emulator create --profile medium_phone`
+  - `android emulator start medium_phone --cold`
+  - `python -W error::ResourceWarning -m unittest discover -s tools/hostbridge/tests -p 'test_*.py'`
+  - `.\gradlew.bat :app:lintDebug --console=plain`
+  - `.\gradlew.bat :core:model:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug --console=plain`
 - files_changed:
+  - `tools/hostbridge/runtime_client.py`
+  - `tools/hostbridge/server.py`
+  - `tools/hostbridge/tests/test_runtime_client.py`
+  - `tools/hostbridge/tests/test_server.py`
+  - `docs/exec-plans/active/host-bridge-mvp-proof.md`
+  - `docs/generated/project-interfaces.md`
+  - `docs/notion/PROJECT_SYNC.md`
+  - `Documentation.md`
+  - `docs/exec-plans/active/host-bridge-mvp-plan.md`
+  - `docs/CHANGELOG.md`
+  - `.tmp/.codex/task_state/latest.md`
+  - `.tmp/.codex/task_state/latest.json`
 - residual_risks:
-- next_milestone:
+  - security model по-прежнему bounded cleartext MVP, TLS/public path остается следующим milestone
+  - `feature:thread` все еще fake-only и сознательно не входит в acceptance этого milestone
+- next_milestone: `Final branch-wide review vs main`
 
 ## Validation
 

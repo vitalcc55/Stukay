@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools.hostbridge.runtime_client import CodexRuntimeClient
+from tools.hostbridge.runtime_client import CodexRuntimeClient, resolve_codex_command
 
 
 class RuntimeClientTest(unittest.TestCase):
@@ -62,6 +62,28 @@ class RuntimeClientTest(unittest.TestCase):
                     client.fetch_app_list()
             finally:
                 client.close()
+
+    def test_resolve_codex_command_prefers_windows_cmd_shim(self):
+        command = resolve_codex_command(
+            "codex",
+            os_name="nt",
+            which=lambda value: {
+                "codex.cmd": r"C:\tools\codex.cmd",
+                "codex.exe": r"C:\tools\codex.exe",
+                "codex": r"C:\tools\codex",
+            }.get(value),
+        )
+
+        self.assertEqual(r"C:\tools\codex.cmd", command)
+
+    def test_resolve_codex_command_keeps_explicit_binary_name(self):
+        command = resolve_codex_command(
+            "C:\\custom\\codex.exe",
+            os_name="nt",
+            which=lambda value: None,
+        )
+
+        self.assertEqual("C:\\custom\\codex.exe", command)
 
 
 def _write_fake_app_server(tmp_path: Path, counter_path: Path) -> Path:

@@ -6,7 +6,7 @@
 - Page title: `Stukay`
 - Notion URL: <https://app.notion.com/p/353f585cf06881c682d5ccb7437ada86>
 - Record code: `PRJ-3`
-- Current next step in Notion: `Начать Host Bridge MVP: заменить stub repository на real host-backed transport`
+- Current next step in Notion: `Закрыть финальный branch-wide review по Host Bridge MVP и обновить cross-project status`
 
 ## Sync Rule
 

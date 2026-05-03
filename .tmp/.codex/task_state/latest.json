@@ -1,31 +1,32 @@
 {
   "goal": "Реализовать Host Bridge MVP: первый реальный Android -> Host Bridge -> local Codex runtime path без ухода в полный real thread runtime.",
-  "stage": "host_bridge_mvp_stage4_shell_summary_complete",
+  "stage": "host_bridge_mvp_stage5_verification_complete",
   "done": [
     "stage 1 completed: transport contract locked to http_json, ws/wss moved to explicit unsupported path, degraded runtime summary contract added, cleartext opt-in and allowlist policy fixed",
     "stage 2 completed: Windows Host Bridge helper added with bearer auth, stdio app-server client, app/list summary path, degraded caching, and auth-first reject behavior",
     "stage 3 completed: Android-side OkHttpHostBridgeClient and HttpJsonHostBridgeRepository integrated, runtime graph now wires the real host-backed repository, StukayAppState runs host bridge actions on a background executor with periodic probe loop and lifecycle teardown",
-    "stage 4 completed: Settings, Projects, and Diagnostics now read the shared HostBridgeConnectionState, Settings and Projects stay on summary-only runtime signal, Diagnostics keeps full telemetry detail, HostRuntimeSnapshotScope distinguishes live vs last_known snapshots, and fresh unauthorized failures no longer look cached"
+    "stage 4 completed: Settings, Projects, and Diagnostics now read the shared HostBridgeConnectionState, Settings and Projects stay on summary-only runtime signal, Diagnostics keeps full telemetry detail, HostRuntimeSnapshotScope distinguishes live vs last_known snapshots, and fresh unauthorized failures no longer look cached",
+    "stage 5 completed: repo-local gates are green, helper runtime hardening closed the Windows spawn and degraded HTTP error-path bugs, Python helper tests pass in ResourceWarning-strict mode, diff-scoped transport security review found no validated security issues, the physical Pixel flow is proven over USB tether LAN, and the emulator flow is proven on medium_phone through 10.0.2.2"
   ],
   "next": [
-    "start M5 from docs/exec-plans/active/host-bridge-mvp-plan.md",
-    "run security scan and Android QA / emulator / Pixel proof",
-    "update milestone checklist and stage report after the next completed stage"
+    "run final branch-wide review loop vs main",
+    "if no new findings survive validation, prepare final merge-readiness verdict"
   ],
   "edited_files": [
-    "core/model/src/main/java/dev/vitalcc/stukay/core/model/HostBridgeModels.kt",
-    "core/model/src/test/java/dev/vitalcc/stukay/core/model/HostBridgeModelsTest.kt",
-    "app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayAppState.kt",
-    "feature/settings/src/main/java/dev/vitalcc/stukay/feature/settings/ui/SettingsRoute.kt",
-    "feature/projects/src/main/java/dev/vitalcc/stukay/feature/projects/ui/ProjectsRoute.kt",
-    "feature/diagnostics/src/main/java/dev/vitalcc/stukay/feature/diagnostics/ui/DiagnosticsRoute.kt",
+    "tools/hostbridge/runtime_client.py",
+    "tools/hostbridge/server.py",
+    "tools/hostbridge/tests/test_runtime_client.py",
+    "tools/hostbridge/tests/test_server.py",
+    "docs/exec-plans/active/host-bridge-mvp-proof.md",
+    "docs/generated/project-interfaces.md",
+    "docs/notion/PROJECT_SYNC.md",
     "Documentation.md",
     "docs/exec-plans/active/host-bridge-mvp-plan.md",
     "docs/CHANGELOG.md",
     ".tmp/.codex/task_state/latest.md",
     ".tmp/.codex/task_state/latest.json"
   ],
-  "verify_status": "JetBrains file rebuild passes; :core:model:testDebugUnitTest plus :app:testDebugUnitTest and :app:assembleDebug are green after the Stage 4 runtime-summary surface update",
+  "verify_status": "JetBrains sync-preflight passes; :app:lintDebug, :core:model:testDebugUnitTest, :app:testDebugUnitTest, and :app:assembleDebug are green; helper Python tests pass under ResourceWarning-strict mode; live helper proof succeeds; physical Pixel and emulator acceptance flows are both proven",
   "open_questions": [],
-  "updated_at_utc": "2026-05-03T20:05:00Z"
+  "updated_at_utc": "2026-05-03T20:55:00Z"
 }

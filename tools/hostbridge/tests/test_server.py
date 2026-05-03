@@ -2,8 +2,14 @@ from __future__ import annotations
 
 import http.client
 import json
+import os
+import socket
+import subprocess
+import sys
 import threading
+import time
 import unittest
+from pathlib import Path
 
 from tools.hostbridge.server import HostBridgeHttpServer, HostBridgeService
 
@@ -108,6 +114,58 @@ class ServerTest(unittest.TestCase):
         self.assertEqual("Host Bridge runtime is unavailable.", summary.error_message)
         self.assertEqual("Host Bridge runtime is unavailable.", summary.last_transport_error)
 
+    def test_module_entrypoint_returns_degraded_json_when_runtime_spawn_fails(self):
+        port = _pick_free_port()
+        env = os.environ.copy()
+        env["STUKAY_HOSTBRIDGE_SESSION_TOKEN"] = "secret-token"
+        repo_root = Path(__file__).resolve().parents[3]
+        proc = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "tools.hostbridge.server",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                str(port),
+                "--cwd",
+                str(repo_root),
+                "--codex-bin",
+                "definitely-missing-codex",
+            ],
+            cwd=repo_root,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+        )
+        connection = None
+        try:
+            _wait_for_http_server(port)
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+            connection.request(
+                "GET",
+                "/v1/runtime/summary",
+                headers={"Authorization": "Bearer secret-token"},
+            )
+            response = connection.getresponse()
+            payload = json.loads(response.read().decode("utf-8"))
+        finally:
+            if connection is not None:
+                connection.close()
+            proc.terminate()
+            proc.wait(timeout=5)
+            if proc.stdout is not None:
+                proc.stdout.close()
+            if proc.stderr is not None:
+                proc.stderr.close()
+
+        self.assertEqual(200, response.status)
+        self.assertEqual("degraded", payload["hostStatus"])
+        self.assertEqual("runtime_unavailable", payload["errorCode"])
+        self.assertEqual("Host Bridge runtime is unavailable.", payload["errorMessage"])
+
 
 def _start_server(runtime_client_factory, token: str):
     service = HostBridgeService(session_token=token, runtime_client_factory=runtime_client_factory)
@@ -115,6 +173,27 @@ def _start_server(runtime_client_factory, token: str):
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     return server, thread
+
+
+def _pick_free_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
+def _wait_for_http_server(port: int) -> None:
+    deadline = time.monotonic() + 5
+    last_error: Exception | None = None
+    while time.monotonic() < deadline:
+        try:
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=1)
+            connection.connect()
+            connection.close()
+            return
+        except Exception as error:  # noqa: BLE001
+            last_error = error
+            time.sleep(0.1)
+    raise RuntimeError(f"Timed out waiting for host bridge server on port {port}") from last_error
 
 
 if __name__ == "__main__":

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 import queue
+import shutil
 import subprocess
 import threading
 import uuid
@@ -121,8 +123,9 @@ class CodexRuntimeClient:
     def _spawn_process(self) -> subprocess.Popen[str]:
         if self._process_factory is not None:
             return self._process_factory()
+        codex_command = resolve_codex_command(self._codex_bin)
         return subprocess.Popen(
-            [self._codex_bin, "app-server", "--listen", "stdio://"],
+            [codex_command, "app-server", "--listen", "stdio://"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -223,3 +226,26 @@ class CodexRuntimeClient:
         if not stderr_tail:
             return prefix
         return f"{prefix}. stderr: {stderr_tail}"
+
+
+def resolve_codex_command(
+    codex_bin: str,
+    *,
+    os_name: str | None = None,
+    which: Callable[[str], str | None] = shutil.which,
+) -> str:
+    resolved_os_name = os_name or os.name
+    if resolved_os_name != "nt":
+        return codex_bin
+
+    lowered = codex_bin.lower()
+    has_explicit_suffix = lowered.endswith((".cmd", ".bat", ".exe", ".ps1"))
+    has_path_separator = any(separator in codex_bin for separator in ("\\", "/"))
+    if has_explicit_suffix or has_path_separator:
+        return codex_bin
+
+    for candidate in (f"{codex_bin}.cmd", f"{codex_bin}.exe", codex_bin):
+        resolved = which(candidate)
+        if resolved is not None:
+            return resolved
+    return codex_bin

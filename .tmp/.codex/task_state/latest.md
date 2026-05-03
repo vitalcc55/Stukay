@@ -1,31 +1,32 @@
 # Task State
 
 - goal: Реализовать `Host Bridge MVP`: первый реальный Android -> Host Bridge -> local Codex runtime path без ухода в полный real thread runtime.
-- stage: host_bridge_mvp_stage4_shell_summary_complete
+- stage: host_bridge_mvp_stage5_verification_complete
 - done:
-  - предыдущий runtime-contract slice завершен и локально верифицирован
-  - собраны repo/code/official/reference findings для `Host Bridge MVP`
-  - сохранен active plan `docs/exec-plans/active/host-bridge-mvp-plan.md`
   - Stage 1 выполнен: transport contract закрыт на `http_json`, `ws/wss` fast-fail, `Degraded` и `HostRuntimeSummary` добавлены, cleartext opt-in и allowlist policy зафиксированы
   - Stage 2 выполнен: Windows Host Bridge helper поднимает локальный `codex app-server`, требует bearer auth и отдает runtime summary по `app/list`
   - Stage 3 выполнен: Android-side `OkHttpHostBridgeClient` и `HttpJsonHostBridgeRepository` внедрены, runtime graph переведен на real host-backed repository, `StukayAppState` получил background executor, periodic probe loop и lifecycle teardown
-  - Stage 4 выполнен:
-    - `Settings`, `Projects` и `Diagnostics` читают единый `HostBridgeConnectionState`
-    - `Settings` и `Projects` показывают summary-only runtime signal
-    - `Diagnostics` показывает полную transport telemetry
-    - введен model-level `HostRuntimeSnapshotScope` для различения `live` и `last_known` snapshots
-    - закрыт edge case, где свежий `Unauthorized` verdict ошибочно выглядел как cached snapshot
+  - Stage 4 выполнен: shell выведен на общий runtime summary contract с честным различением `live` и `last_known`
+  - Stage 5 выполнен:
+    - repo-local gates green: `:core:model:testDebugUnitTest`, `:app:testDebugUnitTest`, `:app:assembleDebug`, `:app:lintDebug`
+    - helper runtime hardening закрыт по live proof:
+      - `_sanitize_runtime_error` больше не валит HTTP error path
+      - Windows spawn резолвит runnable `codex.cmd/.exe`
+    - helper Python suite green под `ResourceWarning`-strict mode
+    - diff-scoped security review по transport slice не дал подтвержденных security findings
+    - physical Pixel proof завершен через private USB tether LAN
+    - emulator proof завершен на `medium_phone` через Android host alias path
 - next:
-  - перейти к `M5` из `docs/exec-plans/active/host-bridge-mvp-plan.md`
-  - пройти security scan, Android QA / emulator / Pixel proof
-  - после завершения stage снова обновить checklist и `Stage Report`
+  - запустить финальный branch-wide review loop относительно `main`
+  - если новых findings не будет, подготовить итоговый merge-readiness verdict
 - edited_files:
-  - core/model/src/main/java/dev/vitalcc/stukay/core/model/HostBridgeModels.kt
-  - core/model/src/test/java/dev/vitalcc/stukay/core/model/HostBridgeModelsTest.kt
-  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayAppState.kt
-  - feature/settings/src/main/java/dev/vitalcc/stukay/feature/settings/ui/SettingsRoute.kt
-  - feature/projects/src/main/java/dev/vitalcc/stukay/feature/projects/ui/ProjectsRoute.kt
-  - feature/diagnostics/src/main/java/dev/vitalcc/stukay/feature/diagnostics/ui/DiagnosticsRoute.kt
+  - tools/hostbridge/runtime_client.py
+  - tools/hostbridge/server.py
+  - tools/hostbridge/tests/test_runtime_client.py
+  - tools/hostbridge/tests/test_server.py
+  - docs/exec-plans/active/host-bridge-mvp-proof.md
+  - docs/generated/project-interfaces.md
+  - docs/notion/PROJECT_SYNC.md
   - Documentation.md
   - docs/exec-plans/active/host-bridge-mvp-plan.md
   - docs/CHANGELOG.md
@@ -33,6 +34,11 @@
   - .tmp/.codex/task_state/latest.json
 - verify_status:
   - `mcp__jetbrains__.build_project(filesToRebuild=...)` passes
+  - `.\gradlew.bat :app:lintDebug --console=plain` passes
   - `.\gradlew.bat :core:model:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug --console=plain` passes
+  - `python -W error::ResourceWarning -m unittest discover -s tools/hostbridge/tests -p 'test_*.py'` passes
+  - live helper proof on Windows returns `ready` summary from `codex app-server`
+  - physical Pixel flow `connect -> degraded -> reconnect -> disconnect` proven
+  - emulator flow `connect -> degraded -> reconnect -> disconnect` proven
 - open_questions:
-  - нет блокирующих открытых вопросов для начала `M5`
+  - нет блокирующих открытых вопросов; следующий шаг — финальный review loop vs `main`

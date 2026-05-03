@@ -154,12 +154,11 @@ def main() -> None:
     finally:
         service.close()
 
-
-if __name__ == "__main__":
-    main()
-
-
 def _sanitize_runtime_error(error: Exception) -> tuple[str, str]:
     if isinstance(error, RuntimeClientError):
         return error.code, error.public_message
     return "runtime_unavailable", "Host Bridge runtime is unavailable."
+
+
+if __name__ == "__main__":
+    main()
