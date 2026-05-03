@@ -31,3 +31,11 @@
 - В `AndroidManifest.xml` добавлены `INTERNET`, `ACCESS_NETWORK_STATE` и `NEARBY_WIFI_DEVICES` для текущего local-network slice.
 - Добавлены JVM tests для pairing payload parser и host bridge repository state transitions.
 - Поверх initial runtime slice fix pass убраны crash-path операции без pairing, выровнен restored permission state, введены runtime adapters поверх fake repositories, добавлен dedicated host/connection diagnostics tail и исключен pairing storage из backup/data-transfer rules.
+
+## 2026-05-03
+
+- `:app` и его tests переведены на `src/*/kotlin`, чтобы выровнять структуру исходников с built-in Kotlin workflow AGP.
+- Локальный кеш компилятора `.kotlin/` исключен из репозитория через `.gitignore`.
+- Для `SDK 36 Preview + AGP 9.2.0` зафиксирован manifest-scoped `tools:ignore="Instantiatable"` на `MainActivity`, потому что lint дает ложное срабатывание на цепочке наследования `ComponentActivity -> Activity`, тогда как build/test surface остаются корректными.
+- `gradle.properties` обновлен до `org.gradle.jvmargs=-Xmx4g`, чтобы уменьшить нестабильность Gradle/Kotlin daemon во время local verification.
+- Финальный verification gate по runtime slice теперь включает `:app:lintDebug`, `:app:testDebugUnitTest` и `:app:assembleDebug`.

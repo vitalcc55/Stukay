@@ -15,8 +15,12 @@
   - fix NotPaired crash paths in host bridge actions
   - fix restored host bridge permission state after cold start
   - harden endpoint contract and exclude pairing storage from backup/data-transfer
+  - align `:app` Kotlin source layout with built-in Kotlin expectations
+  - suppress preview lint false positive `Instantiatable` on `MainActivity`
+  - increase Gradle daemon heap to stabilize local verification
   - verify `:app:testDebugUnitTest`
   - verify `:app:assembleDebug`
+  - verify `:app:lintDebug`
   - verify `android describe --project_dir .`
   - verify `codex mcp get jetbrains`
 - next:
@@ -25,26 +29,34 @@
   - начать real thread/runtime integration поверх уже введенного seam
 - edited_files:
   - app/src/main/AndroidManifest.xml
-  - app/src/main/java/dev/vitalcc/stukay/StukayApp.kt
-  - app/src/main/java/dev/vitalcc/stukay/StukayAppViewModel.kt
-  - app/src/main/java/dev/vitalcc/stukay/runtime/StukayAppState.kt
-  - app/src/main/java/dev/vitalcc/stukay/runtime/StukayRuntimeGraph.kt
-  - app/src/main/java/dev/vitalcc/stukay/runtime/hostbridge/HostBridgePairingParser.kt
-  - app/src/main/java/dev/vitalcc/stukay/runtime/hostbridge/HostBridgePairingStore.kt
-  - app/src/main/java/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeRepository.kt
-  - app/src/test/java/dev/vitalcc/stukay/runtime/hostbridge/HostBridgePairingParserTest.kt
-  - app/src/test/java/dev/vitalcc/stukay/runtime/hostbridge/StubHostBridgeRepositoryTest.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/StukayApp.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/StukayAppViewModel.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/MainActivity.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/StukayApplication.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/navigation/StukayDestination.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayAppState.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayRuntimeGraph.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/RuntimeProjectsRepository.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/RuntimeThreadRepository.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgePairingParser.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgePairingStore.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeRepository.kt
+  - app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgePairingParserTest.kt
+  - app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/StubHostBridgeRepositoryTest.kt
+  - app/src/test/kotlin/dev/vitalcc/stukay/navigation/StukayDestinationTest.kt
+  - app/src/androidTest/kotlin/dev/vitalcc/stukay/ExampleInstrumentedTest.kt
   - core/model/src/main/java/dev/vitalcc/stukay/core/model/HostBridgeModels.kt
   - feature/projects/src/main/java/dev/vitalcc/stukay/feature/projects/ui/ProjectsRoute.kt
   - feature/settings/build.gradle.kts
   - feature/settings/src/main/java/dev/vitalcc/stukay/feature/settings/ui/SettingsRoute.kt
   - feature/diagnostics/src/main/java/dev/vitalcc/stukay/feature/diagnostics/ui/DiagnosticsRoute.kt
+  - gradle.properties
   - Documentation.md
   - docs/exec-plans/active/ExecPlan.md
   - docs/exec-plans/active/runtime-slice-host-bridge-research.md
   - .tmp/.codex/task_state/latest.md
   - .tmp/.codex/task_state/latest.json
   - docs/CHANGELOG.md
-- verify_status: `:app:testDebugUnitTest`, `:app:assembleDebug`, `android describe --project_dir .` и `codex mcp get jetbrains` проходят; lifecycle validator должен остаться в warn-only после docs sync
+- verify_status: `:app:lintDebug`, `:app:testDebugUnitTest`, `:app:assembleDebug`, `android describe --project_dir .` и `codex mcp get jetbrains` проходят; lifecycle validator должен остаться в warn-only после docs sync
 - open_questions:
   - camera QR scan и public tunnel path сознательно отложены в Host Bridge MVP

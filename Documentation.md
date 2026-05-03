@@ -1,8 +1,8 @@
 # Documentation.md
 
 ## Current Milestone Status
-- current: Первый runtime slice для `Host Bridge contract + pairing + local network flow` реализован и локально перепроверен.
-- done: typed `Host Bridge` models, runtime adapters поверх fake repositories, runtime graph для app state, pairing payload save/connect/reconnect/disconnect flow с guard-ами без crash-path, Android 16 local-network manual/opt-in permission rationale, host summary в `Projects`, отдельный host/connection diagnostics tail, JVM tests для parser/repository transitions.
+- current: Первый runtime slice для `Host Bridge contract + pairing + local network flow` реализован, review-нут и доведен до чистого local verification gate.
+- done: typed `Host Bridge` models, runtime adapters поверх fake repositories, runtime graph для app state, pairing payload save/connect/reconnect/disconnect flow с guard-ами без crash-path, Android 16 local-network manual/opt-in permission rationale, host summary в `Projects`, отдельный host/connection diagnostics tail, JVM tests для parser/repository transitions, перенос `:app` на `src/*/kotlin`, manifest-scoped suppression ложного `Instantiatable` lint blocker на `SDK 36 Preview`.
 - next: Перейти к `Host Bridge MVP` и real `codex app-server` backed thread/runtime transport, не возвращаясь к foundation shell.
 
 ## Decisions
@@ -18,12 +18,16 @@
 - why: текущий slice single-host, engineering-first и не требует нового feature boundary до начала real multi-host/runtime transport.
 - decision: pairing flow в этом milestone начинается с `pairing payload paste/import`, а camera QR scanning и public tunnel flow отложены.
 - why: roadmap разделяет contract slice и `Host Bridge MVP`, поэтому сначала фиксируется typed seam, guard-нутый control flow и permission UX.
+- decision: ложный `Instantiatable` для `MainActivity` подавляется точечно через `tools:ignore` в manifest вместо отката SDK, замены `ComponentActivity` или ослабления UI stack.
+- why: это bug tooling surface для `SDK 36 Preview + AGP 9.2.0`, а не runtime bug приложения; suppression ограничен одной записью manifest и не меняет поведение app shell.
 
 ## How To Run And Demo
 - command: `python C:\Users\v.vlasov\.codex\skills\repo-harness-lifecycle\scripts\validate_lifecycle_stack.py --root .`
 - expected result: validator проходит без contract failures; допустимы только осознанные `warn` до заполнения placeholder-ов.
 - command: `.\gradlew.bat :app:assembleDebug :app:testDebugUnitTest --console=plain`
 - expected result: runtime slice собирается, а JVM tests для pairing/parser/runtime state и restore/guard transitions проходят.
+- command: `.\gradlew.bat :app:lintDebug --console=plain`
+- expected result: lint проходит; preview false positive по `Instantiatable` подавлен точечно на manifest entry `MainActivity`.
 - command: `android describe --project_dir .`
 - expected result: CLI распознает `:app`, варианты `debug/release` и APK output surface.
 - command: `codex mcp get jetbrains`
@@ -32,8 +36,8 @@
 - expected result: lifecycle validator проходит; допустимы только известные `warn`, без `fail`.
 
 ## Latest Review Outcome
-- findings: локальный compile/test loop для runtime slice чист; blocker regressions по `app:testDebugUnitTest` и `app:assembleDebug` не обнаружены.
-- residual risks: transport остается stubbed, camera QR pairing не реализован, public/tunnel endpoint path вынесен в следующий milestone, diagnostics все еще без persistence/export, parser остается intentionally lightweight boundary.
+- findings: локальный verification loop для runtime slice чист; `app:lintDebug`, `app:testDebugUnitTest` и `app:assembleDebug` проходят после точечного manifest suppression для preview lint bug.
+- residual risks: transport остается stubbed, camera QR pairing не реализован, public/tunnel endpoint path вынесен в следующий milestone, diagnostics все еще без persistence/export, parser остается intentionally lightweight boundary, а suppression `Instantiatable` нужно будет пересмотреть после стабилизации AGP/SDK 36.
 
 ## Known Issues And Follow-ups
 - item: В текущем runtime JetBrains MCP tools могут быть недоступны как native namespace до перезапуска Codex App, хотя server-side конфиг уже работает.
@@ -45,6 +49,7 @@
 - item: local network permission path для current API 36 intentionally подается как manual/opt-in path вокруг `NEARBY_WIFI_DEVICES`, а не как unconditional blocker; `ACCESS_LOCAL_NETWORK` остается Android 17+ follow-up.
 - item: текущий host bridge repository остается stubbed и принимает только private LAN / `.local` endpoints; public tunnel path пока считается out of scope.
 - item: pairing payload хранится raw в `SharedPreferences`, но backup/data-transfer для `stukay_host_bridge.xml` теперь исключены; полноценный at-rest hardening остается follow-up.
+- item: `tools:ignore="Instantiatable"` на `MainActivity` считается допустимым tooling debt для `SDK 36 Preview + AGP 9.2.0`; его надо снять, когда стабильный lint снова начнет корректно видеть `ComponentActivity -> Activity`.
 
 ## Evidence Index
 - artifact: `.tmp/.codex/task_state/latest.md`
@@ -67,3 +72,5 @@
 - purpose: verified pairing parser and host bridge repository state transitions
 - artifact: `.\gradlew.bat :app:assembleDebug --console=plain`
 - purpose: verified compile/build surface after runtime slice UI and manifest changes
+- artifact: `.\gradlew.bat :app:lintDebug --console=plain`
+- purpose: verified final lint gate after manifest-scoped suppression of preview false positive
