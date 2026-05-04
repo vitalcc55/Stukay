@@ -110,6 +110,7 @@ class StukayAppState(
     private var hostBridgeGeneration: Long = 0L
     private var hostBridgeProbeFuture: ScheduledFuture<*>? = null
     private val hostBridgeProbeBarrier = HostBridgeProbeBarrier()
+    private val hostBridgeImmediateProbeCoordinator = HostBridgeImmediateProbeCoordinator()
 
     init {
         networkMonitor.start()
@@ -338,6 +339,7 @@ class StukayAppState(
     fun disconnectHostBridge(clearPairing: Boolean = false) {
         hostBridgeGeneration += 1
         hostBridgeProbeBarrier.disable()
+        hostBridgeImmediateProbeCoordinator.disable()
         cancelHostBridgeProbeLoop()
         if (!hasSavedPairing()) {
             if (clearPairing) {
@@ -413,6 +415,7 @@ class StukayAppState(
         )
         hostBridgeGeneration += 1
         hostBridgeProbeBarrier.disable()
+        hostBridgeImmediateProbeCoordinator.disable()
         cancelHostBridgeProbeLoop()
         val generation = hostBridgeGeneration
         hostBridgeExecutor.execute {
@@ -452,6 +455,7 @@ class StukayAppState(
     private fun beginHostBridgeConnectTransition(): Long {
         hostBridgeGeneration += 1
         hostBridgeProbeBarrier.disable()
+        hostBridgeImmediateProbeCoordinator.disable()
         cancelHostBridgeProbeLoop()
         hostBridgeState = hostBridgeState.copy(
             phase = HostBridgeConnectionPhase.Connecting,
@@ -475,11 +479,13 @@ class StukayAppState(
             HostBridgeConnectionPhase.Degraded,
             -> {
                 hostBridgeProbeBarrier.enableForGeneration(hostBridgeGeneration)
+                hostBridgeImmediateProbeCoordinator.enableForGeneration(hostBridgeGeneration)
                 ensureHostBridgeProbeLoop()
             }
 
             else -> {
                 hostBridgeProbeBarrier.disable()
+                hostBridgeImmediateProbeCoordinator.disable()
                 cancelHostBridgeProbeLoop()
             }
         }
@@ -539,22 +545,37 @@ class StukayAppState(
     private fun submitImmediateHostBridgeProbe() {
         val generation = hostBridgeGeneration
         val ticket = hostBridgeProbeBarrier.capture(generation) ?: return
+        if (!hostBridgeImmediateProbeCoordinator.request(generation)) {
+            return
+        }
         hostBridgeExecutor.execute {
-            if (generation != hostBridgeGeneration || !hostBridgeProbeBarrier.allows(ticket, hostBridgeGeneration)) {
-                return@execute
-            }
-            val result = runCatching {
-                hostBridgeRepository.probe(localNetworkPermissionGranted)
-            }
-            mainHandler.post {
-                if (generation != hostBridgeGeneration || !hostBridgeProbeBarrier.allows(ticket, hostBridgeGeneration)) {
-                    return@post
+            while (true) {
+                if (generation != hostBridgeGeneration ||
+                    !hostBridgeProbeBarrier.allows(ticket, hostBridgeGeneration) ||
+                    !hostBridgeImmediateProbeCoordinator.canRun(generation)
+                ) {
+                    hostBridgeImmediateProbeCoordinator.finishRun(generation)
+                    return@execute
                 }
-                val nextState = result.getOrElse { error ->
-                    failedHostBridgeState(error.message ?: "Не удалось восстановить probe после возврата сети.")
+                val result = runCatching {
+                    hostBridgeRepository.probe(localNetworkPermissionGranted)
                 }
-                val shouldLog = didHostBridgeStateMeaningfullyChange(hostBridgeState, nextState)
-                applyHostBridgeState(nextState, shouldLogTransition = shouldLog)
+                mainHandler.post {
+                    if (generation != hostBridgeGeneration || !hostBridgeProbeBarrier.allows(ticket, hostBridgeGeneration)) {
+                        return@post
+                    }
+                    val nextState = result.getOrElse { error ->
+                        failedHostBridgeState(error.message ?: "Не удалось восстановить probe после возврата сети.")
+                    }
+                    val shouldLog = didHostBridgeStateMeaningfullyChange(hostBridgeState, nextState)
+                    applyHostBridgeState(nextState, shouldLogTransition = shouldLog)
+                }
+                when (hostBridgeImmediateProbeCoordinator.finishRun(generation)) {
+                    HostBridgeImmediateProbeNextAction.Rerun -> continue
+                    HostBridgeImmediateProbeNextAction.Idle,
+                    HostBridgeImmediateProbeNextAction.Disabled,
+                    -> return@execute
+                }
             }
         }
     }
@@ -562,6 +583,7 @@ class StukayAppState(
     private fun shouldAutoProbeAfterNetworkChange(): Boolean =
         hasSavedPairing() &&
             hostBridgeProbeBarrier.isEnabledForGeneration(hostBridgeGeneration) &&
+            hostBridgeImmediateProbeCoordinator.isEnabledForGeneration(hostBridgeGeneration) &&
             hostBridgeState.localNetworkAccessState == LocalNetworkAccessState.Ready &&
             hostBridgeState.phase in setOf(
                 HostBridgeConnectionPhase.Connected,
@@ -601,6 +623,7 @@ class StukayAppState(
     fun dispose() {
         hostBridgeGeneration += 1
         hostBridgeProbeBarrier.disable()
+        hostBridgeImmediateProbeCoordinator.disable()
         cancelHostBridgeProbeLoop()
         networkMonitor.stop()
         hostBridgeExecutor.shutdownNow()

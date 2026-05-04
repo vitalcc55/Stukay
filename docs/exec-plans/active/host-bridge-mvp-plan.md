@@ -644,7 +644,7 @@ Rule:
 
 #### Stage Report
 
-- summary: Post-proof external review pass и follow-up internal review loop подтвердили семь реальных классов дефектов и закрыли их в общем слое, а не локальными заплатками. `Nearby devices` больше не является unconditional blocker для admissible private/local endpoint на current API 36; `OkHttpHostBridgeClient` теперь явно запрещает redirects и не делегирует boundary library defaults; `StukayAppState` получил thread-safe `HostBridgeProbeBarrier`, который отсекает queued probe resurrection после manual disconnect; auth/protocol failures больше не показывают stale runtime metrics как `live`; remote-controlled diagnostic strings санитизируются до попадания в state/log/UI; helper bind host ограничен loopback/private-only surface; helper `CodexRuntimeClient` дочитывает paginated `app/list` до полного inventory count.
+- summary: Post-proof external review pass и follow-up internal review loop подтвердили восемь реальных классов дефектов и закрыли их в общем слое, а не локальными заплатками. `Nearby devices` больше не является unconditional blocker для admissible private/local endpoint на current API 36; `OkHttpHostBridgeClient` теперь явно запрещает redirects и не делегирует boundary library defaults; `StukayAppState` получил thread-safe `HostBridgeProbeBarrier`, который отсекает queued probe resurrection после manual disconnect; callback-driven recovery path теперь держит single-flight/coalesced immediate probe semantics per generation; auth/protocol failures больше не показывают stale runtime metrics как `live`; remote-controlled diagnostic strings санитизируются до попадания в state/log/UI; helper bind host ограничен loopback/private-only surface; helper `CodexRuntimeClient` дочитывает paginated `app/list` до полного inventory count.
 - evidence:
   - `mcp__jetbrains__.build_project(filesToRebuild=...)`
   - `.\gradlew.bat :app:testDebugUnitTest --tests "dev.vitalcc.stukay.runtime.hostbridge.HttpJsonHostBridgeRepositoryTest" --tests "dev.vitalcc.stukay.runtime.hostbridge.HostBridgeClientTest" --tests "dev.vitalcc.stukay.runtime.HostBridgeProbeBarrierTest" --console=plain`
@@ -655,6 +655,7 @@ Rule:
 - files_changed:
   - `core/model/src/main/java/dev/vitalcc/stukay/core/model/HostBridgeModels.kt`
   - `app/src/main/kotlin/dev/vitalcc/stukay/runtime/HostBridgeProbeBarrier.kt`
+  - `app/src/main/kotlin/dev/vitalcc/stukay/runtime/HostBridgeImmediateProbeCoordinator.kt`
   - `app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayAppState.kt`
   - `app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeClient.kt`
   - `app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeRepository.kt`
@@ -663,6 +664,7 @@ Rule:
   - `feature/settings/src/main/java/dev/vitalcc/stukay/feature/settings/ui/SettingsRoute.kt`
   - `feature/projects/src/main/java/dev/vitalcc/stukay/feature/projects/ui/ProjectsRoute.kt`
   - `app/src/test/kotlin/dev/vitalcc/stukay/runtime/HostBridgeProbeBarrierTest.kt`
+  - `app/src/test/kotlin/dev/vitalcc/stukay/runtime/HostBridgeImmediateProbeCoordinatorTest.kt`
   - `app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeClientTest.kt`
   - `app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HttpJsonHostBridgeRepositoryTest.kt`
   - `tools/hostbridge/runtime_client.py`
