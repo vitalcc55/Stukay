@@ -28,6 +28,7 @@
 - next:
   - открыть следующий active plan под `Real Thread Runtime`
   - начать следующий implementation slice уже поверх доказанного Host Bridge transport
+  - встроить accessibility baseline в scope, acceptance criteria и verification нового active plan
 - edited_files:
   - tools/hostbridge/runtime_client.py
   - tools/hostbridge/server.py

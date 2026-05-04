@@ -11,7 +11,8 @@
   ],
   "next": [
     "open the next active plan for Real Thread Runtime",
-    "start the next implementation slice on top of the proven Host Bridge transport"
+    "start the next implementation slice on top of the proven Host Bridge transport",
+    "bake accessibility baseline into the scope, acceptance criteria, and verification of the new active plan"
   ],
   "edited_files": [
     "tools/hostbridge/runtime_client.py",

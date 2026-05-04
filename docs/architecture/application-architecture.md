@@ -59,6 +59,22 @@ Timeline должен быть typed surface, а не plain chat transcript. М�
 - review finding
 - status / error
 
+### Accessibility And Testability
+
+Для `Stukay` accessibility является частью целевой архитектуры, а не отдельным поздним polishing layer.
+
+Это означает:
+
+- icon-only actions не остаются без имени в semantics tree;
+- connection, approval, loading, degraded и error states имеют machine-readable и user-readable semantic representation;
+- критичные controls получают стабильные identifiers для Compose/UI tests и device-side smoke;
+- diagnostics и runtime screens должны быть читаемы не только как pixels, но и как accessibility/layout tree.
+
+Причина pragmatic:
+
+- приложение проверяется на реальном Pixel через `adb`, `android layout`, screenshots и agent-driven smoke;
+- coordinate-only navigation считается fallback, а не основной contract.
+
 ### Layering
 
 Предпочтительная application structure для следующих milestones:

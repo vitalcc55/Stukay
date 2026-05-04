@@ -1,6 +1,6 @@
 # Test Matrix
 
-Обновлено: `2026-05-03`
+Обновлено: `2026-05-04`
 
 ## Current Matrix
 
@@ -13,6 +13,7 @@
 | Logging core | structured logger, store, diagnostics summary | `.\gradlew.bat :core:logging:testDebugUnitTest --console=plain` | verified |
 | Android instrumented tests | template `androidTest` exists | `.\gradlew.bat :app:connectedDebugAndroidTest --console=plain` | not_yet_verified |
 | Lint | debug lint | `.\gradlew.bat :app:lintDebug --console=plain` | verified |
+| Accessibility semantics | critical controls discoverable via semantics/layout tree | device smoke + `android layout` + future Compose semantics tests | planned |
 
 ## Target Matrix
 
@@ -32,3 +33,4 @@
   - JVM test для pure logic,
   - Compose/instrumented test для Android framework behavior,
   - manual smoke только там, где нужен реальный device/runtime.
+- Для UI-heavy milestones в planned surface должны появляться accessibility-aware checks: semantics tree, `contentDescription`, `testTag`, state/error discoverability.

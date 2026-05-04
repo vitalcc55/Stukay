@@ -58,8 +58,9 @@
 2. Если задача касается Android platform behavior, сначала обновить факты через official Android docs или `android docs search`.
 3. Если задача касается структуры проекта, navigation, symbols или refactoring, сначала использовать JetBrains MCP.
 4. Делать минимальный diff на milestone.
-5. Проверять Gradle / lifecycle / Android CLI surfaces.
-6. Обновлять status surfaces и commit по milestone.
+5. Если задача меняет UI, дополнительно проверять semantics/accessibility surface через `android layout`, `contentDescription`, status semantics и стабильные identifiers.
+6. Проверять Gradle / lifecycle / Android CLI surfaces.
+7. Обновлять status surfaces и commit по milestone.
 
 ## Guardrails
 
@@ -67,3 +68,4 @@
 - Если current runtime не подхватил native `jetbrains` namespace, это не отменяет сам MCP config; просто используй fallback verification и зафиксируй limitation.
 - Не документируй Android behavior как факт, если он не проверен по official source.
 - Android UI legibility surface строится через Android Studio / emulator / device / diagnostics, а не через browser-first assumptions.
+- Для Android UI accessibility/semantics tree считается частью legibility surface. Если новый экран нельзя надежно находить по текстам, `contentDescription`, state text или stable identifiers, это engineering gap, а не только UX debt.

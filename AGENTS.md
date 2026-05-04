@@ -23,6 +23,7 @@
 - `android` CLI считается обязательным Android-specific control plane. Используй его для Android docs search, project describe, SDK/emulator/device flows и Android runtime diagnostics.
 - Источник истины для сборки и проверки — Gradle Wrapper (`gradlew.bat` / `gradlew`), а не IDE-only действия.
 - Multi-module foundation shell, runtime logging, DDD-lite fake domain и Android-side Host Bridge contract slice уже внедрены; следующий шаг — Host Bridge MVP с real host-backed transport, а не возврат к shell/runtime-contract cleanup.
+- Accessibility считается обязательным cross-cutting baseline для всех следующих UI milestones: icon-only controls должны иметь `contentDescription`, статусные и ошибочные состояния — читаемую semantics/state text, а критичные runtime controls — стабильные `testTag` или эквивалентные semantics identifiers. Это нужно и для пользователя, и для device-side agent smoke через layout/accessibility tree.
 
 <!-- repo-harness-lifecycle:start -->
 ## Lifecycle Artifacts

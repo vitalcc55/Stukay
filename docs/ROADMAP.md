@@ -23,6 +23,19 @@
 - Current state и target state не смешиваются.
 - Новый этап не считается начатым только потому, что он описан здесь; source of truth для активной работы — `ExecPlan`.
 - Любой runtime milestone обязан усиливать diagnostics и evidence surfaces, а не только добавлять поведение.
+- Любой новый UI/runtime milestone обязан одновременно усиливать accessibility surface: не только pixels/screenshots, но и понятную semantics tree для device-side automation и реального пользователя.
+
+## Accessibility Baseline
+
+Начиная со следующего активного слоя accessibility больше не считается optional polish.
+
+Обязательный baseline для новых экранов и существенно меняемых surfaces:
+
+- icon-only actions имеют `contentDescription`;
+- status, loading, approval и error states имеют semantics/state text;
+- критичные controls получают стабильные `testTag` или эквивалентные semantics identifiers;
+- validation errors привязываются к конкретному input, а не остаются неструктурным текстом;
+- device-side smoke и `android layout` должны уметь находить ключевые элементы не только по координатам.
 
 ## Current State
 
@@ -62,6 +75,7 @@ Exit criteria:
 - Android клиент читает runtime-backed projects/threads;
 - shell умеет создавать и открывать реальные треды;
 - появляется real prompt/response lifecycle поверх уже доказанного Host Bridge transport.
+- drawer/thread/composer/runtime-status controls получают automation-grade accessibility baseline, достаточный для device-side smoke без координатных хаков как основного способа навигации.
 
 ### 2. Approval safety layer
 
@@ -83,6 +97,7 @@ Exit criteria:
 - approvals проходят через реальный runtime path;
 - stale/timeout paths честно видны оператору;
 - logs и diagnostics сохраняют redacted audit trail.
+- dangerous actions и approval cards имеют явную semantics/state surface для TalkBack и device-side automation.
 
 ## Next
 
@@ -132,6 +147,7 @@ Reference emphasis:
 - physical Pixel 9 Pro XL smoke
 - both render modes `1344×2992` and `1008×2244`
 - IME / edge-to-edge / predictive back validation
+- accessibility tree / semantics validation for critical controls and status surfaces
 
 ### 10. Desktop handoff
 

@@ -3,7 +3,7 @@
 ## Current Milestone Status
 - current: `Host Bridge MVP` функционально закрыт локально, принят по branch-wide review и готов к merge/push.
 - done: предыдущий runtime-contract slice закрыт; в Stage 1 зафиксированы `http_json`-only transport semantics, explicit unsupported `ws/wss` path, `Degraded` + `HostRuntimeSummary`, `100.64/10` в allowlist, reject для `169.254/16` и explicit Android cleartext opt-in через `network_security_config`. В post-proof fix pass дополнительно разведены `endpoint policy` и `Nearby devices` posture для current API 36: private/local endpoint больше не блокируется заранее только из-за отсутствия permission, redirect path у `OkHttpHostBridgeClient` запрещен явно, disconnect получил thread-safe `HostBridgeProbeBarrier` против queued auto-probe resurrection, event-driven network recovery path получил single-flight/coalesced immediate probe semantics per generation, auth/protocol failures больше не помечают stale runtime metrics как `live`, remote-controlled diagnostic strings санитизируются до попадания в state/log/UI, helper bind host ограничен loopback/private-only surface, а helper теперь дочитывает paginated `app/list` до полного count. В Stage 2 добавлен stdlib-only helper под `tools/hostbridge`, который поднимает локальный `codex app-server` по `stdio://`, делает `initialize`/`initialized`, требует `Authorization: Bearer <sessionToken>` и отдает narrow runtime summary для `app/list` + host health. В Stage 3 добавлены Android-side `OkHttpHostBridgeClient` и `HttpJsonHostBridgeRepository`, runtime graph переведен на real host-backed repository, а `StukayAppState` получил background executor, periodic probe loop, network-change triggered immediate probe и lifecycle teardown. В Stage 4 shell surfaces переведены на честный runtime summary contract: `Settings` и `Projects` показывают summary-only signal, `Diagnostics` держит полную telemetry detail, а model-level `HostRuntimeSnapshotScope` различает `live` и `last_known` snapshots. В Stage 5 helper runtime path дополнительно усилен по итогам live proof для Windows spawn/error path, пройден diff-scoped security review, и acceptance flow подтвержден и на Pixel 9 Pro XL по USB tether LAN, и на эмуляторе `medium_phone`.
-- next: Открыть следующий active slice `Real Thread Runtime` поверх уже доказанного Host Bridge transport.
+- next: Открыть следующий active slice `Real Thread Runtime` поверх уже доказанного Host Bridge transport и сразу включить accessibility baseline для новых drawer/thread/composer/runtime surfaces.
 
 ## Decisions
 - decision: Сначала поднимаем harness, docs и observability, а не меняем продуктовый код.
@@ -20,6 +20,8 @@
 - why: roadmap разделяет contract slice и `Host Bridge MVP`, поэтому сначала фиксируется typed seam, guard-нутый control flow и permission UX.
 - decision: ложный `Instantiatable` для `MainActivity` подавляется точечно через `tools:ignore` в manifest вместо отката SDK, замены `ComponentActivity` или ослабления UI stack.
 - why: это bug tooling surface для `SDK 36 Preview + AGP 9.2.0`, а не runtime bug приложения; suppression ограничен одной записью manifest и не меняет поведение app shell.
+- decision: accessibility переводится в обязательный engineering baseline для следующих UI milestones.
+- why: device-side QA и agent-driven Android smoke опираются на semantics/accessibility tree, а не только на pixels и координаты.
 
 ## How To Run And Demo
 - command: `python C:\Users\v.vlasov\.codex\skills\repo-harness-lifecycle\scripts\validate_lifecycle_stack.py --root .`
@@ -45,6 +47,7 @@
 - item: shell уже использует `Navigation Compose`, но adaptive-навигация под более широкие классы экранов пока не вводилась сознательно.
 - item: Notion workspace запрещает standalone private page creation; проект привязан к базе `Проекты`, и этот parent constraint надо учитывать дальше.
 - item: adaptive UI для двух режимов рендера Pixel (`1008×2244` и `1344×2992`) пока решён через width-constrained shell, а не через `NavigationSuiteScaffold` или отдельный adaptive toolkit layer.
+- item: текущий shell уже имеет базовые `contentDescription` на navigation controls, но automation-grade accessibility baseline еще не распространен системно на drawer/chat/composer/status surfaces; это должно стать частью следующего active slice.
 - item: `feature:thread` по-прежнему использует fake-only action contract (`startFakeTurn`, `completeFakeTurn`, `resolveApproval`); его real runtime замена вынесена в следующий milestone `Real Thread Runtime`.
 - item: local network permission path для current API 36 intentionally подается как manual/opt-in path вокруг `NEARBY_WIFI_DEVICES`, а не как unconditional blocker; `ACCESS_LOCAL_NETWORK` остается Android 17+ follow-up.
 - item: текущий host bridge repository уже real host-backed и принимает только private LAN / `.local` / `100.64/10` endpoints; public tunnel path по-прежнему считается out of scope.

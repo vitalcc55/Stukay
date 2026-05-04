@@ -10,6 +10,7 @@
 - не смешивать post-merge docs sync с началом `Real Thread Runtime` реализации;
 - сохранить `host-bridge-mvp-plan.md` как completed execution ledger, а не потерять evidence milestone;
 - source of truth для следующего активного слоя должен оставаться в `ExecPlan.md`, а не только в `ROADMAP.md`.
+- следующий active plan обязан включить accessibility baseline как часть scope, а не как deferred polish.
 
 ## Milestones
 
@@ -24,6 +25,7 @@
 - `.tmp/.codex/task_state/latest.*` больше не держат `next = final review loop`; следующий шаг в них — `Real Thread Runtime`.
 - `PROJECT_SYNC.md` и repo-local docs согласованы по следующему milestone.
 - `host-bridge-mvp-plan.md` и `host-bridge-mvp-proof.md` остаются доступными как evidence для завершенного milestone.
+- accessibility зафиксирован как обязательная часть следующего active slice: semantics/testTag/state-description baseline для новых drawer/thread/composer/runtime surfaces.
 
 ## Validation Commands
 
@@ -47,6 +49,7 @@ python -W error::ResourceWarning -m unittest discover -s tools/hostbridge/tests 
 - `Host Bridge MVP` считается текущим завершенным milestone и после merge уходит в history/evidence, а не остается active implementation target.
 - Следующий обязательный слой — `Real Thread Runtime`.
 - Security hardening по TLS/public path и at-rest credential storage остается follow-up, а не merge blocker текущего milestone.
+- Accessibility переводится из optional improvement в обязательный engineering baseline для всех следующих UI/runtime milestones.
 
 ## Progress Log
 
@@ -56,9 +59,11 @@ python -W error::ResourceWarning -m unittest discover -s tools/hostbridge/tests 
   - branch-wide review по коду завершен без новых branch-blocking findings.
   - code verification green: Gradle gate, Python helper suite, Android CLI describe и JetBrains MCP config probe.
   - lifecycle/docs drift закрыт, следующий milestone переведен на `Real Thread Runtime`.
+  - accessibility зафиксирован как обязательный scope item для следующего active slice.
 - next:
   - открыть новый detailed active plan под `Real Thread Runtime`
   - после этого начать следующий implementation branch/slice
+  - встроить accessibility baseline в scope, acceptance criteria и verification нового active plan
 
 ## Recovery / Rollback
 
