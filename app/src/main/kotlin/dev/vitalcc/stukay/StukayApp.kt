@@ -108,20 +108,24 @@ fun StukayApp(
                 val threadId = ThreadDestination.decodeThreadId(
                     backStackEntry.arguments?.getString(ThreadDestination.threadIdArg).orEmpty(),
                 )
+                LaunchedEffect(threadId) {
+                    appState.openThreadSession(threadId)
+                }
                 ThreadRoute(
                     thread = appState.thread(threadId),
                     timeline = appState.timeline(threadId),
+                    sessionState = appState.threadSessionState(threadId),
                     logger = appState.logger,
-                    onStartFakeTurn = {
-                        appState.startFakeTurn(threadId)
+                    onComposerChanged = appState::updateComposerDraft,
+                    onSend = {
+                        appState.sendPrompt(threadId)
                     },
-                    onCompleteFakeTurn = {
-                        appState.completeFakeTurn(threadId)
+                    onStop = {
+                        appState.interruptTurn(threadId)
                     },
-                    onResolveApproval = { approvalId, decision ->
+                    onResolveApproval = { requestId, decision ->
                         appState.resolveApproval(
-                            threadId = threadId,
-                            approvalId = approvalId.value,
+                            requestId = requestId,
                             decision = decision,
                         )
                     },

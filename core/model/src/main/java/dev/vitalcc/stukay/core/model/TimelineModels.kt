@@ -22,6 +22,7 @@ enum class CommandRunStatus {
     Running,
     Succeeded,
     Failed,
+    Declined,
 }
 
 enum class FileChangeKind {
@@ -38,6 +39,7 @@ sealed interface TimelineItem {
         override val id: String,
         override val threadId: ThreadId,
         val text: String,
+        val turnId: TurnId? = null,
     ) : TimelineItem
 
     data class AssistantMessage(
@@ -45,6 +47,9 @@ sealed interface TimelineItem {
         override val threadId: ThreadId,
         val text: String,
         val streaming: Boolean,
+        val turnId: TurnId? = null,
+        val itemId: String? = null,
+        val phase: String? = null,
     ) : TimelineItem
 
     data class CommandRun(
@@ -52,6 +57,10 @@ sealed interface TimelineItem {
         override val threadId: ThreadId,
         val commandPreview: String,
         val status: CommandRunStatus,
+        val turnId: TurnId? = null,
+        val cwd: String? = null,
+        val aggregatedOutput: String? = null,
+        val exitCode: Int? = null,
     ) : TimelineItem
 
     data class FileChange(
@@ -59,6 +68,8 @@ sealed interface TimelineItem {
         override val threadId: ThreadId,
         val path: String,
         val changeKind: FileChangeKind,
+        val turnId: TurnId? = null,
+        val status: String? = null,
     ) : TimelineItem
 
     data class ApprovalRequest(
@@ -71,6 +82,16 @@ sealed interface TimelineItem {
         val description: String,
         val resolved: Boolean,
         val decision: ApprovalDecision? = null,
+        val turnId: TurnId? = null,
+        val requestId: String? = null,
+        val itemId: String? = null,
+        val availableDecisions: List<ApprovalDecision> = emptyList(),
+        val commandPreview: String? = null,
+        val cwd: String? = null,
+        val grantRoot: String? = null,
+        val networkHost: String? = null,
+        val networkProtocol: String? = null,
+        val stale: Boolean = false,
     ) : TimelineItem
 
     data class StatusEvent(
@@ -78,5 +99,6 @@ sealed interface TimelineItem {
         override val threadId: ThreadId,
         val title: String,
         val detail: String,
+        val turnId: TurnId? = null,
     ) : TimelineItem
 }

@@ -404,4 +404,40 @@ private class FakeHostBridgeClient(
         }
         return next as HostBridgeRuntimePayload
     }
+
+    override fun listThreads(pairingPayload: dev.vitalcc.stukay.core.model.PairingPayload): HostBridgeThreadListPayload =
+        HostBridgeThreadListPayload(emptyList())
+
+    override fun readThread(
+        pairingPayload: dev.vitalcc.stukay.core.model.PairingPayload,
+        threadId: String,
+    ): HostBridgeThreadPayload = error("Not used in this test")
+
+    override fun resumeThread(
+        pairingPayload: dev.vitalcc.stukay.core.model.PairingPayload,
+        threadId: String,
+    ): HostBridgeThreadPayload = error("Not used in this test")
+
+    override fun startTurn(
+        pairingPayload: dev.vitalcc.stukay.core.model.PairingPayload,
+        threadId: String,
+        text: String,
+    ): HostBridgeTurnPayload = error("Not used in this test")
+
+    override fun interruptTurn(
+        pairingPayload: dev.vitalcc.stukay.core.model.PairingPayload,
+        threadId: String,
+        turnId: String,
+    ) = Unit
+
+    override fun respondToApproval(
+        pairingPayload: dev.vitalcc.stukay.core.model.PairingPayload,
+        requestId: String,
+        decision: dev.vitalcc.stukay.core.model.ApprovalDecision,
+    ) = Unit
+
+    override fun openThreadEventStream(
+        pairingPayload: dev.vitalcc.stukay.core.model.PairingPayload,
+        threadId: String,
+    ): HostBridgeEventStream = error("Not used in this test")
 }

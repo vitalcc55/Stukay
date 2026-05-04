@@ -8,4 +8,5 @@ data class DiagnosticsSummary(
     val latestWarningOrError: LogEvent?,
     val recentHostConnectionLogs: List<LogEvent>,
     val recentLogs: List<LogEvent>,
+    val runtimeSnapshot: RuntimeDiagnosticsSnapshot? = null,
 )

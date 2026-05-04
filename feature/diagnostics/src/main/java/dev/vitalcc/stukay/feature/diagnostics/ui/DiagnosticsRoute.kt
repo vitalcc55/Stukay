@@ -20,6 +20,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import dev.vitalcc.stukay.core.logging.AppLogger
 import dev.vitalcc.stukay.core.logging.DiagnosticsSummary
@@ -81,6 +82,7 @@ fun DiagnosticsRoute(
                     ExpressiveCard(
                         title = "Runtime summary",
                         subtitle = "Live shell diagnostics snapshot.",
+                        modifier = Modifier.testTag("diagnostics.runtime.summary"),
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text(text = "Android ${Build.VERSION.RELEASE} / API ${Build.VERSION.SDK_INT}")
@@ -93,7 +95,30 @@ fun DiagnosticsRoute(
                             }
                             Text(text = "Session started: ${diagnosticsSummary.sessionStartedAt}")
                             Text(text = "Total logs: ${diagnosticsSummary.totalLogs}")
-                            Text(text = "Diagnostics is intentionally routed through Settings.")
+                            diagnosticsSummary.runtimeSnapshot?.let { runtime ->
+                                Text(text = "Active thread: ${runtime.activeThreadId ?: "none"}")
+                                Text(text = "Active turn: ${runtime.activeTurnId ?: "none"}")
+                                Text(text = "Stream state: ${runtime.streamState}")
+                                runtime.blockedReason?.let { blockedReason ->
+                                    Text(text = "Blocked reason: $blockedReason")
+                                }
+                                runtime.pendingApprovalSummary?.let { pendingApprovals ->
+                                    Text(text = "Pending approvals: $pendingApprovals")
+                                }
+                                Text(text = "Reconnect generation: ${runtime.reconnectGeneration}")
+                                runtime.lastRecoverAttemptAtEpochMs?.let { recoverAt ->
+                                    Text(text = "Last recover attempt: $recoverAt")
+                                }
+                                runtime.lastTurnId?.let { lastTurnId ->
+                                    Text(text = "Last turn id: $lastTurnId")
+                                }
+                                runtime.lastRequestId?.let { lastRequestId ->
+                                    Text(text = "Last request id: $lastRequestId")
+                                }
+                                runtime.lastItemId?.let { lastItemId ->
+                                    Text(text = "Last item id: $lastItemId")
+                                }
+                            }
                         }
                     }
                 }

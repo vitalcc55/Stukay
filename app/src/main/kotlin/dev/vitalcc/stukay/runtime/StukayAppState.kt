@@ -18,30 +18,30 @@ import dev.vitalcc.stukay.core.logging.DiagnosticsSummaryProvider
 import dev.vitalcc.stukay.core.logging.InMemoryLogStore
 import dev.vitalcc.stukay.core.logging.LogArea
 import dev.vitalcc.stukay.core.logging.LogSink
+import dev.vitalcc.stukay.core.logging.RuntimeDiagnosticsSnapshot
 import dev.vitalcc.stukay.core.logging.StructuredLogger
 import dev.vitalcc.stukay.core.logging.logEvent
 import dev.vitalcc.stukay.core.model.ApprovalDecision
-import dev.vitalcc.stukay.core.model.ApprovalId
 import dev.vitalcc.stukay.core.model.CodexProject
 import dev.vitalcc.stukay.core.model.CodexThread
+import dev.vitalcc.stukay.core.model.ForegroundThreadBlockedReason
+import dev.vitalcc.stukay.core.model.ForegroundThreadSessionState
+import dev.vitalcc.stukay.core.model.ForegroundThreadStreamState
 import dev.vitalcc.stukay.core.model.HostBridgeConnectionPhase
 import dev.vitalcc.stukay.core.model.HostBridgeConnectionState
 import dev.vitalcc.stukay.core.model.LocalNetworkAccessState
 import dev.vitalcc.stukay.core.model.ProjectId
 import dev.vitalcc.stukay.core.model.RouteContext
 import dev.vitalcc.stukay.core.model.ThreadId
+import dev.vitalcc.stukay.core.model.ThreadStatus
 import dev.vitalcc.stukay.core.model.TimelineItem
+import dev.vitalcc.stukay.core.model.TurnId
 import dev.vitalcc.stukay.core.model.hostBridgeEndpointDisplayValue
 import dev.vitalcc.stukay.core.model.runtimeSummaryScope
-import dev.vitalcc.stukay.feature.projects.domain.LoadProjectsUseCase
-import dev.vitalcc.stukay.feature.projects.domain.OpenProjectUseCase
-import dev.vitalcc.stukay.feature.thread.domain.CompleteFakeTurnUseCase
-import dev.vitalcc.stukay.feature.thread.domain.LoadProjectThreadsUseCase
-import dev.vitalcc.stukay.feature.thread.domain.ObserveThreadTimelineUseCase
-import dev.vitalcc.stukay.feature.thread.domain.OpenThreadUseCase
-import dev.vitalcc.stukay.feature.thread.domain.ResolveFakeApprovalUseCase
-import dev.vitalcc.stukay.feature.thread.domain.StartFakeTurnUseCase
 import dev.vitalcc.stukay.runtime.hostbridge.AndroidNetworkMonitor
+import dev.vitalcc.stukay.runtime.hostbridge.HostBridgeClientException
+import dev.vitalcc.stukay.runtime.hostbridge.HostBridgeEventStream
+import dev.vitalcc.stukay.runtime.hostbridge.HostBridgeThreadEvent
 import dev.vitalcc.stukay.runtime.hostbridge.endpointHostOrNull
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
@@ -58,6 +58,16 @@ class StukayAppState(
             isDaemon = true
         }
     }
+    private val foregroundRuntimeExecutor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "stukay-foreground-runtime").apply {
+            isDaemon = true
+        }
+    }
+    private val foregroundStreamExecutor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "stukay-foreground-stream").apply {
+            isDaemon = true
+        }
+    }
     private val logStore = InMemoryLogStore(capacity = 250)
     private var logRevisionState by mutableIntStateOf(0)
     private var domainRevisionState by mutableIntStateOf(0)
@@ -68,14 +78,6 @@ class StukayAppState(
     private val projectsRepository = runtimeGraph.projectsRepository
     private val threadRepository = runtimeGraph.threadRepository
     private val hostBridgeRepository = runtimeGraph.hostBridgeRepository
-    private val loadProjectsUseCase = LoadProjectsUseCase(projectsRepository)
-    private val openProjectUseCase = OpenProjectUseCase(projectsRepository)
-    private val loadProjectThreadsUseCase = LoadProjectThreadsUseCase(threadRepository)
-    private val openThreadUseCase = OpenThreadUseCase(threadRepository)
-    private val observeThreadTimelineUseCase = ObserveThreadTimelineUseCase(threadRepository)
-    private val startFakeTurnUseCase = StartFakeTurnUseCase(threadRepository)
-    private val completeFakeTurnUseCase = CompleteFakeTurnUseCase(threadRepository)
-    private val resolveFakeApprovalUseCase = ResolveFakeApprovalUseCase(threadRepository)
     private val networkMonitor = AndroidNetworkMonitor(appContext) {
         mainHandler.post {
             onAndroidNetworkChanged()
@@ -105,9 +107,18 @@ class StukayAppState(
         private set
     var hostBridgeState by mutableStateOf(hostBridgeRepository.currentState())
         private set
+    var foregroundThreadSession by mutableStateOf(ForegroundThreadSessionState())
+        private set
 
     @Volatile
     private var hostBridgeGeneration: Long = 0L
+
+    @Volatile
+    private var foregroundStreamGeneration: Long = 0L
+
+    @Volatile
+    private var foregroundEventStream: HostBridgeEventStream? = null
+
     private var hostBridgeProbeFuture: ScheduledFuture<*>? = null
     private val hostBridgeProbeBarrier = HostBridgeProbeBarrier()
     private val hostBridgeImmediateProbeCoordinator = HostBridgeImmediateProbeCoordinator()
@@ -121,6 +132,9 @@ class StukayAppState(
                 messageHuman = "Stukay app shell started",
             ),
         )
+        if (hostBridgeState.pairedHost != null) {
+            refreshRuntimeIndexAsync("app_started_with_pairing")
+        }
     }
 
     fun updateCurrentRouteContext(routeContext: RouteContext) {
@@ -128,94 +142,201 @@ class StukayAppState(
         if (routeContext.projectId != null || routeContext.threadId != null) {
             lastInspectedRouteContext = routeContext
         }
+        val nextThreadId = routeContext.threadId
+        val activeThreadId = foregroundThreadSession.activeThreadId?.value
+        if (activeThreadId != null && nextThreadId != activeThreadId) {
+            clearForegroundThreadSession("Foreground thread moved away from active route.")
+        }
+        if (routeContext.routePattern == "projects" || routeContext.projectId != null || routeContext.threadId != null) {
+            refreshRuntimeIndexAsync("route_changed")
+        }
     }
 
     fun diagnosticsSummary(): DiagnosticsSummary {
         val ignored = logRevisionState
-        return diagnosticsSummaryProvider.snapshot()
+        return diagnosticsSummaryProvider.snapshot(
+            runtimeSnapshot = runtimeDiagnosticsSnapshot(),
+        )
     }
 
     fun projects(): List<CodexProject> {
         val ignored = domainRevisionState
-        return loadProjectsUseCase()
+        return projectsRepository.loadProjects()
     }
 
     fun project(projectId: String): CodexProject? {
         val ignored = domainRevisionState
-        return openProjectUseCase(ProjectId(projectId))
+        return projectsRepository.loadProject(ProjectId(projectId))
     }
 
     fun threads(projectId: String): List<CodexThread> {
         val ignored = domainRevisionState
-        return loadProjectThreadsUseCase(ProjectId(projectId))
+        return threadRepository.loadThreads(ProjectId(projectId))
     }
 
     fun thread(threadId: String): CodexThread? {
         val ignored = domainRevisionState
-        return openThreadUseCase(ThreadId(threadId))
+        return threadRepository.loadThread(ThreadId(threadId))
     }
 
     fun timeline(threadId: String): List<TimelineItem> {
         val ignored = domainRevisionState
-        return observeThreadTimelineUseCase(ThreadId(threadId))
+        return threadRepository.loadTimeline(ThreadId(threadId))
     }
 
-    fun startFakeTurn(threadId: String) {
-        val updatedThread = startFakeTurnUseCase(ThreadId(threadId))
-        domainRevisionState += 1
-        logger.info(
-            logEvent(
-                area = LogArea.Turn,
-                eventName = "fake_turn_started",
-                messageHuman = "Started fake turn from shell action",
-                fields = mapOf(
-                    "threadId" to updatedThread.id.value,
-                    "status" to updatedThread.status.name,
-                ),
-            ),
+    fun openThreadSession(threadId: String) {
+        val targetThreadId = ThreadId(threadId)
+        if (foregroundThreadSession.activeThreadId == targetThreadId &&
+            foregroundThreadSession.streamState !in setOf(
+                ForegroundThreadStreamState.Idle,
+                ForegroundThreadStreamState.Failed,
+                ForegroundThreadStreamState.AwaitingReconnect,
+            )
+        ) {
+            return
+        }
+        foregroundThreadSession = foregroundThreadSession.copy(
+            activeThreadId = targetThreadId,
+            streamState = ForegroundThreadStreamState.Hydrating,
+            lastError = null,
         )
+        recoverForegroundThreadSession(targetThreadId, "thread_opened")
     }
 
-    fun completeFakeTurn(threadId: String) {
-        val updatedThread = completeFakeTurnUseCase(ThreadId(threadId))
-        domainRevisionState += 1
-        logger.info(
-            logEvent(
-                area = LogArea.Turn,
-                eventName = "fake_turn_completed",
-                messageHuman = "Completed fake turn from shell action",
-                fields = mapOf(
-                    "threadId" to updatedThread.id.value,
-                    "status" to updatedThread.status.name,
-                ),
-            ),
+    fun updateComposerDraft(value: String) {
+        foregroundThreadSession = foregroundThreadSession.copy(composerDraft = value)
+    }
+
+    fun sendPrompt(threadId: String) {
+        val targetThreadId = ThreadId(threadId)
+        val text = foregroundThreadSession.composerDraft.trim()
+        if (text.isEmpty()) {
+            return
+        }
+        foregroundThreadSession = foregroundThreadSession.copy(
+            composerDraft = "",
+            streamState = ForegroundThreadStreamState.Streaming,
+            lastError = null,
         )
+        foregroundRuntimeExecutor.execute {
+            val result = runCatching {
+                threadRepository.startTurn(targetThreadId, text)
+            }
+            mainHandler.post {
+                result.onSuccess { turnId ->
+                    domainRevisionState += 1
+                    syncForegroundSession(
+                        threadId = targetThreadId,
+                        streamState = ForegroundThreadStreamState.Streaming,
+                        activeTurnId = turnId,
+                        lastTurnId = turnId,
+                    )
+                    logger.info(
+                        logEvent(
+                            area = LogArea.Turn,
+                            eventName = "turn_start_requested",
+                            messageHuman = "Foreground turn started from Android composer.",
+                            fields = mapOf(
+                                "threadId" to threadId,
+                                "turnId" to turnId.value,
+                            ),
+                        ),
+                    )
+                }.onFailure { error ->
+                    foregroundThreadSession = foregroundThreadSession.copy(
+                        streamState = ForegroundThreadStreamState.Failed,
+                        lastError = error.message ?: "Не удалось отправить turn/start.",
+                    )
+                    logger.error(
+                        logEvent(
+                            area = LogArea.Turn,
+                            eventName = "turn_start_failed",
+                            messageHuman = foregroundThreadSession.lastError ?: "Не удалось отправить turn/start.",
+                            fields = mapOf("threadId" to threadId),
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    fun interruptTurn(threadId: String) {
+        val targetThreadId = ThreadId(threadId)
+        val activeTurnId = foregroundThreadSession.activeTurnId ?: foregroundThreadSession.lastTurnId ?: return
+        foregroundThreadSession = foregroundThreadSession.copy(
+            streamState = ForegroundThreadStreamState.Interrupting,
+            lastTurnId = activeTurnId,
+        )
+        foregroundRuntimeExecutor.execute {
+            val result = runCatching {
+                threadRepository.interruptTurn(targetThreadId, activeTurnId)
+            }
+            mainHandler.post {
+                result.onSuccess {
+                    logger.info(
+                        logEvent(
+                            area = LogArea.Turn,
+                            eventName = "turn_interrupt_requested",
+                            messageHuman = "Interrupt requested for active turn.",
+                            fields = mapOf(
+                                "threadId" to threadId,
+                                "turnId" to activeTurnId.value,
+                            ),
+                        ),
+                    )
+                }.onFailure { error ->
+                    foregroundThreadSession = foregroundThreadSession.copy(
+                        streamState = ForegroundThreadStreamState.Failed,
+                        lastError = error.message ?: "Не удалось отправить turn/interrupt.",
+                    )
+                }
+            }
+        }
     }
 
     fun resolveApproval(
-        threadId: String,
-        approvalId: String,
+        requestId: String,
         decision: ApprovalDecision,
     ) {
-        val updatedThread = resolveFakeApprovalUseCase(
-            threadId = ThreadId(threadId),
-            approvalId = ApprovalId(approvalId),
-            decision = decision,
+        val activeThreadId = foregroundThreadSession.activeThreadId ?: return
+        foregroundThreadSession = foregroundThreadSession.copy(
+            lastRequestId = requestId,
+            lastError = null,
         )
-        domainRevisionState += 1
-        logger.info(
-            logEvent(
-                area = LogArea.Approval,
-                eventName = "approval_clicked",
-                messageHuman = "Resolved fake approval from shell action",
-                fields = mapOf(
-                    "threadId" to updatedThread.id.value,
-                    "approvalId" to approvalId,
-                    "decision" to decision.name,
-                ),
-            ),
-        )
+        foregroundRuntimeExecutor.execute {
+            val result = runCatching {
+                threadRepository.respondToApproval(requestId, decision)
+            }
+            mainHandler.post {
+                result.onSuccess {
+                    logger.info(
+                        logEvent(
+                            area = LogArea.Approval,
+                            eventName = "approval_response_sent",
+                            messageHuman = "Approval response sent through Host Bridge.",
+                            fields = mapOf(
+                                "threadId" to activeThreadId.value,
+                                "requestId" to requestId,
+                                "decision" to decision.name,
+                            ),
+                        ),
+                    )
+                }.onFailure { error ->
+                    foregroundThreadSession = foregroundThreadSession.copy(
+                        lastError = error.message ?: "Не удалось отправить approval response.",
+                        streamState = ForegroundThreadStreamState.Failed,
+                    )
+                }
+            }
+        }
     }
+
+    fun threadSessionState(threadId: String): ForegroundThreadSessionState =
+        if (foregroundThreadSession.activeThreadId?.value == threadId) {
+            foregroundThreadSession
+        } else {
+            ForegroundThreadSessionState()
+        }
 
     fun updatePairingInput(value: String) {
         pairingInput = value
@@ -242,6 +363,7 @@ class StukayAppState(
                 }
                 result.onSuccess { nextState ->
                     applyHostBridgeState(nextState)
+                    refreshRuntimeIndexAsync("pairing_saved")
                     logger.info(
                         logEvent(
                             area = LogArea.HostBridge,
@@ -341,6 +463,7 @@ class StukayAppState(
         hostBridgeProbeBarrier.disable()
         hostBridgeImmediateProbeCoordinator.disable()
         cancelHostBridgeProbeLoop()
+        clearForegroundThreadSession("Host Bridge disconnected.")
         if (!hasSavedPairing()) {
             if (clearPairing) {
                 pairingInput = ""
@@ -481,12 +604,28 @@ class StukayAppState(
                 hostBridgeProbeBarrier.enableForGeneration(hostBridgeGeneration)
                 hostBridgeImmediateProbeCoordinator.enableForGeneration(hostBridgeGeneration)
                 ensureHostBridgeProbeLoop()
+                refreshRuntimeIndexAsync("host_bridge_connected")
+                val activeThreadId = foregroundThreadSession.activeThreadId
+                if (activeThreadId != null &&
+                    foregroundThreadSession.streamState in setOf(
+                        ForegroundThreadStreamState.AwaitingReconnect,
+                        ForegroundThreadStreamState.Failed,
+                    )
+                ) {
+                    recoverForegroundThreadSession(activeThreadId, "host_bridge_recovered")
+                }
             }
 
             else -> {
                 hostBridgeProbeBarrier.disable()
                 hostBridgeImmediateProbeCoordinator.disable()
                 cancelHostBridgeProbeLoop()
+                if (foregroundThreadSession.activeThreadId != null) {
+                    foregroundThreadSession = foregroundThreadSession.copy(
+                        streamState = ForegroundThreadStreamState.AwaitingReconnect,
+                        lastError = nextState.lastError ?: "Host Bridge is not currently connected.",
+                    )
+                }
             }
         }
     }
@@ -590,6 +729,276 @@ class StukayAppState(
                 HostBridgeConnectionPhase.Degraded,
             )
 
+    private fun refreshRuntimeIndexAsync(reason: String) {
+        if (!hasSavedPairing()) {
+            return
+        }
+        hostBridgeExecutor.execute {
+            val result = runCatching {
+                threadRepository.refreshIndex()
+            }
+            mainHandler.post {
+                result.onSuccess {
+                    domainRevisionState += 1
+                    logger.info(
+                        logEvent(
+                            area = LogArea.Thread,
+                            eventName = "thread_index_refreshed",
+                            messageHuman = "Runtime-backed thread index refreshed.",
+                            fields = mapOf("reason" to reason),
+                        ),
+                    )
+                }.onFailure { error ->
+                    logger.warn(
+                        logEvent(
+                            area = LogArea.Thread,
+                            eventName = "thread_index_refresh_failed",
+                            messageHuman = error.message ?: "Не удалось обновить thread index.",
+                            fields = mapOf("reason" to reason),
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    private fun recoverForegroundThreadSession(
+        threadId: ThreadId,
+        reason: String,
+    ) {
+        closeForegroundEventStream()
+        val generation = ++foregroundStreamGeneration
+        foregroundThreadSession = foregroundThreadSession.copy(
+            activeThreadId = threadId,
+            streamState = ForegroundThreadStreamState.Hydrating,
+            reconnectGeneration = foregroundThreadSession.reconnectGeneration + 1,
+            lastRecoverAttemptAtEpochMs = System.currentTimeMillis(),
+            lastError = null,
+        )
+        foregroundRuntimeExecutor.execute {
+            val result = runCatching {
+                threadRepository.readThread(threadId, includeTurns = true)
+                threadRepository.resumeThread(threadId)
+            }
+            mainHandler.post {
+                if (generation != foregroundStreamGeneration || foregroundThreadSession.activeThreadId != threadId) {
+                    return@post
+                }
+                result.onSuccess {
+                    domainRevisionState += 1
+                    syncForegroundSession(
+                        threadId = threadId,
+                        streamState = ForegroundThreadStreamState.Ready,
+                    )
+                    logger.info(
+                        logEvent(
+                            area = LogArea.Thread,
+                            eventName = "foreground_thread_rehydrated",
+                            messageHuman = "Foreground thread rehydrated from runtime.",
+                            fields = mapOf(
+                                "threadId" to threadId.value,
+                                "reason" to reason,
+                            ),
+                        ),
+                    )
+                    startForegroundEventStream(threadId, generation)
+                }.onFailure { error ->
+                    foregroundThreadSession = foregroundThreadSession.copy(
+                        streamState = ForegroundThreadStreamState.Failed,
+                        lastError = error.message ?: "Не удалось восстановить foreground thread.",
+                    )
+                    logger.error(
+                        logEvent(
+                            area = LogArea.Thread,
+                            eventName = "foreground_thread_rehydrate_failed",
+                            messageHuman = foregroundThreadSession.lastError
+                                ?: "Не удалось восстановить foreground thread.",
+                            fields = mapOf(
+                                "threadId" to threadId.value,
+                                "reason" to reason,
+                            ),
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    private fun startForegroundEventStream(
+        threadId: ThreadId,
+        generation: Long,
+    ) {
+        foregroundStreamExecutor.execute {
+            val stream = runCatching {
+                threadRepository.openEventStream(threadId)
+            }.getOrElse { error ->
+                mainHandler.post {
+                    if (generation == foregroundStreamGeneration) {
+                        foregroundThreadSession = foregroundThreadSession.copy(
+                            streamState = ForegroundThreadStreamState.Failed,
+                            lastError = error.message ?: "Не удалось открыть event stream.",
+                        )
+                    }
+                }
+                return@execute
+            }
+            foregroundEventStream = stream
+            try {
+                while (generation == foregroundStreamGeneration && foregroundThreadSession.activeThreadId == threadId) {
+                    val event = stream.nextEvent() ?: break
+                    mainHandler.post {
+                        if (generation != foregroundStreamGeneration || foregroundThreadSession.activeThreadId != threadId) {
+                            return@post
+                        }
+                        handleForegroundEvent(threadId, event)
+                    }
+                }
+            } catch (error: HostBridgeClientException) {
+                mainHandler.post {
+                    if (generation == foregroundStreamGeneration && foregroundThreadSession.activeThreadId == threadId) {
+                        foregroundThreadSession = foregroundThreadSession.copy(
+                            streamState = ForegroundThreadStreamState.AwaitingReconnect,
+                            lastError = error.message ?: "Foreground event stream disconnected.",
+                        )
+                    }
+                }
+            } finally {
+                stream.close()
+                if (foregroundEventStream === stream) {
+                    foregroundEventStream = null
+                }
+                mainHandler.post {
+                    if (generation == foregroundStreamGeneration && foregroundThreadSession.activeThreadId == threadId &&
+                        foregroundThreadSession.streamState !in setOf(
+                            ForegroundThreadStreamState.Idle,
+                            ForegroundThreadStreamState.Failed,
+                        )
+                    ) {
+                        foregroundThreadSession = foregroundThreadSession.copy(
+                            streamState = ForegroundThreadStreamState.AwaitingReconnect,
+                            lastError = foregroundThreadSession.lastError ?: "Foreground event stream disconnected.",
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun handleForegroundEvent(
+        threadId: ThreadId,
+        event: HostBridgeThreadEvent,
+    ) {
+        threadRepository.applyEvent(event)
+        domainRevisionState += 1
+        when (event.method) {
+            "turn/started" -> syncForegroundSession(
+                threadId = threadId,
+                streamState = ForegroundThreadStreamState.Streaming,
+                activeTurnId = event.turn?.id?.let(::TurnId),
+                lastTurnId = event.turn?.id?.let(::TurnId),
+            )
+
+            "turn/completed" -> syncForegroundSession(
+                threadId = threadId,
+                streamState = ForegroundThreadStreamState.Ready,
+                activeTurnId = null,
+                lastTurnId = event.turn?.id?.let(::TurnId) ?: foregroundThreadSession.lastTurnId,
+            )
+
+            "item/agentMessage/delta" -> syncForegroundSession(
+                threadId = threadId,
+                streamState = ForegroundThreadStreamState.Streaming,
+                activeTurnId = event.turnId?.let(::TurnId) ?: foregroundThreadSession.activeTurnId,
+                lastTurnId = event.turnId?.let(::TurnId) ?: foregroundThreadSession.lastTurnId,
+                lastItemId = event.itemId ?: foregroundThreadSession.lastItemId,
+            )
+
+            "item/commandExecution/requestApproval",
+            "item/fileChange/requestApproval",
+            -> syncForegroundSession(
+                threadId = threadId,
+                streamState = ForegroundThreadStreamState.Ready,
+                lastTurnId = event.approval?.turnId?.let(::TurnId) ?: foregroundThreadSession.lastTurnId,
+                lastRequestId = event.requestId ?: foregroundThreadSession.lastRequestId,
+                lastItemId = event.approval?.itemId ?: foregroundThreadSession.lastItemId,
+            )
+
+            "serverRequest/resolved" -> syncForegroundSession(
+                threadId = threadId,
+                streamState = ForegroundThreadStreamState.Ready,
+                lastRequestId = event.requestId ?: foregroundThreadSession.lastRequestId,
+            )
+
+            "item/tool/requestUserInput" -> syncForegroundSession(
+                threadId = threadId,
+                streamState = ForegroundThreadStreamState.Ready,
+                lastTurnId = event.turnId?.let(::TurnId) ?: foregroundThreadSession.lastTurnId,
+                lastItemId = event.itemId ?: foregroundThreadSession.lastItemId,
+            )
+
+            else -> syncForegroundSession(threadId = threadId)
+        }
+    }
+
+    private fun syncForegroundSession(
+        threadId: ThreadId,
+        streamState: ForegroundThreadStreamState = foregroundThreadSession.streamState,
+        activeTurnId: TurnId? = foregroundThreadSession.activeTurnId,
+        lastTurnId: TurnId? = foregroundThreadSession.lastTurnId,
+        lastRequestId: String? = foregroundThreadSession.lastRequestId,
+        lastItemId: String? = foregroundThreadSession.lastItemId,
+    ) {
+        val thread = threadRepository.loadThread(threadId)
+        val pendingApprovals = threadRepository.unresolvedApprovals(threadId)
+        val blockedReason = when {
+            pendingApprovals.isNotEmpty() -> ForegroundThreadBlockedReason.WaitingOnApproval
+            thread?.status == ThreadStatus.WaitingForUserInput -> ForegroundThreadBlockedReason.WaitingOnUserInput
+            else -> null
+        }
+        foregroundThreadSession = foregroundThreadSession.copy(
+            activeThreadId = threadId,
+            activeTurnId = activeTurnId,
+            streamState = streamState,
+            blockedReason = blockedReason,
+            pendingApprovals = pendingApprovals,
+            lastTurnId = lastTurnId,
+            lastRequestId = lastRequestId,
+            lastItemId = lastItemId,
+            lastError = null,
+        )
+    }
+
+    private fun clearForegroundThreadSession(reason: String) {
+        val activeThreadId = foregroundThreadSession.activeThreadId
+        if (activeThreadId != null) {
+            threadRepository.clearActiveApprovals(activeThreadId, reason)
+            domainRevisionState += 1
+        }
+        closeForegroundEventStream()
+        foregroundThreadSession = ForegroundThreadSessionState()
+    }
+
+    private fun closeForegroundEventStream() {
+        foregroundStreamGeneration += 1
+        foregroundEventStream?.close()
+        foregroundEventStream = null
+    }
+
+    private fun runtimeDiagnosticsSnapshot(): RuntimeDiagnosticsSnapshot = RuntimeDiagnosticsSnapshot(
+        activeThreadId = foregroundThreadSession.activeThreadId?.value,
+        activeTurnId = foregroundThreadSession.activeTurnId?.value,
+        streamState = foregroundThreadSession.streamState.name,
+        blockedReason = foregroundThreadSession.blockedReason?.name,
+        pendingApprovalSummary = foregroundThreadSession.pendingApprovals.joinToString { approval ->
+            approval.requestId ?: approval.approvalId.value
+        }.ifBlank { null },
+        reconnectGeneration = foregroundThreadSession.reconnectGeneration,
+        lastRecoverAttemptAtEpochMs = foregroundThreadSession.lastRecoverAttemptAtEpochMs,
+        lastTurnId = foregroundThreadSession.lastTurnId?.value,
+        lastRequestId = foregroundThreadSession.lastRequestId,
+        lastItemId = foregroundThreadSession.lastItemId,
+    )
+
     private fun didHostBridgeStateMeaningfullyChange(
         previousState: HostBridgeConnectionState,
         nextState: HostBridgeConnectionState,
@@ -618,6 +1027,11 @@ class StukayAppState(
         }
         hostBridgeState.runtimeSummary.degradedReason?.let { put("degradedReason", it) }
         hostBridgeState.runtimeSummary.lastTransportError?.let { put("lastTransportError", it) }
+        foregroundThreadSession.activeThreadId?.value?.let { put("activeThreadId", it) }
+        foregroundThreadSession.activeTurnId?.value?.let { put("activeTurnId", it) }
+        put("foregroundStreamState", foregroundThreadSession.streamState.name)
+        foregroundThreadSession.lastRequestId?.let { put("lastRequestId", it) }
+        foregroundThreadSession.lastItemId?.let { put("lastItemId", it) }
     }
 
     fun dispose() {
@@ -625,8 +1039,11 @@ class StukayAppState(
         hostBridgeProbeBarrier.disable()
         hostBridgeImmediateProbeCoordinator.disable()
         cancelHostBridgeProbeLoop()
+        closeForegroundEventStream()
         networkMonitor.stop()
         hostBridgeExecutor.shutdownNow()
+        foregroundRuntimeExecutor.shutdownNow()
+        foregroundStreamExecutor.shutdownNow()
     }
 
     private fun logHostBridgeTransition() {

@@ -4,16 +4,12 @@ enum class ThreadStatus {
     Idle,
     Running,
     WaitingForApproval,
-    Completed,
+    WaitingForUserInput,
+    Interrupted,
     Failed,
+    SystemError,
     Archived,
 }
-
-fun ThreadStatus.canStartFakeTurn(): Boolean = this == ThreadStatus.Idle || this == ThreadStatus.Completed
-
-fun ThreadStatus.canCompleteFakeTurn(): Boolean = this == ThreadStatus.Running
-
-fun ThreadStatus.canResolveApproval(): Boolean = this == ThreadStatus.WaitingForApproval
 
 data class CodexThread(
     val id: ThreadId,
@@ -22,4 +18,6 @@ data class CodexThread(
     val preview: String,
     val status: ThreadStatus,
     val lastUpdatedAtEpochMs: Long,
+    val cwd: String? = null,
+    val sourceKind: String? = null,
 )

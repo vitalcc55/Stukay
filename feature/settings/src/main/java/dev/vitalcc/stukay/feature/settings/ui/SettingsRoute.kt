@@ -204,7 +204,7 @@ fun SettingsRoute(
                 item {
                     ExpressiveCard(title = "Workflow surface") {
                         Text(
-                            text = "JetBrains MCP и Android CLI остаются engineering surfaces. Этот экран отвечает за pairing, connect/reconnect/disconnect и live host runtime summary; thread runtime пока не входит в этот milestone.",
+                            text = "JetBrains MCP и Android CLI остаются engineering surfaces. Этот экран отвечает за pairing, connect/reconnect/disconnect и live host/runtime health, а foreground thread lifecycle живет на Thread screen.",
                             style = MaterialTheme.typography.bodyMedium,
                         )
                     }

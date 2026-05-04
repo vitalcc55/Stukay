@@ -2,6 +2,9 @@
 
 ## 2026-05-04
 
+- Реализован `Real Thread Runtime + Approval Safety Layer`: helper получил typed thread/turn/approval HTTP routes и SSE event stream, а Android shell переведен с fake delegates на runtime-backed `Projects` / `Project` / `Thread`.
+- `StukayAppState` теперь владеет foreground thread session с hydrate/resume, composer/send/stop, reconnect recovery, pending approvals и runtime-aware diagnostics snapshot.
+- Добавлены targeted regression tests для runtime store grouping/reducer и helper thread endpoints / approval / SSE surface.
 - Добавлен implementation-oriented план `Real Thread Runtime + Approval Safety Layer` с зафиксированными рамками slice, stop condition, integration points, official protocol facts, accessibility baseline и validation surface.
 - План `Real Thread Runtime + Approval Safety Layer` усилен execution-tracking слоем: добавлены `status` по milestone, checklist-ы, рекомендуемая разбивка по коммитам и шаблон stage report перед checkpoint-коммитом.
 - В план `Real Thread Runtime + Approval Safety Layer` добавлен review loop protocol: pre-commit sandbox review через субагентов, повторная перепроверка после исправлений, остановка на low-signal docs semantics и отдельный branch-wide review loop относительно `main` после завершения всего slice.

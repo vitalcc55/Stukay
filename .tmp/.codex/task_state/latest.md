@@ -1,66 +1,63 @@
 # Task State
 
-- goal: Реализовать `Host Bridge MVP`: первый реальный Android -> Host Bridge -> local Codex runtime path без ухода в полный real thread runtime.
-- stage: host_bridge_mvp_merge_ready
+- goal: Закрыть `Real Thread Runtime + Approval Safety Layer`: runtime-backed projects/threads read path, foreground thread session, streaming, interrupt, reconnect recovery, approvals и accessibility/diagnostics baseline.
+- stage: real_thread_runtime_approval_layer_local_green
 - done:
-  - Stage 1 выполнен: transport contract закрыт на `http_json`, `ws/wss` fast-fail, `Degraded` и `HostRuntimeSummary` добавлены, cleartext opt-in и allowlist policy зафиксированы
-  - Stage 2 выполнен: Windows Host Bridge helper поднимает локальный `codex app-server`, требует bearer auth и отдает runtime summary по `app/list`
-  - Stage 3 выполнен: Android-side `OkHttpHostBridgeClient` и `HttpJsonHostBridgeRepository` внедрены, runtime graph переведен на real host-backed repository, `StukayAppState` получил background executor, periodic probe loop и lifecycle teardown
-  - Stage 4 выполнен: shell выведен на общий runtime summary contract с честным различением `live` и `last_known`
-  - Stage 5 выполнен:
-    - repo-local gates green: `:core:model:testDebugUnitTest`, `:app:testDebugUnitTest`, `:app:assembleDebug`, `:app:lintDebug`
-    - helper runtime hardening закрыт по live proof:
-      - `_sanitize_runtime_error` больше не валит HTTP error path
-      - Windows spawn резолвит runnable `codex.cmd/.exe`
-    - helper Python suite green под `ResourceWarning`-strict mode
-    - diff-scoped security review по transport slice не дал подтвержденных security findings
-    - physical Pixel proof завершен через private USB tether LAN
-    - emulator proof завершен на `medium_phone` через Android host alias path
-  - Post-proof external review fix pass выполнен:
-    - `Nearby devices` posture отделен от private/local endpoint admissibility для current API 36
-    - `OkHttpHostBridgeClient` явно запрещает redirects и не отдает final destination library defaults
-    - `StukayAppState` получил thread-safe `HostBridgeProbeBarrier`, который закрывает queued probe resurrection после manual disconnect
-    - callback-driven recovery path теперь держит single-flight/coalesced immediate probe semantics per generation
-    - auth/protocol failures больше не публикуют stale runtime metrics как `live`
-    - remote-controlled diagnostic strings санитизируются до попадания в state/log/UI
-    - helper bind host ограничен loopback/private-only surface
-    - helper `CodexRuntimeClient` дочитывает paginated `app/list` до полного count
+  - helper `tools/hostbridge` расширен до typed runtime proxy с thread list/read/resume/turn/approval routes и SSE event stream
+  - `CodexRuntimeClient` переведен с `app/list`-only loop на generic JSON-RPC client с thread subscriptions и server-request routing
+  - Android-side `OkHttpHostBridgeClient` перешел на nested JSON payloads и runtime/approval/SSE parsing
+  - `RuntimeThreadStore`, `RuntimeThreadRepository` и `RuntimeProjectsRepository` заменили fake read path на runtime-backed caches
+  - `StukayAppState` теперь держит foreground thread session с hydrate/resume, send/stop, reconnect recovery, approvals и runtime diagnostics snapshot
+  - `ThreadRoute` убрал fake controls и получил composer, stop, approval actions, status banner и stable semantics/test tags
+  - добавлены regression tests для runtime store grouping/reducer и helper thread endpoints/SSE/approval surface
 - next:
-  - открыть следующий active plan под `Real Thread Runtime`
-  - начать следующий implementation slice уже поверх доказанного Host Bridge transport
-  - встроить accessibility baseline в scope, acceptance criteria и verification нового active plan
+  - прогнать emulator и physical Pixel proof для нового runtime slice
+  - синхронизировать active execution docs/evidence surfaces под post-implementation state
+  - провести merge-readiness review после device proof
 - edited_files:
-  - tools/hostbridge/runtime_client.py
-  - tools/hostbridge/server.py
-  - tools/hostbridge/tests/test_runtime_client.py
-  - tools/hostbridge/tests/test_server.py
-  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/HostBridgeProbeBarrier.kt
-  - app/src/test/kotlin/dev/vitalcc/stukay/runtime/HostBridgeProbeBarrierTest.kt
-  - app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeClientTest.kt
-  - app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HttpJsonHostBridgeRepositoryTest.kt
-  - core/model/src/main/java/dev/vitalcc/stukay/core/model/HostBridgeModels.kt
+  - app/build.gradle.kts
+  - app/src/main/kotlin/dev/vitalcc/stukay/StukayApp.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/RuntimeProjectsRepository.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/RuntimeThreadRepository.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/RuntimeThreadStore.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayAppState.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayRuntimeGraph.kt
   - app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeClient.kt
   - app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeRepository.kt
-  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayAppState.kt
-  - feature/settings/src/main/java/dev/vitalcc/stukay/feature/settings/ui/SettingsRoute.kt
+  - app/src/test/kotlin/dev/vitalcc/stukay/runtime/RuntimeThreadStoreTest.kt
+  - app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HttpJsonHostBridgeRepositoryTest.kt
+  - core/logging/src/main/java/dev/vitalcc/stukay/core/logging/DiagnosticsSummary.kt
+  - core/logging/src/main/java/dev/vitalcc/stukay/core/logging/DiagnosticsSummaryProvider.kt
+  - core/logging/src/main/java/dev/vitalcc/stukay/core/logging/RuntimeDiagnosticsSnapshot.kt
+  - core/model/src/main/java/dev/vitalcc/stukay/core/model/ForegroundThreadSessionState.kt
+  - core/model/src/main/java/dev/vitalcc/stukay/core/model/ThreadModels.kt
+  - core/model/src/main/java/dev/vitalcc/stukay/core/model/TimelineModels.kt
+  - core/model/src/test/java/dev/vitalcc/stukay/core/model/ThreadStatusTest.kt
+  - feature/diagnostics/src/main/java/dev/vitalcc/stukay/feature/diagnostics/ui/DiagnosticsRoute.kt
+  - feature/projects/src/main/java/dev/vitalcc/stukay/feature/projects/ui/ProjectRoute.kt
   - feature/projects/src/main/java/dev/vitalcc/stukay/feature/projects/ui/ProjectsRoute.kt
-  - docs/exec-plans/active/host-bridge-mvp-proof.md
+  - feature/settings/src/main/java/dev/vitalcc/stukay/feature/settings/ui/SettingsRoute.kt
+  - feature/thread/src/main/java/dev/vitalcc/stukay/feature/thread/data/FakeThreadRepository.kt
+  - feature/thread/src/main/java/dev/vitalcc/stukay/feature/thread/data/ThreadRepository.kt
+  - feature/thread/src/main/java/dev/vitalcc/stukay/feature/thread/ui/ThreadRoute.kt
+  - feature/thread/src/test/java/dev/vitalcc/stukay/feature/thread/data/FakeThreadRepositoryTest.kt
+  - feature/thread/src/test/java/dev/vitalcc/stukay/feature/thread/domain/ThreadUseCasesTest.kt
+  - gradle/libs.versions.toml
+  - tools/hostbridge/models.py
+  - tools/hostbridge/runtime_client.py
+  - tools/hostbridge/server.py
+  - tools/hostbridge/tests/test_server.py
   - docs/generated/project-interfaces.md
-  - docs/notion/PROJECT_SYNC.md
   - Documentation.md
-  - docs/exec-plans/active/host-bridge-mvp-plan.md
   - docs/CHANGELOG.md
   - .tmp/.codex/task_state/latest.md
   - .tmp/.codex/task_state/latest.json
 - verify_status:
-  - `mcp__jetbrains__.build_project(filesToRebuild=...)` passes
-  - `.\gradlew.bat :app:testDebugUnitTest --tests "dev.vitalcc.stukay.runtime.hostbridge.HttpJsonHostBridgeRepositoryTest" --tests "dev.vitalcc.stukay.runtime.hostbridge.HostBridgeClientTest" --tests "dev.vitalcc.stukay.runtime.HostBridgeProbeBarrierTest" --console=plain` passes
-  - `python -W error::ResourceWarning -m unittest tools.hostbridge.tests.test_runtime_client tools.hostbridge.tests.test_server` passes
-  - `.\gradlew.bat :app:lintDebug --console=plain` passes
-  - `.\gradlew.bat :core:model:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug --console=plain` passes
-  - `python -W error::ResourceWarning -m unittest discover -s tools/hostbridge/tests -p 'test_*.py'` passes
-  - live helper proof on Windows returns `ready` summary from `codex app-server`
-  - physical Pixel flow `connect -> degraded -> reconnect -> disconnect` proven
-  - emulator flow `connect -> degraded -> reconnect -> disconnect` proven
+  - `python C:\Users\v.vlasov\.codex\skills\repo-harness-lifecycle\scripts\validate_lifecycle_stack.py --root .` -> `warn` only, no `fail`
+  - `android describe --project_dir .` -> project/modules/APK surface detected
+  - `codex mcp get jetbrains` -> active stdio config detected
+  - `.\gradlew.bat :app:testDebugUnitTest --console=plain` -> passes
+  - `.\gradlew.bat :core:model:testDebugUnitTest :feature:projects:testDebugUnitTest :feature:thread:testDebugUnitTest :core:logging:testDebugUnitTest :app:assembleDebug :app:lintDebug --console=plain` -> passes
+  - `python -W error::ResourceWarning -m unittest discover -s tools/hostbridge/tests -p 'test_*.py'` -> passes
 - open_questions:
-  - нет блокирующих открытых вопросов; следующий шаг — `Real Thread Runtime`
+  - emulator/Pixel proof по новому runtime slice еще не прогонялся в этом цикле

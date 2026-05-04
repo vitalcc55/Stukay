@@ -1,5 +1,6 @@
 package dev.vitalcc.stukay.runtime.hostbridge
 
+import dev.vitalcc.stukay.core.model.ApprovalDecision
 import dev.vitalcc.stukay.core.model.HostBridgeConnectionPhase
 import dev.vitalcc.stukay.core.model.HostBridgeConnectionState
 import dev.vitalcc.stukay.core.model.HostRuntimeStatus
@@ -24,6 +25,20 @@ interface HostBridgeRepository {
     fun refreshPermissionState(localNetworkPermissionGranted: Boolean): HostBridgeConnectionState
 
     fun disconnect(clearPairing: Boolean = false): HostBridgeConnectionState
+
+    fun listThreads(): HostBridgeThreadListPayload
+
+    fun readThread(threadId: String): HostBridgeThreadPayload
+
+    fun resumeThread(threadId: String): HostBridgeThreadPayload
+
+    fun startTurn(threadId: String, text: String): HostBridgeTurnPayload
+
+    fun interruptTurn(threadId: String, turnId: String)
+
+    fun respondToApproval(requestId: String, decision: ApprovalDecision)
+
+    fun openThreadEventStream(threadId: String): HostBridgeEventStream
 }
 
 class HttpJsonHostBridgeRepository(
@@ -166,6 +181,52 @@ class HttpJsonHostBridgeRepository(
         )
         return state
     }
+
+    @Synchronized
+    override fun listThreads(): HostBridgeThreadListPayload = client.listThreads(requireRuntimePayload())
+
+    @Synchronized
+    override fun readThread(threadId: String): HostBridgeThreadPayload = client.readThread(
+        pairingPayload = requireRuntimePayload(),
+        threadId = threadId,
+    )
+
+    @Synchronized
+    override fun resumeThread(threadId: String): HostBridgeThreadPayload = client.resumeThread(
+        pairingPayload = requireRuntimePayload(),
+        threadId = threadId,
+    )
+
+    @Synchronized
+    override fun startTurn(threadId: String, text: String): HostBridgeTurnPayload = client.startTurn(
+        pairingPayload = requireRuntimePayload(),
+        threadId = threadId,
+        text = text,
+    )
+
+    @Synchronized
+    override fun interruptTurn(threadId: String, turnId: String) {
+        client.interruptTurn(
+            pairingPayload = requireRuntimePayload(),
+            threadId = threadId,
+            turnId = turnId,
+        )
+    }
+
+    @Synchronized
+    override fun respondToApproval(requestId: String, decision: ApprovalDecision) {
+        client.respondToApproval(
+            pairingPayload = requireRuntimePayload(),
+            requestId = requestId,
+            decision = decision,
+        )
+    }
+
+    @Synchronized
+    override fun openThreadEventStream(threadId: String): HostBridgeEventStream = client.openThreadEventStream(
+        pairingPayload = requireRuntimePayload(),
+        threadId = threadId,
+    )
 
     private fun fetchRuntimeState(
         localNetworkPermissionGranted: Boolean,
@@ -411,6 +472,14 @@ class HttpJsonHostBridgeRepository(
             return LocalNetworkAccessState.UnsupportedForSlice
         }
         return LocalNetworkAccessState.Ready
+    }
+
+    private fun requireRuntimePayload(): PairingPayload {
+        val payload = requireSavedPairing()
+        check(resolveLocalNetworkAccessState(payload) == LocalNetworkAccessState.Ready) {
+            "Host Bridge runtime path сейчас недоступен для этого endpoint."
+        }
+        return payload
     }
 
     private fun unavailableFailureMessage(

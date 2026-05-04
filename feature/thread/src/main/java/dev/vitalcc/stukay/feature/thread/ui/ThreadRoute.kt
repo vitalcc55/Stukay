@@ -3,17 +3,21 @@ package dev.vitalcc.stukay.feature.thread.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Send
+import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -21,17 +25,20 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import dev.vitalcc.stukay.core.logging.AppLogger
 import dev.vitalcc.stukay.core.logging.LogArea
 import dev.vitalcc.stukay.core.logging.logEvent
 import dev.vitalcc.stukay.core.model.ApprovalDecision
-import dev.vitalcc.stukay.core.model.ApprovalId
 import dev.vitalcc.stukay.core.model.CodexThread
+import dev.vitalcc.stukay.core.model.ForegroundThreadBlockedReason
+import dev.vitalcc.stukay.core.model.ForegroundThreadSessionState
+import dev.vitalcc.stukay.core.model.ForegroundThreadStreamState
 import dev.vitalcc.stukay.core.model.ThreadStatus
 import dev.vitalcc.stukay.core.model.TimelineItem
-import dev.vitalcc.stukay.core.model.canCompleteFakeTurn
-import dev.vitalcc.stukay.core.model.canStartFakeTurn
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveCard
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveStatusPill
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveStatusTone
@@ -42,10 +49,12 @@ import dev.vitalcc.stukay.core.design.layout.ScreenFrame
 fun ThreadRoute(
     thread: CodexThread?,
     timeline: List<TimelineItem>,
+    sessionState: ForegroundThreadSessionState,
     logger: AppLogger,
-    onStartFakeTurn: () -> Unit,
-    onCompleteFakeTurn: () -> Unit,
-    onResolveApproval: (ApprovalId, ApprovalDecision) -> Unit,
+    onComposerChanged: (String) -> Unit,
+    onSend: () -> Unit,
+    onStop: () -> Unit,
+    onResolveApproval: (String, ApprovalDecision) -> Unit,
     onNavigateBack: () -> Unit,
 ) {
     LaunchedEffect(thread?.id) {
@@ -53,7 +62,7 @@ fun ThreadRoute(
             logEvent(
                 area = LogArea.Thread,
                 eventName = "thread_opened",
-                messageHuman = "Thread shell opened",
+                messageHuman = "Runtime thread screen opened",
                 fields = mapOf("screen" to "thread", "threadId" to (thread?.id?.value ?: "missing")),
             ),
         )
@@ -84,52 +93,165 @@ fun ThreadRoute(
             ) {
                 item {
                     Text(
-                        text = "Thread shell",
+                        text = "Runtime thread",
                         style = MaterialTheme.typography.headlineSmall,
                     )
                     ExpressiveStatusPill(
-                        label = thread?.status?.name ?: "Missing",
-                        tone = when (thread?.status) {
-                            ThreadStatus.Running -> ExpressiveStatusTone.Positive
-                            ThreadStatus.WaitingForApproval -> ExpressiveStatusTone.Warning
-                            ThreadStatus.Failed -> ExpressiveStatusTone.Critical
-                            else -> ExpressiveStatusTone.Neutral
-                        },
+                        label = threadLabel(thread, sessionState),
+                        tone = threadTone(thread, sessionState),
                         modifier = Modifier.padding(top = 12.dp),
                     )
                 }
 
                 item {
                     ExpressiveCard(
-                        title = "Run controls",
+                        title = "Runtime status",
                         subtitle = thread?.preview ?: "No thread data",
+                        modifier = Modifier
+                            .testTag("thread.status.banner")
+                            .semantics {
+                                stateDescription = statusBannerText(thread, sessionState)
+                            },
                     ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            if (thread != null && thread.status.canStartFakeTurn()) {
-                                Button(
-                                    onClick = onStartFakeTurn,
-                                    modifier = Modifier.fillMaxWidth(),
+                        Text(text = statusBannerText(thread, sessionState))
+                    }
+                }
+
+                if (sessionState.pendingApprovals.isNotEmpty()) {
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            sessionState.pendingApprovals.forEach { approval ->
+                                ExpressiveCard(
+                                    title = approval.title,
+                                    subtitle = approval.description,
                                 ) {
-                                    Text(text = "Start fake run")
-                                }
-                            }
-                            if (thread != null && thread.status.canCompleteFakeTurn()) {
-                                Button(
-                                    onClick = onCompleteFakeTurn,
-                                    modifier = Modifier.fillMaxWidth(),
-                                ) {
-                                    Text(text = "Complete fake run")
+                                    Text(
+                                        text = approvalMetadata(approval),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                    Column(
+                                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                                        modifier = Modifier.padding(top = 12.dp),
+                                    ) {
+                                        if (ApprovalDecision.AcceptOnce in approval.availableDecisions || approval.availableDecisions.isEmpty()) {
+                                            Button(
+                                                onClick = {
+                                                    approval.requestId?.let { requestId ->
+                                                        onResolveApproval(requestId, ApprovalDecision.AcceptOnce)
+                                                    }
+                                                },
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .testTag("thread.approval.once.${approvalTag(approval)}"),
+                                            ) {
+                                                Text(text = "Approve once")
+                                            }
+                                        }
+                                        if (ApprovalDecision.AcceptSession in approval.availableDecisions || approval.availableDecisions.isEmpty()) {
+                                            Button(
+                                                onClick = {
+                                                    approval.requestId?.let { requestId ->
+                                                        onResolveApproval(requestId, ApprovalDecision.AcceptSession)
+                                                    }
+                                                },
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .testTag("thread.approval.session.${approvalTag(approval)}"),
+                                            ) {
+                                                Text(text = "Approve session")
+                                            }
+                                        }
+                                        if (ApprovalDecision.Decline in approval.availableDecisions || approval.availableDecisions.isEmpty()) {
+                                            TextButton(
+                                                onClick = {
+                                                    approval.requestId?.let { requestId ->
+                                                        onResolveApproval(requestId, ApprovalDecision.Decline)
+                                                    }
+                                                },
+                                                modifier = Modifier.testTag("thread.approval.decline.${approvalTag(approval)}"),
+                                            ) {
+                                                Text(text = "Decline")
+                                            }
+                                        }
+                                        if (ApprovalDecision.Cancel in approval.availableDecisions || approval.availableDecisions.isEmpty()) {
+                                            TextButton(
+                                                onClick = {
+                                                    approval.requestId?.let { requestId ->
+                                                        onResolveApproval(requestId, ApprovalDecision.Cancel)
+                                                    }
+                                                },
+                                                modifier = Modifier.testTag("thread.approval.cancel.${approvalTag(approval)}"),
+                                            ) {
+                                                Text(text = "Cancel")
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
 
-                items(timeline) { item ->
-                    TimelineCard(
-                        item = item,
-                        onResolveApproval = onResolveApproval,
-                    )
+                item {
+                    ExpressiveCard(
+                        title = "Composer",
+                        subtitle = "Continue the resumed foreground thread.",
+                    ) {
+                        OutlinedTextField(
+                            value = sessionState.composerDraft,
+                            onValueChange = onComposerChanged,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("thread.composer.input"),
+                            label = {
+                                Text(text = "Prompt")
+                            },
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.padding(top = 12.dp),
+                        ) {
+                            Button(
+                                onClick = onSend,
+                                enabled = sessionState.composerDraft.isNotBlank() &&
+                                    sessionState.streamState !in setOf(
+                                        ForegroundThreadStreamState.Hydrating,
+                                        ForegroundThreadStreamState.AwaitingReconnect,
+                                        ForegroundThreadStreamState.Interrupting,
+                                    ),
+                                modifier = Modifier.testTag("thread.turn.send"),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Send,
+                                    contentDescription = "Send prompt",
+                                )
+                                Text(
+                                    text = "Send",
+                                    modifier = Modifier.padding(start = 8.dp),
+                                )
+                            }
+                            Button(
+                                onClick = onStop,
+                                enabled = sessionState.activeTurnId != null,
+                                modifier = Modifier.testTag("thread.turn.stop"),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Stop,
+                                    contentDescription = "Stop active turn",
+                                )
+                                Text(
+                                    text = "Stop",
+                                    modifier = Modifier.padding(start = 8.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+
+                items(timeline.filterNot { item ->
+                    item is TimelineItem.ApprovalRequest && !item.resolved
+                }) { item ->
+                    TimelineCard(item = item)
                 }
             }
         }
@@ -139,14 +261,13 @@ fun ThreadRoute(
 @Composable
 private fun TimelineCard(
     item: TimelineItem,
-    onResolveApproval: (ApprovalId, ApprovalDecision) -> Unit,
 ) {
     when (item) {
         is TimelineItem.UserMessage -> ExpressiveCard(
             title = "User prompt",
             subtitle = item.text,
         ) {
-            Text(text = "Typed user message item")
+            Text(text = "User message")
         }
 
         is TimelineItem.AssistantMessage -> ExpressiveCard(
@@ -176,40 +297,11 @@ private fun TimelineCard(
         ) {
             Text(
                 text = if (item.resolved) {
-                    "Resolved: ${item.decision?.name}"
+                    "Resolved: ${item.decision?.name ?: if (item.stale) "stale" else "done"}"
                 } else {
-                    "Pending approval (${item.kind.name}, ${item.risk.name})"
+                    "Pending approval"
                 },
             )
-            if (!item.resolved) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.padding(top = 12.dp),
-                ) {
-                    Button(
-                        onClick = { onResolveApproval(item.approvalId, ApprovalDecision.AcceptOnce) },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(text = "Approve once")
-                    }
-                    Button(
-                        onClick = { onResolveApproval(item.approvalId, ApprovalDecision.AcceptSession) },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(text = "Approve session")
-                    }
-                    TextButton(
-                        onClick = { onResolveApproval(item.approvalId, ApprovalDecision.Decline) },
-                    ) {
-                        Text(text = "Decline")
-                    }
-                    TextButton(
-                        onClick = { onResolveApproval(item.approvalId, ApprovalDecision.Cancel) },
-                    ) {
-                        Text(text = "Cancel")
-                    }
-                }
-            }
         }
 
         is TimelineItem.StatusEvent -> ExpressiveCard(
@@ -220,3 +312,60 @@ private fun TimelineCard(
         }
     }
 }
+
+private fun threadLabel(
+    thread: CodexThread?,
+    sessionState: ForegroundThreadSessionState,
+): String = when (sessionState.streamState) {
+    ForegroundThreadStreamState.Hydrating -> "Hydrating"
+    ForegroundThreadStreamState.Streaming -> "Streaming"
+    ForegroundThreadStreamState.Interrupting -> "Interrupting"
+    ForegroundThreadStreamState.AwaitingReconnect -> "Awaiting reconnect"
+    ForegroundThreadStreamState.Failed -> "Failed"
+    else -> thread?.status?.name ?: "Missing"
+}
+
+private fun threadTone(
+    thread: CodexThread?,
+    sessionState: ForegroundThreadSessionState,
+): ExpressiveStatusTone = when {
+    sessionState.streamState == ForegroundThreadStreamState.Failed -> ExpressiveStatusTone.Critical
+    sessionState.streamState == ForegroundThreadStreamState.AwaitingReconnect -> ExpressiveStatusTone.Warning
+    sessionState.blockedReason == ForegroundThreadBlockedReason.WaitingOnApproval -> ExpressiveStatusTone.Warning
+    sessionState.blockedReason == ForegroundThreadBlockedReason.WaitingOnUserInput -> ExpressiveStatusTone.Warning
+    thread?.status == ThreadStatus.Running || sessionState.streamState == ForegroundThreadStreamState.Streaming -> ExpressiveStatusTone.Positive
+    thread?.status == ThreadStatus.Failed || thread?.status == ThreadStatus.SystemError -> ExpressiveStatusTone.Critical
+    else -> ExpressiveStatusTone.Neutral
+}
+
+private fun statusBannerText(
+    thread: CodexThread?,
+    sessionState: ForegroundThreadSessionState,
+): String = when {
+    sessionState.streamState == ForegroundThreadStreamState.Hydrating -> "Hydrating thread state from runtime and opening live subscription."
+    sessionState.streamState == ForegroundThreadStreamState.Streaming -> "Assistant output is streaming from the active turn."
+    sessionState.streamState == ForegroundThreadStreamState.Interrupting -> "Interrupt was requested; waiting for terminal turn/completed."
+    sessionState.streamState == ForegroundThreadStreamState.AwaitingReconnect -> "Runtime stream is waiting for reconnect recovery."
+    sessionState.streamState == ForegroundThreadStreamState.Failed -> sessionState.lastError ?: "Foreground thread runtime failed."
+    sessionState.blockedReason == ForegroundThreadBlockedReason.WaitingOnApproval -> "Thread is waiting on an approval decision."
+    sessionState.blockedReason == ForegroundThreadBlockedReason.WaitingOnUserInput -> "Thread is waiting on user input that is out of scope for this slice."
+    thread?.status == ThreadStatus.Interrupted -> "Last active turn was interrupted."
+    thread?.status == ThreadStatus.SystemError -> "Runtime reported a system error for this thread."
+    else -> thread?.preview ?: "Runtime thread is ready."
+}
+
+private fun approvalMetadata(item: TimelineItem.ApprovalRequest): String = buildString {
+    append("kind=${item.kind.name}")
+    append(" · risk=${item.risk.name}")
+    item.commandPreview?.takeIf { it.isNotBlank() }?.let { append(" · command=$it") }
+    item.networkHost?.takeIf { it.isNotBlank() }?.let { host ->
+        append(" · network=$host")
+        item.networkProtocol?.takeIf { it.isNotBlank() }?.let { protocol ->
+            append(" ($protocol)")
+        }
+    }
+    item.cwd?.takeIf { it.isNotBlank() }?.let { append(" · cwd=$it") }
+}
+
+private fun approvalTag(item: TimelineItem.ApprovalRequest): String =
+    (item.requestId ?: item.approvalId.value).replace(Regex("[^A-Za-z0-9._-]"), "_")

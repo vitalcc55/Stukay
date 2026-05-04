@@ -1,9 +1,7 @@
 package dev.vitalcc.stukay.feature.thread.domain
 
 import dev.vitalcc.stukay.core.model.ThreadId
-import dev.vitalcc.stukay.core.model.ThreadStatus
 import dev.vitalcc.stukay.feature.thread.data.FakeThreadRepository
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -20,12 +18,13 @@ class ThreadUseCasesTest {
     }
 
     @Test
-    fun startFakeTurnUseCaseDelegatesToRepository() {
+    fun openThreadUseCaseReadsFakeRepositorySnapshot() {
         val repository = FakeThreadRepository()
-        val useCase = StartFakeTurnUseCase(repository)
+        val useCase = OpenThreadUseCase(repository)
 
         val thread = useCase(ThreadId("thread-review-shell"))
 
-        assertEquals(ThreadStatus.Running, thread.status)
+        assertTrue(thread != null)
+        assertTrue(thread?.id?.value == "thread-review-shell")
     }
 }

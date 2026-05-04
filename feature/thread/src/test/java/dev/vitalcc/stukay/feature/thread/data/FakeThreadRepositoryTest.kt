@@ -1,63 +1,55 @@
 package dev.vitalcc.stukay.feature.thread.data
 
 import dev.vitalcc.stukay.core.model.ApprovalDecision
-import dev.vitalcc.stukay.core.model.ApprovalId
 import dev.vitalcc.stukay.core.model.ThreadId
 import dev.vitalcc.stukay.core.model.ThreadStatus
+import dev.vitalcc.stukay.core.model.TurnId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FakeThreadRepositoryTest {
     @Test
-    fun startFakeTurnMovesThreadIntoRunningState() {
+    fun startTurnMovesThreadIntoRunningState() {
         val repository = FakeThreadRepository()
 
-        repository.startFakeTurn(ThreadId("thread-review-shell"))
+        repository.startTurn(ThreadId("thread-review-shell"), "hello")
         val thread = repository.loadThread(ThreadId("thread-review-shell"))
 
         assertEquals(ThreadStatus.Running, thread?.status)
     }
 
     @Test
-    fun completeFakeTurnMovesThreadIntoCompletedStateAndAppendsStatusEvent() {
+    fun interruptTurnMovesThreadIntoInterruptedStateAndAppendsStatusEvent() {
         val repository = FakeThreadRepository()
 
-        repository.startFakeTurn(ThreadId("thread-review-shell"))
-        repository.completeFakeTurn(ThreadId("thread-review-shell"))
+        val turnId = repository.startTurn(ThreadId("thread-review-shell"), "hello")
+        repository.interruptTurn(ThreadId("thread-review-shell"), turnId)
         val thread = repository.loadThread(ThreadId("thread-review-shell"))
         val timeline = repository.loadTimeline(ThreadId("thread-review-shell"))
 
-        assertEquals(ThreadStatus.Completed, thread?.status)
+        assertEquals(ThreadStatus.Interrupted, thread?.status)
         assertTrue(timeline.last().id.contains("completed"))
     }
 
     @Test
-    fun resolveApprovalMarksApprovalAsResolvedAndCompletesThread() {
+    fun respondToApprovalMarksApprovalAsResolvedAndReturnsIdleThread() {
         val repository = FakeThreadRepository()
 
-        repository.resolveApproval(
-            threadId = ThreadId("thread-active-shell"),
-            approvalId = ApprovalId("approval-shell-1"),
-            decision = ApprovalDecision.AcceptOnce,
-        )
+        repository.respondToApproval("approval-shell-1", ApprovalDecision.AcceptOnce)
 
         val thread = repository.loadThread(ThreadId("thread-active-shell"))
         val timeline = repository.loadTimeline(ThreadId("thread-active-shell"))
 
-        assertEquals(ThreadStatus.Completed, thread?.status)
+        assertEquals(ThreadStatus.Idle, thread?.status)
         assertTrue(timeline.any { it.id == "approval-shell-1" && it is dev.vitalcc.stukay.core.model.TimelineItem.ApprovalRequest && it.resolved })
     }
 
     @Test
-    fun resolveApprovalDeclineMarksThreadFailedAndKeepsDecision() {
+    fun respondToApprovalDeclineMarksThreadFailedAndKeepsDecision() {
         val repository = FakeThreadRepository()
 
-        repository.resolveApproval(
-            threadId = ThreadId("thread-active-shell"),
-            approvalId = ApprovalId("approval-shell-1"),
-            decision = ApprovalDecision.Decline,
-        )
+        repository.respondToApproval("approval-shell-1", ApprovalDecision.Decline)
 
         val thread = repository.loadThread(ThreadId("thread-active-shell"))
         val timeline = repository.loadTimeline(ThreadId("thread-active-shell"))
@@ -69,14 +61,10 @@ class FakeThreadRepositoryTest {
     }
 
     @Test
-    fun resolveApprovalCancelMarksThreadFailedAndKeepsDecision() {
+    fun respondToApprovalCancelMarksThreadFailedAndKeepsDecision() {
         val repository = FakeThreadRepository()
 
-        repository.resolveApproval(
-            threadId = ThreadId("thread-active-shell"),
-            approvalId = ApprovalId("approval-shell-1"),
-            decision = ApprovalDecision.Cancel,
-        )
+        repository.respondToApproval("approval-shell-1", ApprovalDecision.Cancel)
 
         val thread = repository.loadThread(ThreadId("thread-active-shell"))
         val timeline = repository.loadTimeline(ThreadId("thread-active-shell"))
@@ -88,20 +76,16 @@ class FakeThreadRepositoryTest {
     }
 
     @Test
-    fun resolveApprovalAcceptSessionCompletesThreadAndKeepsDecision() {
+    fun respondToApprovalAcceptSessionReturnsIdleThreadAndKeepsDecision() {
         val repository = FakeThreadRepository()
 
-        repository.resolveApproval(
-            threadId = ThreadId("thread-active-shell"),
-            approvalId = ApprovalId("approval-shell-1"),
-            decision = ApprovalDecision.AcceptSession,
-        )
+        repository.respondToApproval("approval-shell-1", ApprovalDecision.AcceptSession)
 
         val thread = repository.loadThread(ThreadId("thread-active-shell"))
         val timeline = repository.loadTimeline(ThreadId("thread-active-shell"))
         val approval = timeline.first { it.id == "approval-shell-1" } as dev.vitalcc.stukay.core.model.TimelineItem.ApprovalRequest
 
-        assertEquals(ThreadStatus.Completed, thread?.status)
+        assertEquals(ThreadStatus.Idle, thread?.status)
         assertEquals(ApprovalDecision.AcceptSession, approval.decision)
         assertTrue(approval.resolved)
     }

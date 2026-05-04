@@ -8,7 +8,10 @@ class DiagnosticsSummaryProvider(
 ) {
     private val sessionStartedAt = clock.instant()
 
-    fun snapshot(recentLimit: Int = 25): DiagnosticsSummary = DiagnosticsSummary(
+    fun snapshot(
+        recentLimit: Int = 25,
+        runtimeSnapshot: RuntimeDiagnosticsSnapshot? = null,
+    ): DiagnosticsSummary = DiagnosticsSummary(
         sessionStartedAt = sessionStartedAt,
         totalLogs = store.totalAcceptedEvents(),
         latestWarningOrError = store.latestWarningOrError(),
@@ -18,5 +21,6 @@ class DiagnosticsSummaryProvider(
                 event.area == LogArea.Security
         },
         recentLogs = store.recent(limit = recentLimit),
+        runtimeSnapshot = runtimeSnapshot,
     )
 }

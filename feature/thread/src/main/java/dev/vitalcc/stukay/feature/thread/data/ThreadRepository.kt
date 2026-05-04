@@ -1,11 +1,11 @@
 package dev.vitalcc.stukay.feature.thread.data
 
 import dev.vitalcc.stukay.core.model.ApprovalDecision
-import dev.vitalcc.stukay.core.model.ApprovalId
 import dev.vitalcc.stukay.core.model.CodexThread
 import dev.vitalcc.stukay.core.model.ProjectId
 import dev.vitalcc.stukay.core.model.ThreadId
 import dev.vitalcc.stukay.core.model.TimelineItem
+import dev.vitalcc.stukay.core.model.TurnId
 
 interface ThreadRepository {
     fun loadThreads(projectId: ProjectId): List<CodexThread>
@@ -14,13 +14,18 @@ interface ThreadRepository {
 
     fun loadTimeline(threadId: ThreadId): List<TimelineItem>
 
-    fun startFakeTurn(threadId: ThreadId): CodexThread
+    fun refreshIndex(): List<CodexThread>
 
-    fun completeFakeTurn(threadId: ThreadId): CodexThread
-
-    fun resolveApproval(
+    fun readThread(
         threadId: ThreadId,
-        approvalId: ApprovalId,
-        decision: ApprovalDecision,
-    ): CodexThread
+        includeTurns: Boolean = true,
+    ): CodexThread?
+
+    fun resumeThread(threadId: ThreadId): CodexThread?
+
+    fun startTurn(threadId: ThreadId, text: String): TurnId
+
+    fun interruptTurn(threadId: ThreadId, turnId: TurnId)
+
+    fun respondToApproval(requestId: String, decision: ApprovalDecision)
 }

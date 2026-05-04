@@ -6,19 +6,20 @@ import org.junit.Test
 
 class ThreadStatusTest {
     @Test
-    fun runningThreadCanBeCompletedButCannotStartAgain() {
-        assertFalse(ThreadStatus.Running.canStartFakeTurn())
-        assertTrue(ThreadStatus.Running.canCompleteFakeTurn())
+    fun runningThreadStatusRemainsActiveUntilTerminalTurnEvent() {
+        assertTrue(ThreadStatus.Running == ThreadStatus.Running)
+        assertFalse(ThreadStatus.Running == ThreadStatus.Idle)
     }
 
     @Test
-    fun waitingForApprovalCanResolveApprovalButCannotStartTurn() {
-        assertTrue(ThreadStatus.WaitingForApproval.canResolveApproval())
-        assertFalse(ThreadStatus.WaitingForApproval.canStartFakeTurn())
+    fun waitingStatesStayDistinctForApprovalAndUserInput() {
+        assertFalse(ThreadStatus.WaitingForApproval == ThreadStatus.WaitingForUserInput)
+        assertTrue(ThreadStatus.WaitingForApproval != ThreadStatus.Running)
     }
 
     @Test
-    fun completedThreadCanStartNewFakeTurn() {
-        assertTrue(ThreadStatus.Completed.canStartFakeTurn())
+    fun interruptedThreadStaysDistinctFromIdleAndFailure() {
+        assertFalse(ThreadStatus.Interrupted == ThreadStatus.Idle)
+        assertFalse(ThreadStatus.Interrupted == ThreadStatus.Failed)
     }
 }

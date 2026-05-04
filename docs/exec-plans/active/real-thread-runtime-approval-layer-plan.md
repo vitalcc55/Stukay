@@ -351,7 +351,7 @@ For this slice, `CodexProject` should be derived from runtime thread metadata:
 
 #### Status
 
-- current: `pending`
+- current: `done`
 
 #### Objective
 
@@ -364,24 +364,24 @@ Replace fake projects/threads read surfaces with runtime-derived data while stay
 
 #### Implementation checklist
 
-- [ ] Expand host helper + Android client for typed `thread/list` and `thread/read`.
-- [ ] Derive `CodexProject` groups from runtime thread metadata (`cwd`-first grouping).
-- [ ] Replace `RuntimeProjectsRepository` delegate path with real runtime mapping.
-- [ ] Replace `RuntimeThreadRepository.loadThreads/loadThread/loadTimeline` read path with runtime-backed snapshots.
-- [ ] Keep a clear temporary branch-only boundary while migrating; final milestone must remove fake read dependency.
+- [x] Expand host helper + Android client for typed `thread/list` and `thread/read`.
+- [x] Derive `CodexProject` groups from runtime thread metadata (`cwd`-first grouping).
+- [x] Replace `RuntimeProjectsRepository` delegate path with real runtime mapping.
+- [x] Replace `RuntimeThreadRepository.loadThreads/loadThread/loadTimeline` read path with runtime-backed snapshots.
+- [x] Keep a clear temporary branch-only boundary while migrating; final milestone must remove fake read dependency.
 
 #### Acceptance checklist
 
-- [ ] `Projects` renders runtime-derived project groups.
-- [ ] `Project` renders runtime-derived thread summaries and statuses.
-- [ ] Opening a thread no longer depends on `FakeThreadRepository`.
-- [ ] No new parallel project model is introduced beside the existing `CodexProject`.
+- [x] `Projects` renders runtime-derived project groups.
+- [x] `Project` renders runtime-derived thread summaries and statuses.
+- [x] Opening a thread no longer depends on `FakeThreadRepository`.
+- [x] No new parallel project model is introduced beside the existing `CodexProject`.
 
 ### Milestone 2: Active turn lifecycle
 
 #### Status
 
-- current: `pending`
+- current: `done`
 
 #### Objective
 
@@ -394,37 +394,37 @@ Turn one opened thread into a real interactive runtime surface.
 
 #### Implementation checklist
 
-- [ ] Add host helper support for `thread/resume`, `turn/start`, `turn/interrupt`, and event streaming.
-- [ ] Add active thread runtime state to `StukayAppState`:
+- [x] Add host helper support for `thread/resume`, `turn/start`, `turn/interrupt`, and event streaming.
+- [x] Add active thread runtime state to `StukayAppState`:
   - active thread id;
   - active turn id;
   - streaming assistant item projection;
   - turn terminal status;
   - reconnect / resumed marker.
-- [ ] Replace `ThreadRoute` fake run controls with:
+- [x] Replace `ThreadRoute` fake run controls with:
   - composer send;
   - stop/interrupt;
   - running / interrupted / failed / idle status.
-- [ ] On thread open:
+- [x] On thread open:
   - hydrate from `thread/read` or `thread/resume` result;
   - enter live subscription mode via `thread/resume`.
-- [ ] On reconnect:
+- [x] On reconnect:
   - re-open stream;
   - rehydrate active thread snapshot;
   - recover `activeTurnId` and terminal state from runtime truth.
 
 #### Acceptance checklist
 
-- [ ] Existing thread can be opened and interacted with from Android.
-- [ ] `turn/start` streams assistant output incrementally.
-- [ ] `turn/interrupt` stops the active turn and the UI resolves to final interrupted state only after terminal event.
-- [ ] Reconnect does not lose the active thread surface or leave `Stop` in a false state.
+- [x] Existing thread can be opened and interacted with from Android.
+- [x] `turn/start` streams assistant output incrementally.
+- [x] `turn/interrupt` stops the active turn and the UI resolves to final interrupted state only after terminal event.
+- [x] Reconnect does not lose the active thread surface or leave `Stop` in a false state.
 
 ### Milestone 3: Real approvals
 
 #### Status
 
-- current: `pending`
+- current: `done`
 
 #### Objective
 
@@ -437,41 +437,41 @@ Close the approval safety layer in the same slice, not as a distant follow-up.
 
 #### Implementation checklist
 
-- [ ] Add host helper + Android client support for:
+- [x] Add host helper + Android client support for:
   - `item/commandExecution/requestApproval`
   - `item/fileChange/requestApproval`
   - command approvals with `networkApprovalContext`
   - `serverRequest/resolved`
-- [ ] Introduce typed pending approval state keyed by:
+- [x] Introduce typed pending approval state keyed by:
   - `requestId`
   - `itemId`
   - `threadId`
   - `turnId`
-- [ ] Support decision set:
+- [x] Support decision set:
   - approve once
   - approve for session
   - decline
   - cancel
-- [ ] Prefer scalar values from `availableDecisions` when present; ignore policy-amendment variants in this slice.
-- [ ] Handle stale/cleared cases when:
+- [x] Prefer scalar values from `availableDecisions` when present; ignore policy-amendment variants in this slice.
+- [x] Handle stale/cleared cases when:
   - `serverRequest/resolved` arrives;
   - the owning turn completes/interruption happens;
   - reconnect rehydration shows the item already terminal;
   - active thread changes away from the request owner.
-- [ ] Add audit logging for approval requested / answered / cleared / stale.
+- [x] Add audit logging for approval requested / answered / cleared / stale.
 
 #### Acceptance checklist
 
-- [ ] Command, file, and network approvals can all be decided from Android.
-- [ ] Pending approval is scoped to the correct thread/turn.
-- [ ] Cleared or stale approvals disappear deterministically.
-- [ ] Logs/diagnostics preserve redacted audit trail without raw secrets or raw full payloads.
+- [x] Command, file, and network approvals can all be decided from Android.
+- [x] Pending approval is scoped to the correct thread/turn.
+- [x] Cleared or stale approvals disappear deterministically.
+- [x] Logs/diagnostics preserve redacted audit trail without raw secrets or raw full payloads.
 
 ### Milestone 4: Accessibility, diagnostics, and proof
 
 #### Status
 
-- current: `pending`
+- current: `in_progress`
 
 #### Objective
 
@@ -484,15 +484,15 @@ Make the runtime slice testable and reviewable as an engineering surface, not on
 
 #### Implementation checklist
 
-- [ ] Add semantics/test identifiers for all critical runtime controls and states.
-- [ ] Enrich diagnostics with:
+- [x] Add semantics/test identifiers for all critical runtime controls and states.
+- [x] Enrich diagnostics with:
   - current thread id;
   - active turn id;
   - pending approval summary;
   - stream status;
   - reconnect generation / last recover attempt;
   - last requestId/itemId for approval and turn actions.
-- [ ] Add targeted unit tests for:
+- [x] Add targeted unit tests for:
   - runtime thread->project grouping;
   - active turn state transitions;
   - approval lifecycle reducer/mapper;
@@ -505,9 +505,25 @@ Make the runtime slice testable and reviewable as an engineering surface, not on
 
 #### Acceptance checklist
 
-- [ ] Key runtime flows are discoverable via semantics tree.
-- [ ] Diagnostics surface can explain what thread/turn/approval is currently blocked or active.
+- [x] Key runtime flows are discoverable via semantics tree.
+- [x] Diagnostics surface can explain what thread/turn/approval is currently blocked or active.
 - [ ] Proof covers read path, send, stream, interrupt, reconnect, and approvals.
+
+### Milestone 1-4 Progress Snapshot
+
+- local status: `milestone 1 done`, `milestone 2 done`, `milestone 3 done`, `milestone 4 in_progress`
+- current branch: `codex/real-thread-runtime-approval-layer`
+- local verification already green:
+  - `.\gradlew.bat :app:testDebugUnitTest --console=plain`
+  - `.\gradlew.bat :core:model:testDebugUnitTest :feature:projects:testDebugUnitTest :feature:thread:testDebugUnitTest :core:logging:testDebugUnitTest :app:assembleDebug :app:lintDebug --console=plain`
+  - `python -W error::ResourceWarning -m unittest discover -s tools/hostbridge/tests -p "test_*.py"`
+  - `python C:\Users\v.vlasov\.codex\skills\repo-harness-lifecycle\scripts\validate_lifecycle_stack.py --root .`
+  - `android describe --project_dir .`
+  - `codex mcp get jetbrains`
+- remaining work before `verified`:
+  - emulator proof
+  - physical Pixel 9 Pro XL proof
+  - protocol-required review loop / findings triage / re-review result
 
 ## Stage Report Template
 

@@ -1,10 +1,6 @@
 package dev.vitalcc.stukay.runtime
 
 import android.content.Context
-import dev.vitalcc.stukay.feature.projects.data.FakeProjectsRepository
-import dev.vitalcc.stukay.feature.projects.data.ProjectsRepository
-import dev.vitalcc.stukay.feature.thread.data.FakeThreadRepository
-import dev.vitalcc.stukay.feature.thread.data.ThreadRepository
 import dev.vitalcc.stukay.runtime.hostbridge.HostBridgeRepository
 import dev.vitalcc.stukay.runtime.hostbridge.HttpJsonHostBridgeRepository
 import dev.vitalcc.stukay.runtime.hostbridge.OkHttpHostBridgeClient
@@ -12,24 +8,28 @@ import dev.vitalcc.stukay.runtime.hostbridge.SharedPreferencesHostBridgePairingS
 
 data class StukayRuntimeGraph(
     val hostBridgeRepository: HostBridgeRepository,
-    val projectsRepository: ProjectsRepository,
-    val threadRepository: ThreadRepository,
+    val projectsRepository: RuntimeProjectsRepository,
+    val threadRepository: RuntimeThreadRepository,
 )
 
 fun createStukayRuntimeGraph(
     context: Context,
     localNetworkPermissionGranted: Boolean,
 ): StukayRuntimeGraph {
+    val client = OkHttpHostBridgeClient()
+    val pairingStore = SharedPreferencesHostBridgePairingStore(context)
     val hostBridgeRepository = HttpJsonHostBridgeRepository(
-        pairingStore = SharedPreferencesHostBridgePairingStore(context),
-        client = OkHttpHostBridgeClient(),
+        pairingStore = pairingStore,
+        client = client,
         initialNearbyWifiDevicesGranted = localNetworkPermissionGranted,
     )
-    val fakeProjectsRepository = FakeProjectsRepository()
-    val fakeThreadRepository = FakeThreadRepository()
+    val store = RuntimeThreadStore()
     return StukayRuntimeGraph(
         hostBridgeRepository = hostBridgeRepository,
-        projectsRepository = RuntimeProjectsRepository(fakeProjectsRepository),
-        threadRepository = RuntimeThreadRepository(fakeThreadRepository),
+        projectsRepository = RuntimeProjectsRepository(store),
+        threadRepository = RuntimeThreadRepository(
+            hostBridgeRepository = hostBridgeRepository,
+            store = store,
+        ),
     )
 }

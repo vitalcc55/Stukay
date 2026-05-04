@@ -21,6 +21,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import dev.vitalcc.stukay.core.logging.AppLogger
 import dev.vitalcc.stukay.core.logging.LogArea
@@ -69,6 +70,7 @@ fun ProjectsRoute(
                         Icon(
                             imageVector = Icons.Rounded.Settings,
                             contentDescription = "Open settings",
+                            modifier = Modifier.testTag("projects.settings"),
                         )
                     }
                 },
@@ -87,7 +89,7 @@ fun ProjectsRoute(
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
                     Text(
-                        text = "Shell уже ходит в реальный Host Bridge path для host health/status и app/list count. Thread runtime пока честно остается fake-only.",
+                        text = "Projects и Project теперь строятся из runtime-backed thread data через Host Bridge helper.",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -143,7 +145,9 @@ fun ProjectsRoute(
                             )
                             Button(
                                 onClick = { onOpenProject(project.id) },
-                                modifier = Modifier.padding(top = 16.dp),
+                                modifier = Modifier
+                                    .padding(top = 16.dp)
+                                    .testTag("projects.project_open.${projectTag(project.id.value)}"),
                             ) {
                                 Text(text = "Open project")
                             }
@@ -154,6 +158,8 @@ fun ProjectsRoute(
         }
     }
 }
+
+private fun projectTag(raw: String): String = raw.replace(Regex("[^A-Za-z0-9._-]"), "_")
 
 private fun hostBridgeLabel(state: HostBridgeConnectionState): String = when (state.phase) {
     HostBridgeConnectionPhase.NotPaired -> "Не настроен"

@@ -10,9 +10,7 @@ import dev.vitalcc.stukay.core.model.ProjectId
 import dev.vitalcc.stukay.core.model.ThreadId
 import dev.vitalcc.stukay.core.model.ThreadStatus
 import dev.vitalcc.stukay.core.model.TimelineItem
-import dev.vitalcc.stukay.core.model.canCompleteFakeTurn
-import dev.vitalcc.stukay.core.model.canResolveApproval
-import dev.vitalcc.stukay.core.model.canStartFakeTurn
+import dev.vitalcc.stukay.core.model.TurnId
 
 class FakeThreadRepository : ThreadRepository {
     private val scenarios = mutableMapOf(
@@ -52,6 +50,8 @@ class FakeThreadRepository : ThreadRepository {
                     title = "Approve shell promotion",
                     description = "Подтвердить переход shell-изменений к следующему этапу.",
                     resolved = false,
+                    requestId = "approval-shell-1",
+                    itemId = "approval-shell-1",
                 ),
             ),
         ),
@@ -60,8 +60,8 @@ class FakeThreadRepository : ThreadRepository {
                 id = ThreadId("thread-review-shell"),
                 projectId = ProjectId("diagnostics"),
                 title = "Diagnostics follow-up",
-                preview = "Готов к запуску fake run",
-                status = ThreadStatus.Completed,
+                preview = "Готов к runtime turn",
+                status = ThreadStatus.Idle,
                 lastUpdatedAtEpochMs = 1_746_187_260_000,
             ),
             timeline = mutableListOf(
@@ -95,56 +95,70 @@ class FakeThreadRepository : ThreadRepository {
 
     override fun loadTimeline(threadId: ThreadId): List<TimelineItem> = scenarios[threadId]?.timeline?.toList().orEmpty()
 
-    override fun startFakeTurn(threadId: ThreadId): CodexThread {
+    override fun refreshIndex(): List<CodexThread> = scenarios.values
+        .map { it.thread }
+        .sortedByDescending { thread -> thread.lastUpdatedAtEpochMs }
+
+    override fun readThread(threadId: ThreadId, includeTurns: Boolean): CodexThread? = loadThread(threadId)
+
+    override fun resumeThread(threadId: ThreadId): CodexThread? = loadThread(threadId)
+
+    override fun startTurn(threadId: ThreadId, text: String): TurnId {
         val scenario = requireNotNull(scenarios[threadId]) { "Unknown thread: ${threadId.value}" }
-        check(scenario.thread.status.canStartFakeTurn()) { "Cannot start fake turn from ${scenario.thread.status}" }
 
         scenario.thread = scenario.thread.copy(
             status = ThreadStatus.Running,
-            preview = "Fake run is currently active",
+            preview = "Runtime turn is currently active",
             lastUpdatedAtEpochMs = scenario.thread.lastUpdatedAtEpochMs + 1_000,
+        )
+        val turnId = TurnId("${threadId.value}-turn-${scenario.sequence++}")
+        scenario.timeline += TimelineItem.UserMessage(
+            id = "${turnId.value}-user",
+            threadId = threadId,
+            text = text,
+            turnId = turnId,
         )
         scenario.timeline += TimelineItem.StatusEvent(
             id = "${threadId.value}-started-${scenario.sequence++}",
             threadId = threadId,
-            title = "Fake run started",
+            title = "Runtime turn started",
             detail = "The shell entered a running state.",
+            turnId = turnId,
         )
 
-        return scenario.thread
+        return turnId
     }
 
-    override fun completeFakeTurn(threadId: ThreadId): CodexThread {
+    override fun interruptTurn(threadId: ThreadId, turnId: TurnId) {
         val scenario = requireNotNull(scenarios[threadId]) { "Unknown thread: ${threadId.value}" }
-        check(scenario.thread.status.canCompleteFakeTurn()) { "Cannot complete fake turn from ${scenario.thread.status}" }
 
         scenario.thread = scenario.thread.copy(
-            status = ThreadStatus.Completed,
-            preview = "Fake run completed",
+            status = ThreadStatus.Interrupted,
+            preview = "Runtime turn interrupted",
             lastUpdatedAtEpochMs = scenario.thread.lastUpdatedAtEpochMs + 1_000,
         )
         scenario.timeline += TimelineItem.StatusEvent(
             id = "${threadId.value}-completed-${scenario.sequence++}",
             threadId = threadId,
-            title = "Fake run completed",
-            detail = "The shell left the running state successfully.",
+            title = "Runtime turn interrupted",
+            detail = "The shell left the running state by interrupt.",
+            turnId = turnId,
         )
-
-        return scenario.thread
     }
 
-    override fun resolveApproval(
-        threadId: ThreadId,
-        approvalId: ApprovalId,
-        decision: ApprovalDecision,
-    ): CodexThread {
+    override fun respondToApproval(requestId: String, decision: ApprovalDecision) {
+        val ownerScenario = scenarios.values.firstOrNull { scenario ->
+            scenario.timeline.any { item ->
+                item is TimelineItem.ApprovalRequest && item.requestId == requestId
+            }
+        } ?: error("Unknown approval request: $requestId")
+        val threadId = ownerScenario.thread.id
         val scenario = requireNotNull(scenarios[threadId]) { "Unknown thread: ${threadId.value}" }
-        check(scenario.thread.status.canResolveApproval()) { "Cannot resolve approval from ${scenario.thread.status}" }
 
         val approvalIndex = scenario.timeline.indexOfFirst { item ->
-            item is TimelineItem.ApprovalRequest && item.approvalId == approvalId
+            item is TimelineItem.ApprovalRequest && item.requestId == requestId
         }
-        check(approvalIndex >= 0) { "Unknown approval: ${approvalId.value}" }
+        check(approvalIndex >= 0) { "Unknown approval: $requestId" }
 
         val currentApproval = scenario.timeline[approvalIndex] as TimelineItem.ApprovalRequest
         scenario.timeline[approvalIndex] = currentApproval.copy(
@@ -154,7 +168,7 @@ class FakeThreadRepository : ThreadRepository {
 
         val isAccepted = decision == ApprovalDecision.AcceptOnce || decision == ApprovalDecision.AcceptSession
         val resolvedStatus = if (isAccepted) {
-            ThreadStatus.Completed
+            ThreadStatus.Idle
         } else {
             ThreadStatus.Failed
         }
@@ -176,8 +190,6 @@ class FakeThreadRepository : ThreadRepository {
             title = "Approval resolved",
             detail = "Decision: ${decision.name}; status=${resolvedStatus.name}",
         )
-
-        return scenario.thread
     }
 
     private class ThreadScenario(

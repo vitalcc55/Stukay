@@ -18,6 +18,8 @@ class FakeRuntimeClient:
     def __init__(self, responses):
         self._responses = list(responses)
         self.calls = 0
+        self.recorded_interrupts = []
+        self.recorded_approval_responses = []
 
     def fetch_app_list(self):
         self.calls += 1
@@ -25,6 +27,49 @@ class FakeRuntimeClient:
         if isinstance(response, Exception):
             raise response
         return response
+
+    def list_threads(self, *, source_kinds, archived, sort_key, sort_direction, limit=50):
+        self.calls += 1
+        response = self._responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+    def read_thread(self, thread_id, *, include_turns):
+        self.calls += 1
+        return self._responses.pop(0)
+
+    def resume_thread(self, thread_id):
+        self.calls += 1
+        return self._responses.pop(0)
+
+    def start_turn(self, thread_id, text):
+        self.calls += 1
+        return self._responses.pop(0)
+
+    def interrupt_turn(self, thread_id, turn_id):
+        self.recorded_interrupts.append((thread_id, turn_id))
+        return {}
+
+    def respond_server_request(self, request_id, result):
+        self.recorded_approval_responses.append((request_id, result))
+
+    def subscribe_thread(self, thread_id):
+        response = self._responses.pop(0)
+        return FakeSubscription(response)
+
+    def close(self):
+        return None
+
+
+class FakeSubscription:
+    def __init__(self, events):
+        self._events = list(events)
+
+    def next_event(self, timeout_s=None):
+        if not self._events:
+            return None
+        return self._events.pop(0)
 
     def close(self):
         return None
@@ -180,6 +225,97 @@ class ServerTest(unittest.TestCase):
         self.assertEqual("runtime_unavailable", payload["errorCode"])
         self.assertEqual("Host Bridge runtime is unavailable.", payload["errorMessage"])
 
+    def test_thread_routes_return_normalized_runtime_payloads(self):
+        raw_thread = {
+            "id": "thread-1",
+            "cwd": "C:\\Users\\v.vlasov\\Desktop\\Stukay",
+            "name": "Runtime thread",
+            "preview": "First preview",
+            "source": "appServer",
+            "status": {"type": "active", "activeFlags": ["waitingOnApproval"]},
+            "turns": [
+                {
+                    "id": "turn-1",
+                    "status": "completed",
+                    "items": [
+                        {"type": "userMessage", "id": "user-1", "content": [{"type": "text", "text": "Hello"}]},
+                        {"type": "agentMessage", "id": "assistant-1", "text": "World"},
+                    ],
+                },
+            ],
+            "createdAt": 10,
+            "updatedAt": 20,
+        }
+        client = FakeRuntimeClient(
+            [
+                [raw_thread],
+                {"thread": raw_thread},
+                {"thread": raw_thread},
+                {"turn": {"id": "turn-2", "status": "inProgress"}},
+            ],
+        )
+        server, thread = _start_server(lambda: client, "secret-token")
+        try:
+            list_payload = _json_request(server, "POST", "/v1/threads/list")
+            read_payload = _json_request(server, "GET", "/v1/threads/thread-1")
+            resume_payload = _json_request(server, "POST", "/v1/threads/thread-1/resume")
+            start_payload = _json_request(server, "POST", "/v1/threads/thread-1/turns", body={"text": "Continue"})
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+        self.assertEqual("thread-1", list_payload["data"][0]["id"])
+        self.assertEqual("active", list_payload["data"][0]["status"]["type"])
+        self.assertEqual("assistantMessage", read_payload["thread"]["timeline"][1]["type"])
+        self.assertEqual("Runtime thread", resume_payload["thread"]["title"])
+        self.assertEqual("turn-2", start_payload["turn"]["id"])
+
+    def test_thread_events_stream_and_approval_response_are_exposed_over_http(self):
+        client = FakeRuntimeClient(
+            [[
+                {
+                    "id": "request-1",
+                    "method": "item/commandExecution/requestApproval",
+                    "params": {
+                        "threadId": "thread-1",
+                        "turnId": "turn-1",
+                        "itemId": "item-1",
+                        "command": "dir",
+                        "cwd": "C:\\Users\\v.vlasov\\Desktop\\Stukay",
+                        "availableDecisions": ["accept", "decline", "cancel"],
+                    },
+                },
+                None,
+            ]],
+        )
+        server, thread = _start_server(lambda: client, "secret-token")
+        try:
+            connection = http.client.HTTPConnection(server.server_address[0], server.server_address[1], timeout=5)
+            connection.request(
+                "GET",
+                "/v1/threads/thread-1/events",
+                headers={"Authorization": "Bearer secret-token"},
+            )
+            response = connection.getresponse()
+            body = response.fp.readline().decode("utf-8")
+            approval_response = _json_request(
+                server,
+                "POST",
+                "/v1/approvals/request-1/respond",
+                body={"decision": "accept"},
+            )
+        finally:
+            connection.close()
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+        self.assertEqual(200, response.status)
+        self.assertIn("item/commandExecution/requestApproval", body)
+        self.assertEqual({}, approval_response)
+        self.assertEqual([("request-1", {"decision": "accept"})], client.recorded_approval_responses)
+
 
 def _start_server(runtime_client_factory, token: str):
     service = HostBridgeService(session_token=token, runtime_client_factory=runtime_client_factory)
@@ -208,6 +344,20 @@ def _wait_for_http_server(port: int) -> None:
             last_error = error
             time.sleep(0.1)
     raise RuntimeError(f"Timed out waiting for host bridge server on port {port}") from last_error
+
+
+def _json_request(server, method: str, path: str, body: dict | None = None):
+    connection = http.client.HTTPConnection(server.server_address[0], server.server_address[1], timeout=5)
+    payload = json.dumps(body).encode("utf-8") if body is not None else None
+    headers = {"Authorization": "Bearer secret-token"}
+    if payload is not None:
+        headers["Content-Type"] = "application/json"
+    try:
+        connection.request(method, path, body=payload, headers=headers)
+        response = connection.getresponse()
+        return json.loads(response.read().decode("utf-8"))
+    finally:
+        connection.close()
 
 
 if __name__ == "__main__":

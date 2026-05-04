@@ -20,6 +20,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import dev.vitalcc.stukay.core.logging.AppLogger
 import dev.vitalcc.stukay.core.logging.LogArea
@@ -100,7 +101,9 @@ fun ProjectRoute(
                                 tone = when (thread.status) {
                                     ThreadStatus.Running -> ExpressiveStatusTone.Positive
                                     ThreadStatus.WaitingForApproval -> ExpressiveStatusTone.Warning
+                                    ThreadStatus.WaitingForUserInput -> ExpressiveStatusTone.Warning
                                     ThreadStatus.Failed -> ExpressiveStatusTone.Critical
+                                    ThreadStatus.SystemError -> ExpressiveStatusTone.Critical
                                     else -> ExpressiveStatusTone.Neutral
                                 },
                                 modifier = Modifier.padding(bottom = 12.dp),
@@ -111,7 +114,9 @@ fun ProjectRoute(
                             )
                             Button(
                                 onClick = { onOpenThread(thread.id) },
-                                modifier = Modifier.padding(top = 16.dp),
+                                modifier = Modifier
+                                    .padding(top = 16.dp)
+                                    .testTag("project.thread_open.${threadTag(thread.id.value)}"),
                             ) {
                                 Text(text = "Open thread")
                             }
@@ -122,3 +127,5 @@ fun ProjectRoute(
         }
     }
 }
+
+private fun threadTag(raw: String): String = raw.replace(Regex("[^A-Za-z0-9._-]"), "_")
