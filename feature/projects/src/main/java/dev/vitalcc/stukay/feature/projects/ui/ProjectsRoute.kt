@@ -158,8 +158,10 @@ fun ProjectsRoute(
 private fun hostBridgeLabel(state: HostBridgeConnectionState): String = when (state.phase) {
     HostBridgeConnectionPhase.NotPaired -> "Не настроен"
     HostBridgeConnectionPhase.Paired ->
-        if (state.localNetworkAccessState == dev.vitalcc.stukay.core.model.LocalNetworkAccessState.PermissionRequired) {
-            "Нужно разрешение"
+        if (!state.nearbyWifiDevicesGranted &&
+            state.localNetworkAccessState == dev.vitalcc.stukay.core.model.LocalNetworkAccessState.Ready
+        ) {
+            "Opt-in режим"
         } else {
             "Сохранен"
         }
@@ -173,8 +175,10 @@ private fun hostBridgeLabel(state: HostBridgeConnectionState): String = when (st
 private fun hostBridgeTitle(state: HostBridgeConnectionState): String = when (state.phase) {
     HostBridgeConnectionPhase.NotPaired -> "Pairing payload еще не добавлен."
     HostBridgeConnectionPhase.Paired ->
-        if (state.localNetworkAccessState == dev.vitalcc.stukay.core.model.LocalNetworkAccessState.PermissionRequired) {
-            "Host сохранен, но nearby devices access еще не выдан."
+        if (!state.nearbyWifiDevicesGranted &&
+            state.localNetworkAccessState == dev.vitalcc.stukay.core.model.LocalNetworkAccessState.Ready
+        ) {
+            "Host сохранен; Nearby devices остается только advisory для Android 16 opt-in proof."
         } else {
             "Host сохранен и готов к подключению."
         }

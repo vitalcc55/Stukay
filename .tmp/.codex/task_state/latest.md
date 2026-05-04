@@ -1,7 +1,7 @@
 # Task State
 
 - goal: Реализовать `Host Bridge MVP`: первый реальный Android -> Host Bridge -> local Codex runtime path без ухода в полный real thread runtime.
-- stage: host_bridge_mvp_stage5_verification_complete
+- stage: host_bridge_mvp_external_review_fix_verified
 - done:
   - Stage 1 выполнен: transport contract закрыт на `http_json`, `ws/wss` fast-fail, `Degraded` и `HostRuntimeSummary` добавлены, cleartext opt-in и allowlist policy зафиксированы
   - Stage 2 выполнен: Windows Host Bridge helper поднимает локальный `codex app-server`, требует bearer auth и отдает runtime summary по `app/list`
@@ -16,6 +16,14 @@
     - diff-scoped security review по transport slice не дал подтвержденных security findings
     - physical Pixel proof завершен через private USB tether LAN
     - emulator proof завершен на `medium_phone` через Android host alias path
+  - Post-proof external review fix pass выполнен:
+    - `Nearby devices` posture отделен от private/local endpoint admissibility для current API 36
+    - `OkHttpHostBridgeClient` явно запрещает redirects и не отдает final destination library defaults
+    - `StukayAppState` получил thread-safe `HostBridgeProbeBarrier`, который закрывает queued probe resurrection после manual disconnect
+    - protocol failures больше не публикуют stale runtime metrics как `live`
+    - remote-controlled diagnostic strings санитизируются до попадания в state/log/UI
+    - helper bind host ограничен loopback/private-only surface
+    - helper `CodexRuntimeClient` дочитывает paginated `app/list` до полного count
 - next:
   - запустить финальный branch-wide review loop относительно `main`
   - если новых findings не будет, подготовить итоговый merge-readiness verdict
@@ -24,6 +32,16 @@
   - tools/hostbridge/server.py
   - tools/hostbridge/tests/test_runtime_client.py
   - tools/hostbridge/tests/test_server.py
+  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/HostBridgeProbeBarrier.kt
+  - app/src/test/kotlin/dev/vitalcc/stukay/runtime/HostBridgeProbeBarrierTest.kt
+  - app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeClientTest.kt
+  - app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HttpJsonHostBridgeRepositoryTest.kt
+  - core/model/src/main/java/dev/vitalcc/stukay/core/model/HostBridgeModels.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeClient.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeRepository.kt
+  - app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayAppState.kt
+  - feature/settings/src/main/java/dev/vitalcc/stukay/feature/settings/ui/SettingsRoute.kt
+  - feature/projects/src/main/java/dev/vitalcc/stukay/feature/projects/ui/ProjectsRoute.kt
   - docs/exec-plans/active/host-bridge-mvp-proof.md
   - docs/generated/project-interfaces.md
   - docs/notion/PROJECT_SYNC.md
@@ -34,6 +52,8 @@
   - .tmp/.codex/task_state/latest.json
 - verify_status:
   - `mcp__jetbrains__.build_project(filesToRebuild=...)` passes
+  - `.\gradlew.bat :app:testDebugUnitTest --tests "dev.vitalcc.stukay.runtime.hostbridge.HttpJsonHostBridgeRepositoryTest" --tests "dev.vitalcc.stukay.runtime.hostbridge.HostBridgeClientTest" --tests "dev.vitalcc.stukay.runtime.HostBridgeProbeBarrierTest" --console=plain` passes
+  - `python -W error::ResourceWarning -m unittest tools.hostbridge.tests.test_runtime_client tools.hostbridge.tests.test_server` passes
   - `.\gradlew.bat :app:lintDebug --console=plain` passes
   - `.\gradlew.bat :core:model:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug --console=plain` passes
   - `python -W error::ResourceWarning -m unittest discover -s tools/hostbridge/tests -p 'test_*.py'` passes

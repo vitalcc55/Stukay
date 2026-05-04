@@ -7,6 +7,7 @@ import dev.vitalcc.stukay.core.model.PairingPayload
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Test
 import java.net.InetSocketAddress
 
@@ -131,6 +132,38 @@ class HostBridgeClientTest {
     }
 
     @Test
+    fun fetchRuntimeSummaryRedactsBearerTokenFromFailurePayload() {
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/v1/runtime/summary") { exchange ->
+            exchange.responseHeaders.add("Content-Type", "application/json")
+            val body = """{"errorCode":"unauthorized","errorMessage":"Authorization: Bearer secret-token"}""".toByteArray()
+            exchange.sendResponseHeaders(401, body.size.toLong())
+            exchange.responseBody.use { it.write(body) }
+        }
+        server.start()
+        try {
+            val client = OkHttpHostBridgeClient()
+            val error = assertThrows(HostBridgeClientException::class.java) {
+                client.fetchRuntimeSummary(
+                    PairingPayload(
+                        version = 1,
+                        hostId = HostId("host-main"),
+                        hostLabel = "Office Windows",
+                        endpoint = "http://127.0.0.1:${server.address.port}",
+                        transport = HostBridgeTransport.HttpJson,
+                        sessionToken = "secret-token",
+                    ),
+                )
+            }
+
+            assertEquals(HostBridgeClientFailureCode.Unauthorized, error.failureCode)
+            assertEquals("Authorization: Bearer <redacted>", error.message)
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
     fun fetchRuntimeSummaryMapsMalformedJsonToProtocolFailure() {
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/v1/runtime/summary") { exchange ->
@@ -159,6 +192,110 @@ class HostBridgeClientTest {
             assertTrue(error.message.orEmpty().isNotBlank())
         } finally {
             server.stop(0)
+        }
+    }
+
+    @Test
+    fun fetchRuntimeSummaryRedactsBearerTokenFromDegradedPayload() {
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/v1/runtime/summary") { exchange ->
+            exchange.responseHeaders.add("Content-Type", "application/json")
+            val body = """
+                {
+                  "hostStatus": "degraded",
+                  "runtimeReady": false,
+                  "appListCount": 4,
+                  "lastRoundTripMs": 25,
+                  "probeAtEpochMs": 123,
+                  "retryAttempt": 1,
+                  "degradedReason": "Authorization: Bearer secret-token",
+                  "errorCode": "unavailable",
+                  "errorMessage": "Bearer secret-token",
+                  "lastTransportError": "Authorization: Bearer secret-token"
+                }
+            """.trimIndent().toByteArray()
+            exchange.sendResponseHeaders(200, body.size.toLong())
+            exchange.responseBody.use { it.write(body) }
+        }
+        server.start()
+        try {
+            val client = OkHttpHostBridgeClient()
+            val payload = client.fetchRuntimeSummary(
+                PairingPayload(
+                    version = 1,
+                    hostId = HostId("host-main"),
+                    hostLabel = "Office Windows",
+                    endpoint = "http://127.0.0.1:${server.address.port}",
+                    transport = HostBridgeTransport.HttpJson,
+                    sessionToken = "secret-token",
+                ),
+            )
+
+            assertEquals("Authorization: Bearer <redacted>", payload.degradedReason)
+            assertEquals("Bearer <redacted>", payload.errorMessage)
+            assertEquals("Authorization: Bearer <redacted>", payload.lastTransportError)
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
+    fun fetchRuntimeSummaryDoesNotFollowRedirects() {
+        val redirectedServer = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        var redirectedEndpointHit = false
+        redirectedServer.createContext("/v1/runtime/summary") { exchange ->
+            redirectedEndpointHit = true
+            exchange.responseHeaders.add("Content-Type", "application/json")
+            val body = """
+                {
+                  "hostStatus": "ready",
+                  "runtimeReady": true,
+                  "appListCount": 7,
+                  "lastRoundTripMs": 15,
+                  "probeAtEpochMs": 789,
+                  "retryAttempt": 0,
+                  "degradedReason": null,
+                  "errorCode": null,
+                  "errorMessage": null,
+                  "lastTransportError": null
+                }
+            """.trimIndent().toByteArray()
+            exchange.sendResponseHeaders(200, body.size.toLong())
+            exchange.responseBody.use { it.write(body) }
+        }
+        redirectedServer.start()
+
+        val redirectingServer = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        redirectingServer.createContext("/v1/runtime/summary") { exchange ->
+            exchange.responseHeaders.add(
+                "Location",
+                "http://127.0.0.1:${redirectedServer.address.port}/v1/runtime/summary",
+            )
+            exchange.sendResponseHeaders(302, -1)
+            exchange.close()
+        }
+        redirectingServer.start()
+
+        try {
+            val client = OkHttpHostBridgeClient()
+            val error = assertThrows(HostBridgeClientException::class.java) {
+                client.fetchRuntimeSummary(
+                    PairingPayload(
+                        version = 1,
+                        hostId = HostId("host-main"),
+                        hostLabel = "Office Windows",
+                        endpoint = "http://127.0.0.1:${redirectingServer.address.port}",
+                        transport = HostBridgeTransport.HttpJson,
+                        sessionToken = "secret-token",
+                    ),
+                )
+            }
+
+            assertEquals(HostBridgeClientFailureCode.Protocol, error.failureCode)
+            assertFalse(redirectedEndpointHit)
+        } finally {
+            redirectingServer.stop(0)
+            redirectedServer.stop(0)
         }
     }
 }

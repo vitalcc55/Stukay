@@ -217,8 +217,8 @@ fun SettingsRoute(
 private fun pairingSubtitle(state: HostBridgeConnectionState): String = when (state.phase) {
     HostBridgeConnectionPhase.NotPaired -> "Сначала сохраните pairing payload для одного Windows host."
     HostBridgeConnectionPhase.Paired ->
-        if (state.localNetworkAccessState == LocalNetworkAccessState.PermissionRequired) {
-            "Host сохранен, но для local-network path сначала нужен Nearby devices access."
+        if (!state.nearbyWifiDevicesGranted && state.localNetworkAccessState == LocalNetworkAccessState.Ready) {
+            "Host сохранен; connect flow можно запускать уже сейчас, а Nearby devices нужен только для Android 16 opt-in proof path."
         } else {
             "Host сохранен, можно запускать локальный connect flow."
         }
@@ -234,10 +234,11 @@ private fun localNetworkDetail(state: HostBridgeConnectionState): String = when 
         "Сначала добавьте pairing payload, чтобы оценить local-network path."
 
     LocalNetworkAccessState.Ready ->
-        "Private LAN endpoint разрешен для текущего slice. Android cleartext opt-in включен явно, а точная private/local boundary должна удерживаться runtime-валидацией host endpoint."
-
-    LocalNetworkAccessState.PermissionRequired ->
-        "Endpoint похож на private LAN или .local host. Пока Nearby devices не выдано, local-network path для этого slice не считается готовым."
+        if (!state.nearbyWifiDevicesGranted) {
+            "Private LAN endpoint разрешен для текущего slice. Android cleartext opt-in включен явно, а Nearby devices остается manual opt-in advisory для Android 16 proof path."
+        } else {
+            "Private LAN endpoint разрешен для текущего slice. Android cleartext opt-in включен явно, а точная private/local boundary должна удерживаться runtime-валидацией host endpoint."
+        }
 
     LocalNetworkAccessState.UnsupportedForSlice ->
         "Текущий endpoint не похож на private LAN / .local path. Публичный tunnel или internet endpoint вынесен за пределы этого slice."

@@ -77,11 +77,15 @@ class OkHttpHostBridgeClient(
                 val bodyText = response.body?.string().orEmpty()
                 if (!response.isSuccessful) {
                     throw mapFailure(
+                        pairingPayload = pairingPayload,
                         statusCode = response.code,
                         bodyText = bodyText,
                     )
                 }
-                return parseSummaryPayload(bodyText)
+                return parseSummaryPayload(
+                    pairingPayload = pairingPayload,
+                    bodyText = bodyText,
+                )
             }
         } catch (error: HostBridgeClientException) {
             throw error
@@ -94,17 +98,26 @@ class OkHttpHostBridgeClient(
     }
 
     private fun mapFailure(
+        pairingPayload: PairingPayload,
         statusCode: Int,
         bodyText: String,
     ): HostBridgeClientException {
         val fields = parseJsonObjectOrNull(bodyText)
         val errorCode = fields?.get("errorCode")?.trim()?.lowercase()
-        val errorMessage = fields?.get("errorMessage")?.takeIf { it.isNotBlank() }
+        val errorMessage = sanitizeRemoteDiagnosticText(
+            text = fields?.get("errorMessage"),
+            sessionToken = pairingPayload.sessionToken,
+        )
             ?: "Host Bridge helper вернул HTTP $statusCode."
         return when {
             statusCode == 401 || errorCode == "unauthorized" -> HostBridgeClientException(
                 failureCode = HostBridgeClientFailureCode.Unauthorized,
                 message = errorMessage,
+            )
+
+            statusCode in 300..399 -> HostBridgeClientException(
+                failureCode = HostBridgeClientFailureCode.Protocol,
+                message = "Host Bridge helper redirect не разрешен для этого MVP.",
             )
 
             statusCode in setOf(408, 429, 500, 502, 503, 504) ||
@@ -120,7 +133,10 @@ class OkHttpHostBridgeClient(
         }
     }
 
-    private fun parseSummaryPayload(bodyText: String): HostBridgeRuntimePayload {
+    private fun parseSummaryPayload(
+        pairingPayload: PairingPayload,
+        bodyText: String,
+    ): HostBridgeRuntimePayload {
         val fields = parseJsonObject(bodyText)
         return HostBridgeRuntimePayload(
             hostStatus = parseHostStatus(fields["hostStatus"]),
@@ -129,10 +145,19 @@ class OkHttpHostBridgeClient(
             lastRoundTripMs = fields.optionalLong("lastRoundTripMs"),
             probeAtEpochMs = fields.optionalLong("probeAtEpochMs"),
             retryAttempt = fields.optionalInt("retryAttempt") ?: 0,
-            degradedReason = fields["degradedReason"],
+            degradedReason = sanitizeRemoteDiagnosticText(
+                text = fields["degradedReason"],
+                sessionToken = pairingPayload.sessionToken,
+            ),
             errorCode = fields["errorCode"],
-            errorMessage = fields["errorMessage"],
-            lastTransportError = fields["lastTransportError"],
+            errorMessage = sanitizeRemoteDiagnosticText(
+                text = fields["errorMessage"],
+                sessionToken = pairingPayload.sessionToken,
+            ),
+            lastTransportError = sanitizeRemoteDiagnosticText(
+                text = fields["lastTransportError"],
+                sessionToken = pairingPayload.sessionToken,
+            ),
         )
     }
 
@@ -151,6 +176,8 @@ class OkHttpHostBridgeClient(
         const val SUMMARY_PATH = "/v1/runtime/summary"
 
         fun defaultHttpClient(): OkHttpClient = OkHttpClient.Builder()
+            .followRedirects(false)
+            .followSslRedirects(false)
             .connectTimeout(5, TimeUnit.SECONDS)
             .readTimeout(5, TimeUnit.SECONDS)
             .callTimeout(7, TimeUnit.SECONDS)
@@ -210,6 +237,19 @@ private fun Map<String, String?>.optionalInt(name: String): Int? = this[name]?.t
 
 private fun Map<String, String?>.optionalLong(name: String): Long? = this[name]?.toLongOrNull()
 
+private fun sanitizeRemoteDiagnosticText(
+    text: String?,
+    sessionToken: String,
+): String? {
+    val trimmed = text?.takeIf { it.isNotBlank() } ?: return null
+    return trimmed
+        .replace(AUTHORIZATION_BEARER_PATTERN, "Authorization: Bearer <redacted>")
+        .replace(BARE_BEARER_PATTERN, "Bearer <redacted>")
+        .replace(sessionToken, "<redacted>")
+}
+
 private val JSON_FIELD_PATTERN = Regex(
     "\"([^\"]+)\"\\s*:\\s*(null|true|false|-?\\d+|\"(?:\\\\.|[^\"])*\")",
 )
+private val AUTHORIZATION_BEARER_PATTERN = Regex("(?i)authorization\\s*:\\s*bearer\\s+\\S+")
+private val BARE_BEARER_PATTERN = Regex("(?i)bearer\\s+\\S+")

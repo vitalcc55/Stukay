@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import http.server
+import ipaddress
 import json
 import time
 import threading
@@ -137,6 +138,7 @@ def main() -> None:
         token_env_var=args.session_token_env,
         token_file=args.session_token_file,
     )
+    bind_host = validate_bind_host(args.host)
 
     def runtime_client_factory():
         return CodexRuntimeClient(
@@ -148,11 +150,46 @@ def main() -> None:
         session_token=session_token,
         runtime_client_factory=runtime_client_factory,
     )
-    server = HostBridgeHttpServer((args.host, args.port), service)
+    server = HostBridgeHttpServer((bind_host, args.port), service)
     try:
         server.serve_forever()
     finally:
         service.close()
+
+
+def validate_bind_host(host: str) -> str:
+    normalized = host.strip().lower()
+    if normalized == "localhost":
+        return "localhost"
+
+    try:
+        address = ipaddress.ip_address(normalized)
+    except ValueError as error:
+        raise ValueError(
+            "Host Bridge MVP принимает только loopback или private LAN bind host.",
+        ) from error
+
+    if address.version != 4:
+        raise ValueError("Host Bridge MVP пока принимает только IPv4 bind host.")
+    if _is_allowed_bind_address(address):
+        return normalized
+    raise ValueError("Host Bridge MVP принимает только loopback или private LAN bind host.")
+
+
+def _is_allowed_bind_address(address: ipaddress.IPv4Address) -> bool:
+    if address.is_loopback:
+        return True
+
+    first_octet = address.packed[0]
+    second_octet = address.packed[1]
+    return first_octet == 10 or (
+        first_octet == 100 and second_octet in range(64, 128)
+    ) or (
+        first_octet == 172 and second_octet in range(16, 32)
+    ) or (
+        first_octet == 192 and second_octet == 168
+    )
+
 
 def _sanitize_runtime_error(error: Exception) -> tuple[str, str]:
     if isinstance(error, RuntimeClientError):

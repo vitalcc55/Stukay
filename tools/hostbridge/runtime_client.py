@@ -83,11 +83,23 @@ class CodexRuntimeClient:
         with self._io_lock:
             self._ensure_started()
             self._ensure_initialized()
-            result = self._request("app/list", {"cursor": None, "limit": 50, "forceRefetch": False})
-            data = result.get("data")
-            if not isinstance(data, list):
-                raise RuntimeError("Invalid app/list response: missing data array")
-            return data
+            apps: list[dict[str, object]] = []
+            cursor: str | None = None
+            while True:
+                result = self._request(
+                    "app/list",
+                    {"cursor": cursor, "limit": 50, "forceRefetch": False},
+                )
+                data = result.get("data")
+                if not isinstance(data, list):
+                    raise RuntimeError("Invalid app/list response: missing data array")
+                apps.extend(data)
+                next_cursor = result.get("nextCursor")
+                if next_cursor is None:
+                    return apps
+                if not isinstance(next_cursor, str) or not next_cursor:
+                    raise RuntimeError("Invalid app/list response: nextCursor must be a string or null")
+                cursor = next_cursor
 
     def _ensure_started(self) -> None:
         if self._proc is not None and self._proc.poll() is None:

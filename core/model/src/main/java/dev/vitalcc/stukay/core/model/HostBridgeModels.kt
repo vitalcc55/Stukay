@@ -12,7 +12,6 @@ enum class HostBridgeTransport {
 enum class LocalNetworkAccessState {
     NotConfigured,
     Ready,
-    PermissionRequired,
     UnsupportedForSlice,
 }
 

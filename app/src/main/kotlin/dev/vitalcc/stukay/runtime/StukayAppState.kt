@@ -109,6 +109,7 @@ class StukayAppState(
     @Volatile
     private var hostBridgeGeneration: Long = 0L
     private var hostBridgeProbeFuture: ScheduledFuture<*>? = null
+    private val hostBridgeProbeBarrier = HostBridgeProbeBarrier()
 
     init {
         networkMonitor.start()
@@ -336,6 +337,7 @@ class StukayAppState(
 
     fun disconnectHostBridge(clearPairing: Boolean = false) {
         hostBridgeGeneration += 1
+        hostBridgeProbeBarrier.disable()
         cancelHostBridgeProbeLoop()
         if (!hasSavedPairing()) {
             if (clearPairing) {
@@ -410,6 +412,7 @@ class StukayAppState(
             ),
         )
         hostBridgeGeneration += 1
+        hostBridgeProbeBarrier.disable()
         cancelHostBridgeProbeLoop()
         val generation = hostBridgeGeneration
         hostBridgeExecutor.execute {
@@ -448,6 +451,7 @@ class StukayAppState(
 
     private fun beginHostBridgeConnectTransition(): Long {
         hostBridgeGeneration += 1
+        hostBridgeProbeBarrier.disable()
         cancelHostBridgeProbeLoop()
         hostBridgeState = hostBridgeState.copy(
             phase = HostBridgeConnectionPhase.Connecting,
@@ -469,9 +473,15 @@ class StukayAppState(
         when (nextState.phase) {
             HostBridgeConnectionPhase.Connected,
             HostBridgeConnectionPhase.Degraded,
-            -> ensureHostBridgeProbeLoop()
+            -> {
+                hostBridgeProbeBarrier.enableForGeneration(hostBridgeGeneration)
+                ensureHostBridgeProbeLoop()
+            }
 
-            else -> cancelHostBridgeProbeLoop()
+            else -> {
+                hostBridgeProbeBarrier.disable()
+                cancelHostBridgeProbeLoop()
+            }
         }
     }
 
@@ -481,16 +491,17 @@ class StukayAppState(
             return
         }
         val generation = hostBridgeGeneration
+        val ticket = hostBridgeProbeBarrier.capture(generation) ?: return
         hostBridgeProbeFuture = hostBridgeExecutor.scheduleWithFixedDelay(
             {
-                if (generation != hostBridgeGeneration) {
+                if (generation != hostBridgeGeneration || !hostBridgeProbeBarrier.allows(ticket, hostBridgeGeneration)) {
                     return@scheduleWithFixedDelay
                 }
                 val result = runCatching {
                     hostBridgeRepository.probe(localNetworkPermissionGranted)
                 }
                 mainHandler.post {
-                    if (generation != hostBridgeGeneration) {
+                    if (generation != hostBridgeGeneration || !hostBridgeProbeBarrier.allows(ticket, hostBridgeGeneration)) {
                         return@post
                     }
                     val nextState = result.getOrElse { error ->
@@ -527,15 +538,16 @@ class StukayAppState(
 
     private fun submitImmediateHostBridgeProbe() {
         val generation = hostBridgeGeneration
+        val ticket = hostBridgeProbeBarrier.capture(generation) ?: return
         hostBridgeExecutor.execute {
-            if (generation != hostBridgeGeneration) {
+            if (generation != hostBridgeGeneration || !hostBridgeProbeBarrier.allows(ticket, hostBridgeGeneration)) {
                 return@execute
             }
             val result = runCatching {
                 hostBridgeRepository.probe(localNetworkPermissionGranted)
             }
             mainHandler.post {
-                if (generation != hostBridgeGeneration) {
+                if (generation != hostBridgeGeneration || !hostBridgeProbeBarrier.allows(ticket, hostBridgeGeneration)) {
                     return@post
                 }
                 val nextState = result.getOrElse { error ->
@@ -549,6 +561,7 @@ class StukayAppState(
 
     private fun shouldAutoProbeAfterNetworkChange(): Boolean =
         hasSavedPairing() &&
+            hostBridgeProbeBarrier.isEnabledForGeneration(hostBridgeGeneration) &&
             hostBridgeState.localNetworkAccessState == LocalNetworkAccessState.Ready &&
             hostBridgeState.phase in setOf(
                 HostBridgeConnectionPhase.Connected,
@@ -587,6 +600,7 @@ class StukayAppState(
 
     fun dispose() {
         hostBridgeGeneration += 1
+        hostBridgeProbeBarrier.disable()
         cancelHostBridgeProbeLoop()
         networkMonitor.stop()
         hostBridgeExecutor.shutdownNow()
@@ -622,12 +636,14 @@ class StukayAppState(
             )
 
             HostBridgeConnectionPhase.Paired ->
-                if (hostBridgeState.localNetworkAccessState == LocalNetworkAccessState.PermissionRequired) {
+                if (!hostBridgeState.nearbyWifiDevicesGranted &&
+                    hostBridgeState.localNetworkAccessState == LocalNetworkAccessState.Ready
+                ) {
                     logger.warn(
                         logEvent(
                             area = LogArea.Connection,
-                            eventName = "host_bridge_permission_required",
-                            messageHuman = "Для local network path требуется Nearby devices permission.",
+                            eventName = "host_bridge_permission_advisory",
+                            messageHuman = "Nearby devices остается manual opt-in advisory для Android 16 local-network path.",
                             fields = hostBridgeFields(),
                         ),
                     )

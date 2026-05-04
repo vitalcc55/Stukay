@@ -1,8 +1,10 @@
 package dev.vitalcc.stukay.runtime.hostbridge
 
 import dev.vitalcc.stukay.core.model.HostBridgeConnectionPhase
+import dev.vitalcc.stukay.core.model.HostRuntimeSnapshotScope
 import dev.vitalcc.stukay.core.model.HostRuntimeStatus
 import dev.vitalcc.stukay.core.model.LocalNetworkAccessState
+import dev.vitalcc.stukay.core.model.runtimeSummaryScope
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -23,12 +25,12 @@ class HttpJsonHostBridgeRepositoryTest {
         )
 
         assertEquals(HostBridgeConnectionPhase.Paired, state.phase)
-        assertEquals(LocalNetworkAccessState.PermissionRequired, state.localNetworkAccessState)
+        assertEquals(LocalNetworkAccessState.Ready, state.localNetworkAccessState)
         assertEquals("Office Windows", state.pairedHost?.hostLabel)
     }
 
     @Test
-    fun connectKeepsPairedStateWhenPermissionIsMissing() {
+    fun connectAttemptsRuntimeSummaryEvenWhenNearbyPermissionIsMissing() {
         val client = FakeHostBridgeClient(HostBridgeRuntimePayload.ready(appListCount = 2))
         val repository = HttpJsonHostBridgeRepository(
             pairingStore = InMemoryHostBridgePairingStore(),
@@ -43,10 +45,38 @@ class HttpJsonHostBridgeRepositoryTest {
 
         val state = repository.connect(localNetworkPermissionGranted = false)
 
-        assertEquals(HostBridgeConnectionPhase.Paired, state.phase)
-        assertEquals(LocalNetworkAccessState.PermissionRequired, state.localNetworkAccessState)
-        assertEquals(0, client.calls)
-        assertEquals(null, state.lastConnectedAtEpochMs)
+        assertEquals(HostBridgeConnectionPhase.Connected, state.phase)
+        assertEquals(LocalNetworkAccessState.Ready, state.localNetworkAccessState)
+        assertEquals(1, client.calls)
+        assertEquals(20L, state.lastConnectedAtEpochMs)
+    }
+
+    @Test
+    fun unavailableConnectWithoutNearbyPermissionExplainsManualOptInPath() {
+        val repository = HttpJsonHostBridgeRepository(
+            pairingStore = InMemoryHostBridgePairingStore(),
+            client = FakeHostBridgeClient(
+                HostBridgeClientException(
+                    failureCode = HostBridgeClientFailureCode.Unavailable,
+                    message = "timeout",
+                ),
+            ),
+            initialNearbyWifiDevicesGranted = false,
+            timeProvider = { 25L },
+        )
+        repository.savePairingPayload(
+            rawPayload = privateLanPayload(),
+            localNetworkPermissionGranted = false,
+        )
+
+        val state = repository.connect(localNetworkPermissionGranted = false)
+
+        assertEquals(HostBridgeConnectionPhase.Degraded, state.phase)
+        assertEquals(LocalNetworkAccessState.Ready, state.localNetworkAccessState)
+        assertEquals(
+            "timeout. Если на устройстве включен Android 16 local-network opt-in, выдайте Nearby devices.",
+            state.lastError,
+        )
     }
 
     @Test
@@ -167,6 +197,42 @@ class HttpJsonHostBridgeRepositoryTest {
         assertEquals(HostRuntimeStatus.Degraded, state.runtimeSummary.hostStatus)
         assertEquals(5, state.runtimeSummary.appListCount)
         assertEquals("timeout", state.lastError)
+    }
+
+    @Test
+    fun protocolFailureClearsStaleRuntimeMetricsWhileKeepingLiveFailureScope() {
+        val client = FakeHostBridgeClient(
+            HostBridgeRuntimePayload.ready(
+                appListCount = 5,
+                lastRoundTripMs = 17,
+                probeAtEpochMs = 99L,
+            ),
+            HostBridgeClientException(
+                failureCode = HostBridgeClientFailureCode.Protocol,
+                message = "redirect denied",
+            ),
+        )
+        val repository = HttpJsonHostBridgeRepository(
+            pairingStore = InMemoryHostBridgePairingStore(),
+            client = client,
+            initialNearbyWifiDevicesGranted = true,
+            timeProvider = { 52L },
+        )
+        repository.savePairingPayload(
+            rawPayload = privateLanPayload(),
+            localNetworkPermissionGranted = true,
+        )
+        repository.connect(localNetworkPermissionGranted = true)
+
+        val state = repository.probe(localNetworkPermissionGranted = true)
+
+        assertEquals(HostBridgeConnectionPhase.Failed, state.phase)
+        assertEquals(HostRuntimeStatus.Unknown, state.runtimeSummary.hostStatus)
+        assertNull(state.runtimeSummary.appListCount)
+        assertNull(state.runtimeSummary.lastRoundTripMs)
+        assertNull(state.runtimeSummary.lastProbeAtEpochMs)
+        assertEquals("redirect denied", state.runtimeSummary.lastTransportError)
+        assertEquals(HostRuntimeSnapshotScope.Live, state.runtimeSummaryScope())
     }
 
     @Test

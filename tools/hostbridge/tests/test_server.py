@@ -11,7 +11,7 @@ import time
 import unittest
 from pathlib import Path
 
-from tools.hostbridge.server import HostBridgeHttpServer, HostBridgeService
+from tools.hostbridge.server import HostBridgeHttpServer, HostBridgeService, validate_bind_host
 
 
 class FakeRuntimeClient:
@@ -31,6 +31,20 @@ class FakeRuntimeClient:
 
 
 class ServerTest(unittest.TestCase):
+    def test_validate_bind_host_accepts_loopback_and_private_ranges(self):
+        self.assertEqual("127.0.0.1", validate_bind_host("127.0.0.1"))
+        self.assertEqual("10.0.0.8", validate_bind_host("10.0.0.8"))
+        self.assertEqual("100.64.10.20", validate_bind_host("100.64.10.20"))
+        self.assertEqual("localhost", validate_bind_host("localhost"))
+
+    def test_validate_bind_host_rejects_wildcard_and_public_hosts(self):
+        with self.assertRaises(ValueError):
+            validate_bind_host("0.0.0.0")
+        with self.assertRaises(ValueError):
+            validate_bind_host("8.8.8.8")
+        with self.assertRaises(ValueError):
+            validate_bind_host("example.com")
+
     def test_runtime_summary_requires_bearer_auth(self):
         factory_calls = []
 

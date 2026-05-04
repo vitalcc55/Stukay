@@ -41,6 +41,29 @@ class RuntimeClientTest(unittest.TestCase):
             self.assertEqual(1, counters["initialize"])
             self.assertEqual(2, counters["app_list"])
 
+    def test_fetch_app_list_drains_all_pages_before_returning(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            script_path = _write_paginated_app_server(tmp_path)
+
+            def process_factory() -> subprocess.Popen[str]:
+                return subprocess.Popen(
+                    [sys.executable, "-u", str(script_path)],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    encoding="utf-8",
+                )
+
+            client = CodexRuntimeClient(process_factory=process_factory)
+            try:
+                apps = client.fetch_app_list()
+            finally:
+                client.close()
+
+            self.assertEqual(["a", "b", "c"], [app["id"] for app in apps])
+
     def test_fetch_app_list_raises_on_transport_error(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)
@@ -139,6 +162,37 @@ while True:
         continue
     elif method == "app/list":
         print("not-json", flush=True)
+""".strip(),
+        encoding="utf-8",
+    )
+    return script_path
+
+
+def _write_paginated_app_server(tmp_path: Path) -> Path:
+    script_path = tmp_path / "paginated_app_server.py"
+    script_path.write_text(
+        """
+import json
+
+while True:
+    line = input()
+    message = json.loads(line)
+    method = message.get("method")
+    if method == "initialize":
+        print(json.dumps({"id": message["id"], "result": {"userAgent": "fake-agent"}}), flush=True)
+    elif method == "initialized":
+        continue
+    elif method == "app/list":
+        cursor = message.get("params", {}).get("cursor")
+        if cursor is None:
+            result = {"data": [{"id": "a"}, {"id": "b"}], "nextCursor": "cursor-2"}
+        elif cursor == "cursor-2":
+            result = {"data": [{"id": "c"}], "nextCursor": None}
+        else:
+            result = {"data": [], "nextCursor": None}
+        print(json.dumps({"id": message["id"], "result": result}), flush=True)
+    else:
+        print(json.dumps({"id": message["id"], "error": {"code": -32601, "message": "unknown"}}), flush=True)
 """.strip(),
         encoding="utf-8",
     )

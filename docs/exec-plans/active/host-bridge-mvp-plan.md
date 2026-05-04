@@ -97,6 +97,11 @@ Milestone `Host Bridge MVP` считается закрытым, когда:
   - `100.64/10`
   - `169.254/16` по-прежнему reject path
 - Current host bridge state machine уже real host-backed, но full real thread runtime по-прежнему не входит в этот milestone.
+- Current Android 16 permission posture уже не hard-gate-ит admissible private/local endpoint:
+  - `Nearby devices` остается manual/opt-in advisory для current API 36;
+  - actual boundary для connect path — endpoint policy + runtime transport result.
+- Current Android client явно запрещает helper redirects как out-of-scope boundary escape.
+- Current `StukayAppState` держит отдельный probe barrier, чтобы queued auto-probe не оживлял manual disconnect cycle.
 - `AndroidManifest.xml` уже содержит:
   - `INTERNET`
   - `ACCESS_NETWORK_STATE`
@@ -620,6 +625,55 @@ Rule:
 - residual_risks:
   - security model по-прежнему bounded cleartext MVP, TLS/public path остается следующим milestone
   - `feature:thread` все еще fake-only и сознательно не входит в acceptance этого milestone
+- next_milestone: `M6`
+
+### M6. External review fix pass
+
+- status: `completed_locally`
+- owner_surface:
+  - android runtime client
+  - app state lifecycle
+  - helper adapter
+  - docs
+
+- [x] Проверить внешние review findings как гипотезы, а не как истину.
+- [x] Подтвердить или опровергнуть каждый пункт по коду и primary sources.
+- [x] Добавить red-тесты для подтвержденных классов дефектов.
+- [x] Закрыть корневые причины без symptom-only fixes.
+- [x] Обновить docs и checkpoint под фактическое состояние после fix pass.
+
+#### Stage Report
+
+- summary: Post-proof external review pass и follow-up internal review loop подтвердили семь реальных классов дефектов и закрыли их в общем слое, а не локальными заплатками. `Nearby devices` больше не является unconditional blocker для admissible private/local endpoint на current API 36; `OkHttpHostBridgeClient` теперь явно запрещает redirects и не делегирует boundary library defaults; `StukayAppState` получил thread-safe `HostBridgeProbeBarrier`, который отсекает queued probe resurrection после manual disconnect; protocol failures больше не показывают stale runtime metrics как `live`; remote-controlled diagnostic strings санитизируются до попадания в state/log/UI; helper bind host ограничен loopback/private-only surface; helper `CodexRuntimeClient` дочитывает paginated `app/list` до полного inventory count.
+- evidence:
+  - `mcp__jetbrains__.build_project(filesToRebuild=...)`
+  - `.\gradlew.bat :app:testDebugUnitTest --tests "dev.vitalcc.stukay.runtime.hostbridge.HttpJsonHostBridgeRepositoryTest" --tests "dev.vitalcc.stukay.runtime.hostbridge.HostBridgeClientTest" --tests "dev.vitalcc.stukay.runtime.HostBridgeProbeBarrierTest" --console=plain`
+  - `python -W error::ResourceWarning -m unittest tools.hostbridge.tests.test_runtime_client tools.hostbridge.tests.test_server`
+  - Android Developers `Local network permission` guidance
+  - OkHttp `followRedirects` reference
+  - official `codex app-server` `app/list` pagination docs
+- files_changed:
+  - `core/model/src/main/java/dev/vitalcc/stukay/core/model/HostBridgeModels.kt`
+  - `app/src/main/kotlin/dev/vitalcc/stukay/runtime/HostBridgeProbeBarrier.kt`
+  - `app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayAppState.kt`
+  - `app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeClient.kt`
+  - `app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeRepository.kt`
+  - `tools/hostbridge/server.py`
+  - `app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeClientTest.kt`
+  - `feature/settings/src/main/java/dev/vitalcc/stukay/feature/settings/ui/SettingsRoute.kt`
+  - `feature/projects/src/main/java/dev/vitalcc/stukay/feature/projects/ui/ProjectsRoute.kt`
+  - `app/src/test/kotlin/dev/vitalcc/stukay/runtime/HostBridgeProbeBarrierTest.kt`
+  - `app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeClientTest.kt`
+  - `app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HttpJsonHostBridgeRepositoryTest.kt`
+  - `tools/hostbridge/runtime_client.py`
+  - `tools/hostbridge/tests/test_runtime_client.py`
+  - `Documentation.md`
+  - `docs/CHANGELOG.md`
+  - `.tmp/.codex/task_state/latest.md`
+  - `.tmp/.codex/task_state/latest.json`
+- residual_risks:
+  - финальный branch-wide review vs `main` еще не перепрогнан после этого fix pass
+  - TLS/public path по-прежнему сознательно не входит в scope этого milestone
 - next_milestone: `Final branch-wide review vs main`
 
 ## Validation

@@ -106,29 +106,11 @@ class HttpJsonHostBridgeRepository(
             state = emptyState(nearbyWifiDevicesGranted = localNetworkPermissionGranted)
             return state
         }
-        val localNetworkState = resolveLocalNetworkAccessState(
-            payload = payload,
-            localNetworkPermissionGranted = localNetworkPermissionGranted,
-        )
+        val localNetworkState = resolveLocalNetworkAccessState(payload)
         state = when (localNetworkState) {
             LocalNetworkAccessState.UnsupportedForSlice -> failedSliceState(
                 payload = payload,
                 localNetworkPermissionGranted = localNetworkPermissionGranted,
-            )
-
-            LocalNetworkAccessState.PermissionRequired -> HostBridgeConnectionState(
-                phase = HostBridgeConnectionPhase.Paired,
-                pairedHost = payload.toPairedHost(),
-                runtimeSummary = state.runtimeSummary,
-                localNetworkAccessState = localNetworkState,
-                nearbyWifiDevicesGranted = localNetworkPermissionGranted,
-                lastError = if (state.phase == HostBridgeConnectionPhase.Failed) {
-                    state.lastError
-                } else {
-                    null
-                },
-                lastTransitionAtEpochMs = now(),
-                lastConnectedAtEpochMs = state.lastConnectedAtEpochMs,
             )
 
             LocalNetworkAccessState.Ready -> HostBridgeConnectionState(
@@ -176,10 +158,7 @@ class HttpJsonHostBridgeRepository(
             phase = HostBridgeConnectionPhase.Disconnected,
             pairedHost = payload.toPairedHost(),
             runtimeSummary = state.runtimeSummary.copy(retryAttempt = 0),
-            localNetworkAccessState = resolveLocalNetworkAccessState(
-                payload = payload,
-                localNetworkPermissionGranted = state.nearbyWifiDevicesGranted,
-            ),
+            localNetworkAccessState = resolveLocalNetworkAccessState(payload),
             nearbyWifiDevicesGranted = state.nearbyWifiDevicesGranted,
             lastError = null,
             lastTransitionAtEpochMs = now(),
@@ -193,27 +172,10 @@ class HttpJsonHostBridgeRepository(
         trigger: RuntimeTrigger,
     ): HostBridgeConnectionState {
         val payload = requireSavedPairing()
-        val localNetworkState = resolveLocalNetworkAccessState(
-            payload = payload,
-            localNetworkPermissionGranted = localNetworkPermissionGranted,
-        )
+        val localNetworkState = resolveLocalNetworkAccessState(payload)
         when (localNetworkState) {
             LocalNetworkAccessState.UnsupportedForSlice -> {
                 state = failedSliceState(payload, localNetworkPermissionGranted)
-                return state
-            }
-
-            LocalNetworkAccessState.PermissionRequired -> {
-                state = HostBridgeConnectionState(
-                    phase = HostBridgeConnectionPhase.Paired,
-                    pairedHost = payload.toPairedHost(),
-                    runtimeSummary = state.runtimeSummary.copy(retryAttempt = 0),
-                    localNetworkAccessState = localNetworkState,
-                    nearbyWifiDevicesGranted = localNetworkPermissionGranted,
-                    lastError = "Для local network path сначала выдайте Nearby devices.",
-                    lastTransitionAtEpochMs = now(),
-                    lastConnectedAtEpochMs = state.lastConnectedAtEpochMs,
-                )
                 return state
             }
 
@@ -349,6 +311,11 @@ class HttpJsonHostBridgeRepository(
 
         HostBridgeClientFailureCode.Unavailable -> {
             consecutiveProbeFailures += 1
+            val publicMessage = unavailableFailureMessage(
+                pairingPayload = pairingPayload,
+                localNetworkPermissionGranted = localNetworkPermissionGranted,
+                fallbackMessage = error.message,
+            )
             HostBridgeConnectionState(
                 phase = HostBridgeConnectionPhase.Degraded,
                 pairedHost = pairingPayload.toPairedHost(),
@@ -361,11 +328,11 @@ class HttpJsonHostBridgeRepository(
                     },
                     runtimePayload = null,
                     retryAttempt = consecutiveProbeFailures,
-                    transportMessage = error.message,
+                    transportMessage = publicMessage,
                 ),
                 localNetworkAccessState = LocalNetworkAccessState.Ready,
                 nearbyWifiDevicesGranted = localNetworkPermissionGranted,
-                lastError = error.message,
+                lastError = publicMessage,
                 lastTransitionAtEpochMs = now(),
                 lastConnectedAtEpochMs = state.lastConnectedAtEpochMs,
             )
@@ -374,7 +341,7 @@ class HttpJsonHostBridgeRepository(
         HostBridgeClientFailureCode.Protocol -> HostBridgeConnectionState(
             phase = HostBridgeConnectionPhase.Failed,
             pairedHost = pairingPayload.toPairedHost(),
-            runtimeSummary = state.runtimeSummary.copy(
+            runtimeSummary = HostRuntimeSummary(
                 hostStatus = HostRuntimeStatus.Unknown,
                 runtimeReady = false,
                 retryAttempt = consecutiveProbeFailures,
@@ -431,28 +398,35 @@ class HttpJsonHostBridgeRepository(
     ): HostBridgeConnectionState = HostBridgeConnectionState(
         phase = phase,
         pairedHost = payload.toPairedHost(),
-        localNetworkAccessState = resolveLocalNetworkAccessState(
-            payload = payload,
-            localNetworkPermissionGranted = localNetworkPermissionGranted,
-        ),
+        localNetworkAccessState = resolveLocalNetworkAccessState(payload),
         nearbyWifiDevicesGranted = localNetworkPermissionGranted,
         lastError = null,
         lastTransitionAtEpochMs = now(),
         lastConnectedAtEpochMs = lastConnectedAtEpochMs,
     )
 
-    private fun resolveLocalNetworkAccessState(
-        payload: PairingPayload,
-        localNetworkPermissionGranted: Boolean,
-    ): LocalNetworkAccessState {
+    private fun resolveLocalNetworkAccessState(payload: PairingPayload): LocalNetworkAccessState {
         val host = endpointHostOrNull(payload.endpoint)
         if (host == null || !isSupportedLocalSliceHost(host)) {
             return LocalNetworkAccessState.UnsupportedForSlice
         }
-        if (!localNetworkPermissionGranted) {
-            return LocalNetworkAccessState.PermissionRequired
-        }
         return LocalNetworkAccessState.Ready
+    }
+
+    private fun unavailableFailureMessage(
+        pairingPayload: PairingPayload,
+        localNetworkPermissionGranted: Boolean,
+        fallbackMessage: String?,
+    ): String {
+        val baseMessage = fallbackMessage ?: "Host Bridge helper недоступен."
+        if (localNetworkPermissionGranted) {
+            return baseMessage
+        }
+        val host = endpointHostOrNull(pairingPayload.endpoint)
+        if (host == null || !isSupportedLocalSliceHost(host)) {
+            return baseMessage
+        }
+        return "$baseMessage. Если на устройстве включен Android 16 local-network opt-in, выдайте Nearby devices."
     }
 
     private fun requireSavedPairing(): PairingPayload = requireNotNull(savedPairingPayload) {
