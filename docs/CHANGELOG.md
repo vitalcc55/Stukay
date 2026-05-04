@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-04
+
+- Добавлен implementation-oriented план `Real Thread Runtime + Approval Safety Layer` с зафиксированными рамками slice, stop condition, integration points, official protocol facts, accessibility baseline и validation surface.
+
 ## 2026-05-01
 
 - Поднят канонический lifecycle stack для long-horizon работы Codex через `repo-harness-lifecycle`.
