@@ -300,133 +300,265 @@ For this slice, `CodexProject` should be derived from runtime thread metadata:
 - `ApprovalRequest` with command/file/network context, requestId/itemId scope, resolved/stale state
 - `StatusEvent` for reconnect, degraded, interrupted, resumed, cleared states
 
+## Progress Tracking
+
+### Status values
+
+- `pending` — этап не начат;
+- `in_progress` — этап активен, но acceptance ещё не закрыт;
+- `blocked` — есть blocker, из-за которого этап нельзя честно закрыть;
+- `done` — acceptance закрыт, verification пройден, stage report заполнен;
+- `verified` — после `done` дополнительно подтверждён device/runtime proof там, где он нужен.
+
+### Working rule
+
+- Рекомендуемый ритм: закрывать milestone отдельным checkpoint-коммитом после выполнения acceptance и заполнения stage report.
+- Если milestone слишком большой для одного коммита, делить его на 2-3 осмысленных коммита, но всё равно завершать milestone отдельным финальным checkpoint-коммитом.
+- Не начинать следующий milestone, пока у текущего не заполнены `status`, checklist и stage report.
+
+### Review loop protocol
+
+- Перед каждым checkpoint-коммитом milestone запускать отдельный review loop через субагентов по незакоммиченным изменениям milestone.
+- Этот loop является review-only и sandbox-only: findings считаются гипотезами, а не истиной; принимать их без локальной проверки нельзя.
+- Субагентам не передавать fork истории чата; каждому давать явный контекст-промпт с:
+  - целью текущего milestone;
+  - рамкой slice и non-goals;
+  - списком затронутых файлов;
+  - просьбой смотреть только diff, код, тесты, docs и official docs.
+- Базовый prompt для review-субагента:
+
+```md
+Это review в sandbox-режиме: не запускай bootstrap, verify, dotnet restore, dotnet test, сборку, smoke, линтеры и любые тяжёлые проверки, если я отдельно не попрошу; считай, что такие прогоны здесь нерелевантны или ненадёжны, и делай выводы только по статическому анализу diff, кода, тестов, docs и официальной документации. Если для подтверждения замечания очень нужен runtime-сигнал, сначала коротко укажи, зачем именно он нужен, но ничего не запускай без отдельного разрешения, не запрашивай разрешения на повышение прав.
+```
+
+- Для одного pre-commit loop рекомендуется `2-3` review-субагента с разными фокусами:
+  - runtime/protocol;
+  - Android/UI/accessibility;
+  - tests/docs/acceptance boundaries.
+- После получения findings:
+  - разобрать их как гипотезы;
+  - подтвердить или отклонить локальным анализом;
+  - исправить только подтверждённые root-cause;
+  - затем отправить этих же субагентов на перепроверку и конкретных исправлений, и общего состояния milestone.
+- Если loop уходит в мелкую docs-семантику, формулировки без продуктового/контрактного риска или повтор уже закрытых stylistic замечаний, loop останавливать и milestone не блокировать.
+- После checkpoint-коммита milestone этих review-субагентов закрывать.
+- Для следующего milestone запускать уже новых review-субагентов, а не переиспользовать старых.
+- После завершения всего плана запускать ещё один branch-wide review loop относительно `main`, снова новыми субагентами и снова в review-only sandbox-режиме.
+
 ## Milestones
 
 ### Milestone 1: Runtime-backed read path
+
+#### Status
+
+- current: `pending`
 
 #### Objective
 
 Replace fake projects/threads read surfaces with runtime-derived data while staying read-focused.
 
-#### Implementation
+#### Recommended commit split
 
-- Expand host helper + Android client for typed `thread/list` and `thread/read`.
-- Derive `CodexProject` groups from runtime thread metadata (`cwd`-first grouping).
-- Replace `RuntimeProjectsRepository` delegate path with real runtime mapping.
-- Replace `RuntimeThreadRepository.loadThreads/loadThread/loadTimeline` read path with runtime-backed snapshots.
-- Keep a clear temporary branch-only boundary while migrating; final milestone must remove fake read dependency.
+- Commit A: host helper + Android runtime read contracts for `thread/list` / `thread/read`.
+- Commit B: runtime-backed `Projects` / `Project` derivation, removal of fake read dependency.
 
-#### Acceptance
+#### Implementation checklist
 
-- `Projects` renders runtime-derived project groups.
-- `Project` renders runtime-derived thread summaries and statuses.
-- Opening a thread no longer depends on `FakeThreadRepository`.
-- No new parallel project model is introduced beside the existing `CodexProject`.
+- [ ] Expand host helper + Android client for typed `thread/list` and `thread/read`.
+- [ ] Derive `CodexProject` groups from runtime thread metadata (`cwd`-first grouping).
+- [ ] Replace `RuntimeProjectsRepository` delegate path with real runtime mapping.
+- [ ] Replace `RuntimeThreadRepository.loadThreads/loadThread/loadTimeline` read path with runtime-backed snapshots.
+- [ ] Keep a clear temporary branch-only boundary while migrating; final milestone must remove fake read dependency.
+
+#### Acceptance checklist
+
+- [ ] `Projects` renders runtime-derived project groups.
+- [ ] `Project` renders runtime-derived thread summaries and statuses.
+- [ ] Opening a thread no longer depends on `FakeThreadRepository`.
+- [ ] No new parallel project model is introduced beside the existing `CodexProject`.
 
 ### Milestone 2: Active turn lifecycle
+
+#### Status
+
+- current: `pending`
 
 #### Objective
 
 Turn one opened thread into a real interactive runtime surface.
 
-#### Implementation
+#### Recommended commit split
 
-- Add host helper support for `thread/resume`, `turn/start`, `turn/interrupt`, and event streaming.
-- Add active thread runtime state to `StukayAppState`:
+- Commit A: host helper/event stream + Android live thread subscription/recovery scaffolding.
+- Commit B: `ThreadRoute` real composer/send/stop flow and runtime state projection.
+
+#### Implementation checklist
+
+- [ ] Add host helper support for `thread/resume`, `turn/start`, `turn/interrupt`, and event streaming.
+- [ ] Add active thread runtime state to `StukayAppState`:
   - active thread id;
   - active turn id;
   - streaming assistant item projection;
   - turn terminal status;
   - reconnect / resumed marker.
-- Replace `ThreadRoute` fake run controls with:
+- [ ] Replace `ThreadRoute` fake run controls with:
   - composer send;
   - stop/interrupt;
   - running / interrupted / failed / idle status.
-- On thread open:
+- [ ] On thread open:
   - hydrate from `thread/read` or `thread/resume` result;
   - enter live subscription mode via `thread/resume`.
-- On reconnect:
+- [ ] On reconnect:
   - re-open stream;
   - rehydrate active thread snapshot;
   - recover `activeTurnId` and terminal state from runtime truth.
 
-#### Acceptance
+#### Acceptance checklist
 
-- Existing thread can be opened and interacted with from Android.
-- `turn/start` streams assistant output incrementally.
-- `turn/interrupt` stops the active turn and the UI resolves to final interrupted state only after terminal event.
-- Reconnect does not lose the active thread surface or leave `Stop` in a false state.
+- [ ] Existing thread can be opened and interacted with from Android.
+- [ ] `turn/start` streams assistant output incrementally.
+- [ ] `turn/interrupt` stops the active turn and the UI resolves to final interrupted state only after terminal event.
+- [ ] Reconnect does not lose the active thread surface or leave `Stop` in a false state.
 
 ### Milestone 3: Real approvals
+
+#### Status
+
+- current: `pending`
 
 #### Objective
 
 Close the approval safety layer in the same slice, not as a distant follow-up.
 
-#### Implementation
+#### Recommended commit split
 
-- Add host helper + Android client support for:
+- Commit A: host helper + Android client approval request/response contracts.
+- Commit B: Android pending approval state, UI decisions, stale/cleared handling, audit logging.
+
+#### Implementation checklist
+
+- [ ] Add host helper + Android client support for:
   - `item/commandExecution/requestApproval`
   - `item/fileChange/requestApproval`
   - command approvals with `networkApprovalContext`
   - `serverRequest/resolved`
-- Introduce typed pending approval state keyed by:
+- [ ] Introduce typed pending approval state keyed by:
   - `requestId`
   - `itemId`
   - `threadId`
   - `turnId`
-- Support decision set:
+- [ ] Support decision set:
   - approve once
   - approve for session
   - decline
   - cancel
-- Prefer scalar values from `availableDecisions` when present; ignore policy-amendment variants in this slice.
-- Handle stale/cleared cases when:
+- [ ] Prefer scalar values from `availableDecisions` when present; ignore policy-amendment variants in this slice.
+- [ ] Handle stale/cleared cases when:
   - `serverRequest/resolved` arrives;
   - the owning turn completes/interruption happens;
   - reconnect rehydration shows the item already terminal;
   - active thread changes away from the request owner.
-- Add audit logging for approval requested / answered / cleared / stale.
+- [ ] Add audit logging for approval requested / answered / cleared / stale.
 
-#### Acceptance
+#### Acceptance checklist
 
-- Command, file, and network approvals can all be decided from Android.
-- Pending approval is scoped to the correct thread/turn.
-- Cleared or stale approvals disappear deterministically.
-- Logs/diagnostics preserve redacted audit trail without raw secrets or raw full payloads.
+- [ ] Command, file, and network approvals can all be decided from Android.
+- [ ] Pending approval is scoped to the correct thread/turn.
+- [ ] Cleared or stale approvals disappear deterministically.
+- [ ] Logs/diagnostics preserve redacted audit trail without raw secrets or raw full payloads.
 
 ### Milestone 4: Accessibility, diagnostics, and proof
+
+#### Status
+
+- current: `pending`
 
 #### Objective
 
 Make the runtime slice testable and reviewable as an engineering surface, not only as pixels.
 
-#### Implementation
+#### Recommended commit split
 
-- Add semantics/test identifiers for all critical runtime controls and states.
-- Enrich diagnostics with:
+- Commit A: semantics/test identifiers + diagnostics enrichment.
+- Commit B: tests, emulator proof, physical Pixel proof, final cleanup of fake affordances and docs sync.
+
+#### Implementation checklist
+
+- [ ] Add semantics/test identifiers for all critical runtime controls and states.
+- [ ] Enrich diagnostics with:
   - current thread id;
   - active turn id;
   - pending approval summary;
   - stream status;
   - reconnect generation / last recover attempt;
   - last requestId/itemId for approval and turn actions.
-- Add targeted unit tests for:
+- [ ] Add targeted unit tests for:
   - runtime thread->project grouping;
   - active turn state transitions;
   - approval lifecycle reducer/mapper;
   - stale/cleared approval handling;
   - host helper request/response + stream normalization.
-- Add device proof surfaces:
+- [ ] Add device proof surfaces:
   - emulator flow;
   - physical Pixel flow;
   - `android layout` / semantics-aware inspection.
 
-#### Acceptance
+#### Acceptance checklist
 
-- Key runtime flows are discoverable via semantics tree.
-- Diagnostics surface can explain what thread/turn/approval is currently blocked or active.
-- Proof covers read path, send, stream, interrupt, reconnect, and approvals.
+- [ ] Key runtime flows are discoverable via semantics tree.
+- [ ] Diagnostics surface can explain what thread/turn/approval is currently blocked or active.
+- [ ] Proof covers read path, send, stream, interrupt, reconnect, and approvals.
+
+## Stage Report Template
+
+Заполнять перед финальным checkpoint-коммитом milestone.
+
+```md
+### Milestone <N> Report
+
+- milestone: `<name>`
+- status: `pending | in_progress | blocked | done | verified`
+- branch: `<branch-name>`
+- commits:
+  - `<sha> <message>`
+  - `<sha> <message>`
+- scope closed:
+  - `...`
+- files touched:
+  - `...`
+- acceptance:
+  - `[x] ...`
+  - `[ ] ...`
+- verification run:
+  - `[x] <command> -> <result>`
+  - `[ ] <command> -> not run / blocked`
+- review loop:
+  - subagents launched: `...`
+  - findings raised: `...`
+  - confirmed hypotheses: `...`
+  - rejected hypotheses: `...`
+  - re-review result after fixes: `...`
+- accessibility proof:
+  - `...`
+- diagnostics / evidence:
+  - `...`
+- open issues / debt kept out:
+  - `...`
+- blocker for next milestone:
+  - `none | ...`
+```
+
+### Commit policy recommendation
+
+- Да, для этого slice рекомендуется фиксировать изменения по этапам.
+- Причина: здесь пересекаются host helper, Android state, UI, approvals и proof surfaces; без checkpoint-коммитов diff быстро станет слишком широким и плохо проверяемым.
+- Каждый checkpoint-коммит milestone должен идти только после закрытого pre-commit review loop и заполненного `Stage Report`.
+- Review-субагенты живут только внутри одного milestone loop; после коммита закрываются, на следующий milestone создаются новые.
+- После полного исполнения плана нужен отдельный branch-wide review loop относительно `main`; только после него ветка считается готовой к финальному merge-readiness review.
+- Практическое правило:
+  - milestone 1-3: обычно `2` рабочих коммита + `1` checkpoint-коммит максимум;
+  - milestone 4: `1-2` коммита, если proof и docs sync действительно отделимы;
+  - не дробить на мелкие “шумовые” коммиты без законченной подзадачи.
 
 ## Validation
 

@@ -3,6 +3,8 @@
 ## 2026-05-04
 
 - Добавлен implementation-oriented план `Real Thread Runtime + Approval Safety Layer` с зафиксированными рамками slice, stop condition, integration points, official protocol facts, accessibility baseline и validation surface.
+- План `Real Thread Runtime + Approval Safety Layer` усилен execution-tracking слоем: добавлены `status` по milestone, checklist-ы, рекомендуемая разбивка по коммитам и шаблон stage report перед checkpoint-коммитом.
+- В план `Real Thread Runtime + Approval Safety Layer` добавлен review loop protocol: pre-commit sandbox review через субагентов, повторная перепроверка после исправлений, остановка на low-signal docs semantics и отдельный branch-wide review loop относительно `main` после завершения всего slice.
 
 ## 2026-05-01
 
