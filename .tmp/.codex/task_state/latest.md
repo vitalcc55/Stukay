@@ -20,7 +20,7 @@
     - `Nearby devices` posture отделен от private/local endpoint admissibility для current API 36
     - `OkHttpHostBridgeClient` явно запрещает redirects и не отдает final destination library defaults
     - `StukayAppState` получил thread-safe `HostBridgeProbeBarrier`, который закрывает queued probe resurrection после manual disconnect
-    - protocol failures больше не публикуют stale runtime metrics как `live`
+    - auth/protocol failures больше не публикуют stale runtime metrics как `live`
     - remote-controlled diagnostic strings санитизируются до попадания в state/log/UI
     - helper bind host ограничен loopback/private-only surface
     - helper `CodexRuntimeClient` дочитывает paginated `app/list` до полного count

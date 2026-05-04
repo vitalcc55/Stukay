@@ -145,6 +145,84 @@ class HttpJsonHostBridgeRepositoryTest {
     }
 
     @Test
+    fun unauthorizedClientFailureClearsStaleRuntimeMetricsWhileKeepingLiveFailureScope() {
+        val client = FakeHostBridgeClient(
+            HostBridgeRuntimePayload.ready(
+                appListCount = 6,
+                lastRoundTripMs = 18,
+                probeAtEpochMs = 101L,
+            ),
+            HostBridgeClientException(
+                failureCode = HostBridgeClientFailureCode.Unauthorized,
+                message = "unauthorized",
+            ),
+        )
+        val repository = HttpJsonHostBridgeRepository(
+            pairingStore = InMemoryHostBridgePairingStore(),
+            client = client,
+            initialNearbyWifiDevicesGranted = true,
+            timeProvider = { 42L },
+        )
+        repository.savePairingPayload(
+            rawPayload = privateLanPayload(),
+            localNetworkPermissionGranted = true,
+        )
+        repository.connect(localNetworkPermissionGranted = true)
+
+        val state = repository.probe(localNetworkPermissionGranted = true)
+
+        assertEquals(HostBridgeConnectionPhase.Failed, state.phase)
+        assertEquals(HostRuntimeStatus.Unauthorized, state.runtimeSummary.hostStatus)
+        assertNull(state.runtimeSummary.appListCount)
+        assertNull(state.runtimeSummary.lastRoundTripMs)
+        assertNull(state.runtimeSummary.lastProbeAtEpochMs)
+        assertEquals(HostRuntimeSnapshotScope.Live, state.runtimeSummaryScope())
+    }
+
+    @Test
+    fun unauthorizedRuntimePayloadClearsStaleRuntimeMetricsWhileKeepingLiveFailureScope() {
+        val client = FakeHostBridgeClient(
+            HostBridgeRuntimePayload.ready(
+                appListCount = 7,
+                lastRoundTripMs = 21,
+                probeAtEpochMs = 109L,
+            ),
+            HostBridgeRuntimePayload(
+                hostStatus = HostBridgeClientStatus.Unauthorized,
+                runtimeReady = false,
+                appListCount = null,
+                lastRoundTripMs = null,
+                probeAtEpochMs = null,
+                retryAttempt = 0,
+                degradedReason = null,
+                errorCode = "unauthorized",
+                errorMessage = "unauthorized",
+                lastTransportError = "unauthorized",
+            ),
+        )
+        val repository = HttpJsonHostBridgeRepository(
+            pairingStore = InMemoryHostBridgePairingStore(),
+            client = client,
+            initialNearbyWifiDevicesGranted = true,
+            timeProvider = { 44L },
+        )
+        repository.savePairingPayload(
+            rawPayload = privateLanPayload(),
+            localNetworkPermissionGranted = true,
+        )
+        repository.connect(localNetworkPermissionGranted = true)
+
+        val state = repository.probe(localNetworkPermissionGranted = true)
+
+        assertEquals(HostBridgeConnectionPhase.Failed, state.phase)
+        assertEquals(HostRuntimeStatus.Unauthorized, state.runtimeSummary.hostStatus)
+        assertNull(state.runtimeSummary.appListCount)
+        assertNull(state.runtimeSummary.lastRoundTripMs)
+        assertNull(state.runtimeSummary.lastProbeAtEpochMs)
+        assertEquals(HostRuntimeSnapshotScope.Live, state.runtimeSummaryScope())
+    }
+
+    @Test
     fun refreshPermissionStateDoesNotMaskUnauthorizedFailure() {
         val repository = HttpJsonHostBridgeRepository(
             pairingStore = InMemoryHostBridgePairingStore(),

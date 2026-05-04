@@ -222,7 +222,7 @@ class HttpJsonHostBridgeRepository(
             runtimePayload.hostStatus == HostBridgeClientStatus.Unauthorized -> HostBridgeConnectionState(
                 phase = HostBridgeConnectionPhase.Failed,
                 pairedHost = pairingPayload.toPairedHost(),
-                runtimeSummary = baseSummary.copy(
+                runtimeSummary = HostRuntimeSummary(
                     hostStatus = HostRuntimeStatus.Unauthorized,
                     runtimeReady = false,
                     retryAttempt = 0,
@@ -295,7 +295,7 @@ class HttpJsonHostBridgeRepository(
         HostBridgeClientFailureCode.Unauthorized -> HostBridgeConnectionState(
             phase = HostBridgeConnectionPhase.Failed,
             pairedHost = pairingPayload.toPairedHost(),
-            runtimeSummary = state.runtimeSummary.copy(
+            runtimeSummary = HostRuntimeSummary(
                 hostStatus = HostRuntimeStatus.Unauthorized,
                 runtimeReady = false,
                 retryAttempt = 0,
