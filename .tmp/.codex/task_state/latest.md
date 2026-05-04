@@ -1,7 +1,7 @@
 # Task State
 
 - goal: Реализовать `Host Bridge MVP`: первый реальный Android -> Host Bridge -> local Codex runtime path без ухода в полный real thread runtime.
-- stage: host_bridge_mvp_external_review_fix_verified
+- stage: host_bridge_mvp_merge_ready
 - done:
   - Stage 1 выполнен: transport contract закрыт на `http_json`, `ws/wss` fast-fail, `Degraded` и `HostRuntimeSummary` добавлены, cleartext opt-in и allowlist policy зафиксированы
   - Stage 2 выполнен: Windows Host Bridge helper поднимает локальный `codex app-server`, требует bearer auth и отдает runtime summary по `app/list`
@@ -26,8 +26,8 @@
     - helper bind host ограничен loopback/private-only surface
     - helper `CodexRuntimeClient` дочитывает paginated `app/list` до полного count
 - next:
-  - запустить финальный branch-wide review loop относительно `main`
-  - если новых findings не будет, подготовить итоговый merge-readiness verdict
+  - открыть следующий active plan под `Real Thread Runtime`
+  - начать следующий implementation slice уже поверх доказанного Host Bridge transport
 - edited_files:
   - tools/hostbridge/runtime_client.py
   - tools/hostbridge/server.py
@@ -62,4 +62,4 @@
   - physical Pixel flow `connect -> degraded -> reconnect -> disconnect` proven
   - emulator flow `connect -> degraded -> reconnect -> disconnect` proven
 - open_questions:
-  - нет блокирующих открытых вопросов; следующий шаг — финальный review loop vs `main`
+  - нет блокирующих открытых вопросов; следующий шаг — `Real Thread Runtime`

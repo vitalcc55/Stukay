@@ -1,6 +1,6 @@
 {
   "goal": "Реализовать Host Bridge MVP: первый реальный Android -> Host Bridge -> local Codex runtime path без ухода в полный real thread runtime.",
-  "stage": "host_bridge_mvp_external_review_fix_verified",
+  "stage": "host_bridge_mvp_merge_ready",
   "done": [
     "stage 1 completed: transport contract locked to http_json, ws/wss moved to explicit unsupported path, degraded runtime summary contract added, cleartext opt-in and allowlist policy fixed",
     "stage 2 completed: Windows Host Bridge helper added with bearer auth, stdio app-server client, app/list summary path, degraded caching, and auth-first reject behavior",
@@ -10,8 +10,8 @@
     "post-proof external review fix completed: Nearby devices posture no longer hard-blocks admissible private/local endpoints on current API 36, redirects are explicitly rejected at the Android client boundary, manual disconnect now invalidates queued probes via a thread-safe HostBridgeProbeBarrier, callback-driven recovery now coalesces duplicate immediate probe requests per generation, auth/protocol failures no longer publish stale runtime metrics as live, remote-controlled diagnostic strings are sanitized before reaching state/log/UI, helper bind host is restricted to loopback/private-only surfaces, and helper app/list inventory drains all pages before computing the runtime count"
   ],
   "next": [
-    "run final branch-wide review loop vs main",
-    "if no new findings survive validation, prepare final merge-readiness verdict"
+    "open the next active plan for Real Thread Runtime",
+    "start the next implementation slice on top of the proven Host Bridge transport"
   ],
   "edited_files": [
     "tools/hostbridge/runtime_client.py",
@@ -38,6 +38,8 @@
     ".tmp/.codex/task_state/latest.json"
   ],
   "verify_status": "JetBrains sync-preflight passes; targeted app regression tests for repository, redirect policy, and probe barrier are green; helper Python runtime_client and server tests are green under ResourceWarning-strict mode; :app:lintDebug, :core:model:testDebugUnitTest, :app:testDebugUnitTest, and :app:assembleDebug are green; live helper proof succeeds; physical Pixel and emulator acceptance flows are both proven",
-  "open_questions": [],
+  "open_questions": [
+    "no blocking open questions; next step is Real Thread Runtime"
+  ],
   "updated_at_utc": "2026-05-04T10:15:00Z"
 }
