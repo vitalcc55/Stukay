@@ -1,7 +1,7 @@
 # Task State
 
 - goal: Закрыть `Real Thread Runtime + Approval Safety Layer`: runtime-backed projects/threads read path, foreground thread session, streaming, interrupt, reconnect recovery, approvals и accessibility/diagnostics baseline.
-- stage: real_thread_runtime_approval_layer_followup_commit_pending
+- stage: real_thread_runtime_approval_layer_local_green_device_proof_pending
 - done:
   - helper `tools/hostbridge` расширен до typed runtime proxy с thread list/read/resume/turn/approval routes и SSE event stream
   - `CodexRuntimeClient` переведен с `app/list`-only loop на generic JSON-RPC client с thread subscriptions и server-request routing
@@ -11,10 +11,8 @@
   - `ThreadRoute` убрал fake controls и получил composer, stop, approval actions, status banner и stable semantics/test tags
   - добавлены regression tests для runtime store grouping/reducer и helper thread endpoints/SSE/approval surface
 - next:
-  - зафиксировать отдельным commit review-driven follow-up diff после checkpoint `cdf3d14`
-  - запустить новый review loop по последнему commit set и дождаться ответов всех агентов
-  - перепрогнать полный combined Gradle gate после follow-up diff
   - прогнать emulator и physical Pixel proof для нового runtime slice
+  - прогнать финальный branch-wide review loop относительно `main`
   - провести merge-readiness review после device proof
 - edited_files:
   - app/build.gradle.kts
@@ -32,9 +30,11 @@
   - core/logging/src/main/java/dev/vitalcc/stukay/core/logging/DiagnosticsSummary.kt
   - core/logging/src/main/java/dev/vitalcc/stukay/core/logging/DiagnosticsSummaryProvider.kt
   - core/logging/src/main/java/dev/vitalcc/stukay/core/logging/RuntimeDiagnosticsSnapshot.kt
+  - core/model/src/main/java/dev/vitalcc/stukay/core/model/ForegroundThreadSessionPolicy.kt
   - core/model/src/main/java/dev/vitalcc/stukay/core/model/ForegroundThreadSessionState.kt
   - core/model/src/main/java/dev/vitalcc/stukay/core/model/ThreadModels.kt
   - core/model/src/main/java/dev/vitalcc/stukay/core/model/TimelineModels.kt
+  - core/model/src/test/java/dev/vitalcc/stukay/core/model/ForegroundThreadSessionPolicyTest.kt
   - core/model/src/test/java/dev/vitalcc/stukay/core/model/ThreadStatusTest.kt
   - feature/diagnostics/src/main/java/dev/vitalcc/stukay/feature/diagnostics/ui/DiagnosticsRoute.kt
   - feature/projects/src/main/java/dev/vitalcc/stukay/feature/projects/ui/ProjectRoute.kt
@@ -60,9 +60,9 @@
   - `python C:\Users\v.vlasov\.codex\skills\repo-harness-lifecycle\scripts\validate_lifecycle_stack.py --root .` -> `warn` only, no `fail`
   - `android describe --project_dir .` -> project/modules/APK surface detected
   - `codex mcp get jetbrains` -> active stdio config detected
-  - `.\gradlew.bat :app:testDebugUnitTest --console=plain` -> passes
-  - `.\gradlew.bat :core:model:testDebugUnitTest :feature:projects:testDebugUnitTest :feature:thread:testDebugUnitTest :core:logging:testDebugUnitTest :app:assembleDebug :app:lintDebug --console=plain` -> passed on checkpoint diff before the latest follow-up fixes; clean rerun after the follow-up diff is still pending
+  - `.\gradlew.bat :core:model:testDebugUnitTest :feature:thread:testDebugUnitTest :app:testDebugUnitTest --console=plain` -> passes for the second review-driven fix wave
+  - `.\gradlew.bat :core:model:testDebugUnitTest :feature:projects:testDebugUnitTest :feature:thread:testDebugUnitTest :core:logging:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug :app:lintDebug --console=plain` -> passes on the latest local diff after the second review-driven fix wave
   - `python -W error::ResourceWarning -m unittest discover -s tools/hostbridge/tests -p 'test_*.py'` -> passes
 - open_questions:
-  - full combined Gradle rerun after the latest follow-up diff is still pending
   - emulator/Pixel proof по новому runtime slice еще не прогонялся в этом цикле
+  - multi-approval reconnect stale hypothesis локально не подтверждена при текущем helper/runtime contract и не блокирует этот commit

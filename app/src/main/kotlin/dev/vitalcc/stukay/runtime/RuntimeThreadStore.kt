@@ -66,14 +66,20 @@ class RuntimeThreadStore(
     @Synchronized
     fun mergeResumedThread(payload: HostBridgeThreadPayload) {
         val existing = threadsById[payload.id]
+        val resumedTimeline = payload.timeline.map(::toTimelineItem)
+        val keepMissingApprovals = "waitingOnApproval" in payload.status.activeFlags
         val timeline = when {
-            existing == null -> payload.timeline.map(::toTimelineItem).toMutableList()
-            existing.timeline.isNotEmpty() && payload.timeline.isNotEmpty() -> mergeTimelineById(
+            existing == null -> resumedTimeline.toMutableList()
+            existing.timeline.isNotEmpty() && resumedTimeline.isNotEmpty() -> mergeTimelineById(
                 existing.timeline,
-                payload.timeline.map(::toTimelineItem),
+                resumedTimeline,
+                keepMissingApprovals = keepMissingApprovals,
             )
-            existing.timeline.isNotEmpty() -> existing.timeline.toMutableList()
-            payload.timeline.isNotEmpty() -> payload.timeline.map(::toTimelineItem).toMutableList()
+            existing.timeline.isNotEmpty() -> pruneMissingApprovals(
+                existingTimeline = existing.timeline,
+                keepMissingApprovals = keepMissingApprovals,
+            )
+            resumedTimeline.isNotEmpty() -> resumedTimeline.toMutableList()
             else -> mutableListOf()
         }
         threadsById[payload.id] = CachedRuntimeThread(
@@ -599,16 +605,35 @@ class RuntimeThreadStore(
     private fun mergeTimelineById(
         existingTimeline: List<TimelineItem>,
         resumedTimeline: List<TimelineItem>,
+        keepMissingApprovals: Boolean,
     ): MutableList<TimelineItem> {
-        val merged = existingTimeline.toMutableList()
-        val knownIds = merged.mapTo(linkedSetOf()) { item -> item.id }
+        val resumedById = LinkedHashMap<String, TimelineItem>()
         resumedTimeline.forEach { item ->
-            if (knownIds.add(item.id)) {
-                merged += item
+            resumedById[item.id] = item
+        }
+        val merged = mutableListOf<TimelineItem>()
+        existingTimeline.forEach { item ->
+            val replacement = resumedById.remove(item.id)
+            when {
+                replacement != null -> merged += replacement
+                item is TimelineItem.ApprovalRequest && !item.resolved && !keepMissingApprovals -> Unit
+                else -> merged += item
             }
         }
+        merged += resumedById.values
         return merged
     }
+
+    private fun pruneMissingApprovals(
+        existingTimeline: List<TimelineItem>,
+        keepMissingApprovals: Boolean,
+    ): MutableList<TimelineItem> = existingTimeline
+        .filterNot { item ->
+            item is TimelineItem.ApprovalRequest &&
+                !item.resolved &&
+                !keepMissingApprovals
+        }
+        .toMutableList()
 
     private data class CachedRuntimeThread(
         var thread: CodexThread,

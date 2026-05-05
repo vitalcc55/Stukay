@@ -7,6 +7,8 @@ import dev.vitalcc.stukay.core.model.LocalNetworkAccessState
 import dev.vitalcc.stukay.core.model.runtimeSummaryScope
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class HttpJsonHostBridgeRepositoryTest {
@@ -336,6 +338,27 @@ class HttpJsonHostBridgeRepositoryTest {
     }
 
     @Test
+    fun runtimeOperationsRequireConnectOrReconnectState() {
+        val repository = HttpJsonHostBridgeRepository(
+            pairingStore = InMemoryHostBridgePairingStore(),
+            client = FakeHostBridgeClient(HostBridgeRuntimePayload.ready(appListCount = 3)),
+            initialNearbyWifiDevicesGranted = true,
+            timeProvider = { 58L },
+        )
+        repository.savePairingPayload(
+            rawPayload = privateLanPayload(),
+            localNetworkPermissionGranted = true,
+        )
+
+        assertRuntimePathUnavailable(repository)
+
+        repository.connect(localNetworkPermissionGranted = true)
+        repository.disconnect(clearPairing = false)
+
+        assertRuntimePathUnavailable(repository)
+    }
+
+    @Test
     fun linkLocalEndpointIsRejectedForCurrentSlice() {
         val repository = HttpJsonHostBridgeRepository(
             pairingStore = InMemoryHostBridgePairingStore(),
@@ -440,4 +463,21 @@ private class FakeHostBridgeClient(
         pairingPayload: dev.vitalcc.stukay.core.model.PairingPayload,
         threadId: String,
     ): HostBridgeEventStream = error("Not used in this test")
+}
+
+private fun assertRuntimePathUnavailable(repository: HttpJsonHostBridgeRepository) {
+    listOf<() -> Unit>(
+        { repository.listThreads() },
+        { repository.readThread("thread-1") },
+        { repository.resumeThread("thread-1") },
+        { repository.startTurn("thread-1", "hello") },
+        { repository.interruptTurn("thread-1", "turn-1") },
+        { repository.respondToApproval("request-1", dev.vitalcc.stukay.core.model.ApprovalDecision.AcceptOnce) },
+        { repository.openThreadEventStream("thread-1") },
+    ).forEach { operation ->
+        val error = assertThrows(IllegalStateException::class.java) {
+            operation()
+        }
+        assertTrue(error.message.orEmpty().contains("connect/reconnect"))
+    }
 }

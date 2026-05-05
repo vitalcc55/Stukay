@@ -39,6 +39,8 @@ import dev.vitalcc.stukay.core.model.ForegroundThreadSessionState
 import dev.vitalcc.stukay.core.model.ForegroundThreadStreamState
 import dev.vitalcc.stukay.core.model.ThreadStatus
 import dev.vitalcc.stukay.core.model.TimelineItem
+import dev.vitalcc.stukay.core.model.canSendPrompt
+import dev.vitalcc.stukay.core.model.canStopTurn
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveCard
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveStatusPill
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveStatusTone
@@ -50,6 +52,7 @@ fun ThreadRoute(
     thread: CodexThread?,
     timeline: List<TimelineItem>,
     sessionState: ForegroundThreadSessionState,
+    runtimePathAvailable: Boolean,
     logger: AppLogger,
     onComposerChanged: (String) -> Unit,
     onSend: () -> Unit,
@@ -140,6 +143,7 @@ fun ThreadRoute(
                                                         onResolveApproval(requestId, ApprovalDecision.AcceptOnce)
                                                     }
                                                 },
+                                                enabled = runtimePathAvailable && approval.requestId != null,
                                                 modifier = Modifier
                                                     .fillMaxWidth()
                                                     .testTag("thread.approval.once.${approvalTag(approval)}"),
@@ -154,6 +158,7 @@ fun ThreadRoute(
                                                         onResolveApproval(requestId, ApprovalDecision.AcceptSession)
                                                     }
                                                 },
+                                                enabled = runtimePathAvailable && approval.requestId != null,
                                                 modifier = Modifier
                                                     .fillMaxWidth()
                                                     .testTag("thread.approval.session.${approvalTag(approval)}"),
@@ -168,6 +173,7 @@ fun ThreadRoute(
                                                         onResolveApproval(requestId, ApprovalDecision.Decline)
                                                     }
                                                 },
+                                                enabled = runtimePathAvailable && approval.requestId != null,
                                                 modifier = Modifier.testTag("thread.approval.decline.${approvalTag(approval)}"),
                                             ) {
                                                 Text(text = "Decline")
@@ -180,6 +186,7 @@ fun ThreadRoute(
                                                         onResolveApproval(requestId, ApprovalDecision.Cancel)
                                                     }
                                                 },
+                                                enabled = runtimePathAvailable && approval.requestId != null,
                                                 modifier = Modifier.testTag("thread.approval.cancel.${approvalTag(approval)}"),
                                             ) {
                                                 Text(text = "Cancel")
@@ -213,14 +220,7 @@ fun ThreadRoute(
                         ) {
                             Button(
                                 onClick = onSend,
-                                enabled = sessionState.composerDraft.isNotBlank() &&
-                                    sessionState.activeTurnId == null &&
-                                    sessionState.blockedReason == null &&
-                                    sessionState.streamState !in setOf(
-                                        ForegroundThreadStreamState.Hydrating,
-                                        ForegroundThreadStreamState.AwaitingReconnect,
-                                        ForegroundThreadStreamState.Interrupting,
-                                    ),
+                                enabled = sessionState.canSendPrompt(runtimePathAvailable = runtimePathAvailable),
                                 modifier = Modifier.testTag("thread.turn.send"),
                             ) {
                                 Icon(
@@ -234,7 +234,7 @@ fun ThreadRoute(
                             }
                             Button(
                                 onClick = onStop,
-                                enabled = sessionState.activeTurnId != null,
+                                enabled = sessionState.canStopTurn(runtimePathAvailable = runtimePathAvailable),
                                 modifier = Modifier.testTag("thread.turn.stop"),
                             ) {
                                 Icon(
@@ -349,6 +349,7 @@ private fun statusBannerText(
     sessionState.streamState == ForegroundThreadStreamState.Interrupting -> "Interrupt was requested; waiting for terminal turn/completed."
     sessionState.streamState == ForegroundThreadStreamState.AwaitingReconnect -> "Runtime stream is waiting for reconnect recovery."
     sessionState.streamState == ForegroundThreadStreamState.Failed -> sessionState.lastError ?: "Foreground thread runtime failed."
+    sessionState.lastError != null -> sessionState.lastError.orEmpty()
     sessionState.blockedReason == ForegroundThreadBlockedReason.WaitingOnApproval -> "Thread is waiting on an approval decision."
     sessionState.blockedReason == ForegroundThreadBlockedReason.WaitingOnUserInput -> "Thread is waiting on user input that is out of scope for this slice."
     thread?.status == ThreadStatus.Interrupted -> "Last active turn was interrupted."

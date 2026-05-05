@@ -213,6 +213,87 @@ class RuntimeThreadStoreTest {
     }
 
     @Test
+    fun mergeResumedThreadReplacesExistingItemWithFresherResumePayload() {
+        val store = RuntimeThreadStore(nowProvider = { 450L })
+        store.replaceThread(
+            threadPayload(
+                id = "thread-main-1",
+                cwd = "C:\\Users\\v.vlasov\\Desktop\\Stukay",
+                title = "Main thread",
+                preview = "Preview",
+                updatedAtEpochMs = 1_000L,
+            ).copy(
+                timeline = listOf(
+                    HostBridgeTimelineItemPayload(
+                        type = "assistantMessage",
+                        id = "assistant-1",
+                        threadId = "thread-main-1",
+                        turnId = "turn-1",
+                        itemId = "assistant-1",
+                        text = "Partial",
+                        streaming = true,
+                    ),
+                ),
+            ),
+        )
+
+        store.mergeResumedThread(
+            threadPayload(
+                id = "thread-main-1",
+                cwd = "C:\\Users\\v.vlasov\\Desktop\\Stukay",
+                title = "Main thread resumed",
+                preview = "Resume preview",
+                updatedAtEpochMs = 2_000L,
+            ).copy(
+                timeline = listOf(
+                    HostBridgeTimelineItemPayload(
+                        type = "assistantMessage",
+                        id = "assistant-1",
+                        threadId = "thread-main-1",
+                        turnId = "turn-1",
+                        itemId = "assistant-1",
+                        text = "Complete",
+                        streaming = false,
+                    ),
+                ),
+            ),
+        )
+
+        val message = store.loadTimeline(dev.vitalcc.stukay.core.model.ThreadId("thread-main-1"))
+            .single { item -> item.id == "assistant-1" } as dev.vitalcc.stukay.core.model.TimelineItem.AssistantMessage
+        assertEquals("Complete", message.text)
+        assertEquals(false, message.streaming)
+    }
+
+    @Test
+    fun mergeResumedThreadDropsMissingApprovalWhenRuntimeIsNoLongerWaitingOnApproval() {
+        val store = RuntimeThreadStore(nowProvider = { 470L })
+        store.replaceThread(
+            threadPayload(
+                id = "thread-main-1",
+                cwd = "C:\\Users\\v.vlasov\\Desktop\\Stukay",
+                title = "Main thread",
+                preview = "Preview",
+                updatedAtEpochMs = 1_000L,
+            ),
+        )
+        store.applyEvent(approvalEvent("request-1", "approval-1"))
+
+        store.mergeResumedThread(
+            threadPayload(
+                id = "thread-main-1",
+                cwd = "C:\\Users\\v.vlasov\\Desktop\\Stukay",
+                title = "Main thread resumed",
+                preview = "Resume preview",
+                updatedAtEpochMs = 2_000L,
+            ),
+        )
+
+        val pending = store.unresolvedApprovals(dev.vitalcc.stukay.core.model.ThreadId("thread-main-1"))
+        assertTrue(pending.isEmpty())
+    }
+
+    @Test
     fun replaceThreadPreservesUnresolvedApprovalsNotPersistedInThreadReadSnapshot() {
         val store = RuntimeThreadStore(nowProvider = { 500L })
         store.replaceThread(

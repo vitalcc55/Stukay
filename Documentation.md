@@ -1,7 +1,7 @@
 # Documentation.md
 
 ## Current Milestone Status
-- current: `Real Thread Runtime + Approval Safety Layer` локально реализован поверх Host Bridge MVP; checkpoint gates уже были green, а review-driven follow-up fixes после checkpoint локально подтверждены таргетными тестами и ждут отдельного commit + re-review.
+- current: `Real Thread Runtime + Approval Safety Layer` локально реализован поверх Host Bridge MVP; checkpoint commit `cdf3d14` и follow-up commit `8cb7dfa` уже зафиксированы, full combined Gradle gate и Python helper suite на текущем local diff зелёные, а повторный review loop тем же агентным trio локально закрыт без подтверждённых новых дефектов. До `verified` по-прежнему не хватает device proof и финального branch-wide review относительно `main`.
 - done: helper больше не ограничивается `/v1/runtime/summary`: добавлены typed `thread/list` / `thread/read` / `thread/resume` / `turn/start` / `turn/interrupt` / approval-response routes и SSE event stream для активного thread. Android-side `OkHttpHostBridgeClient` перешел на nested JSON contract, `RuntimeThreadStore` стал общим runtime-backed read model для `Projects` / `Project` / `Thread`, а `RuntimeThreadRepository` и `RuntimeProjectsRepository` перестали делегировать в fake repositories. `StukayAppState` теперь держит foreground thread session с hydrate/resume, composer/send/stop, event-stream reducer, reconnect recovery, pending approvals и runtime diagnostics snapshot. `ThreadRoute` убрал fake run controls, получил composer, stop, approval actions, blocked-state banner и стабильные semantics/test tags; `Projects`, `Project` и `Diagnostics` переведены на честный runtime-backed copy и identifiers. Добавлены новые regression tests для runtime store и helper thread endpoints / SSE / approval surface.
 - next: прогнать device proof для emulator и Pixel 9 Pro XL по сценарию `open existing thread -> send -> stream -> interrupt -> reconnect -> approval`, затем синхронизировать active execution docs под post-implementation state и прогнать merge-readiness review.
 
@@ -38,8 +38,8 @@
 - expected result: lifecycle validator проходит; допустимы только известные `warn`, без `fail`.
 
 ## Latest Review Outcome
-- findings: для checkpoint `cdf3d14 Implement real thread runtime approval layer` уже был поднят review loop по milestone diff, и локально подтверждены как минимум следующие root-cause классы до очередного re-review: disconnect должен реально закрывать runtime path, navigation-away не должен чистить live approvals как stale, foreground session не должна терять события между `resume` и attach stream, `thread/resume` не должен перетирать более полный `thread/read` snapshot, `serverRequest/resolved` не должен ложно демотировать очередь approvals в `Idle`, `turn/start` не должен быть разрешен поверх active/blocked turn, runtime error должен переводить foreground state в `Failed`, failed `turn/start` не должен терять composer draft, `thread/read` не должен вымывать unresolved approvals при reopen, а SSE parser не должен терять последний event на EOF. Эти исправления уже внесены локально и ждут отдельного follow-up commit + нового re-review.
-- residual risks: bounded cleartext/local-only runtime path остается сознательным ограничением до TLS/public-path milestone; device proof по emulator и физическому Pixel 9 Pro XL для нового runtime slice еще не прогонялся; полноценный `waitingOnUserInput` dialog UX все еще out of scope.
+- findings: после checkpoint `cdf3d14` был создан follow-up commit `8cb7dfa Fix runtime review follow-up issues`, затем два дополнительных re-review круга тем же trio локально закрыли подтверждённые хвосты по `thread/resume` merge semantics, runtime-path action gating, recoverable `Failed` retention, failed-state approval hydration, non-reentrant composer policy, blocked-turn `Stop`, rehydrate failure context и error surfacing на thread screen. В последнем re-review один агент оставил только гипотезу про stale multi-approval reconnect merge, но локально она не подтверждена как дефект этого slice: текущий helper/runtime contract ре-гидратирует blocked-state только через thread status + server-request replay, а approval inventory не является частью `thread/read` / `thread/resume` snapshot truth и уже зафиксирован в research как client-owned queue concern.
+- residual risks: bounded cleartext/local-only runtime path остается сознательным ограничением до TLS/public-path milestone; device proof по emulator и физическому Pixel 9 Pro XL для нового runtime slice еще не прогонялся; полноценный `waitingOnUserInput` dialog UX все еще out of scope; если будущий helper начнет отдавать authoritative approval inventory в read/resume payload, reconnect cleanup для multi-approval edge-case нужно будет пересмотреть.
 
 ## Known Issues And Follow-ups
 - item: В текущем runtime JetBrains MCP tools могут быть недоступны как native namespace до перезапуска Codex App, хотя server-side конфиг уже работает.
@@ -70,6 +70,10 @@
 - purpose: verified Codex-side JetBrains MCP config
 - artifact: commit `cdf3d14`
 - purpose: checkpoint commit for `Real Thread Runtime + Approval Safety Layer` before review loop
+- artifact: commit `8cb7dfa`
+- purpose: follow-up commit with the first wave of review-driven runtime fixes before the second review loop
+- artifact: `.\gradlew.bat :core:model:testDebugUnitTest :feature:thread:testDebugUnitTest :app:testDebugUnitTest --console=plain`
+- purpose: verified second-wave fixes for foreground session policy, runtime-path guard and resume-merge reconciliation
 - artifact: `.\gradlew.bat :core:model:testDebugUnitTest :feature:projects:testDebugUnitTest :feature:thread:testDebugUnitTest :core:logging:testDebugUnitTest :app:assembleDebug :app:lintDebug --console=plain`
 - purpose: verified runtime-backed Android domain/store/UI slice after real thread runtime migration
 - artifact: `python -W error::ResourceWarning -m unittest discover -s tools/hostbridge/tests -p 'test_*.py'`

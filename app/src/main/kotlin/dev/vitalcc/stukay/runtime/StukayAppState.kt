@@ -36,8 +36,11 @@ import dev.vitalcc.stukay.core.model.ThreadId
 import dev.vitalcc.stukay.core.model.ThreadStatus
 import dev.vitalcc.stukay.core.model.TimelineItem
 import dev.vitalcc.stukay.core.model.TurnId
+import dev.vitalcc.stukay.core.model.canSendPrompt
+import dev.vitalcc.stukay.core.model.canStopTurn
 import dev.vitalcc.stukay.core.model.hostBridgeEndpointDisplayValue
 import dev.vitalcc.stukay.core.model.runtimeSummaryScope
+import dev.vitalcc.stukay.core.model.shouldKeepOffscreen
 import dev.vitalcc.stukay.runtime.hostbridge.AndroidNetworkMonitor
 import dev.vitalcc.stukay.runtime.hostbridge.HostBridgeClientException
 import dev.vitalcc.stukay.runtime.hostbridge.HostBridgeEventStream
@@ -146,16 +149,7 @@ class StukayAppState(
         val activeThreadId = foregroundThreadSession.activeThreadId?.value
         val shouldKeepOffscreenSession = activeThreadId != null &&
             nextThreadId == null &&
-            (
-                foregroundThreadSession.pendingApprovals.isNotEmpty() ||
-                    foregroundThreadSession.activeTurnId != null ||
-                    foregroundThreadSession.streamState in setOf(
-                        ForegroundThreadStreamState.Hydrating,
-                        ForegroundThreadStreamState.Streaming,
-                        ForegroundThreadStreamState.Interrupting,
-                        ForegroundThreadStreamState.AwaitingReconnect,
-                    )
-                )
+            foregroundThreadSession.shouldKeepOffscreen()
         if (activeThreadId != null && nextThreadId != null && nextThreadId != activeThreadId) {
             closeForegroundThreadSession()
         } else if (activeThreadId != null && nextThreadId == null && !shouldKeepOffscreenSession) {
@@ -201,10 +195,9 @@ class StukayAppState(
     fun openThreadSession(threadId: String) {
         val targetThreadId = ThreadId(threadId)
         if (!canUseRuntimePath()) {
-            foregroundThreadSession = foregroundThreadSession.copy(
-                activeThreadId = targetThreadId,
-                streamState = ForegroundThreadStreamState.Failed,
-                lastError = "Host Bridge runtime path доступен только после connect/reconnect.",
+            foregroundThreadSession = failedForegroundSession(
+                threadId = targetThreadId,
+                message = "Host Bridge runtime path доступен только после connect/reconnect.",
             )
             return
         }
@@ -231,18 +224,10 @@ class StukayAppState(
 
     fun sendPrompt(threadId: String) {
         val targetThreadId = ThreadId(threadId)
-        val text = foregroundThreadSession.composerDraft.trim()
-        if (text.isEmpty() ||
-            foregroundThreadSession.activeTurnId != null ||
-            foregroundThreadSession.blockedReason != null ||
-            foregroundThreadSession.streamState in setOf(
-                ForegroundThreadStreamState.Hydrating,
-                ForegroundThreadStreamState.AwaitingReconnect,
-                ForegroundThreadStreamState.Interrupting,
-            )
-        ) {
+        if (!foregroundThreadSession.canSendPrompt(runtimePathAvailable = canUseRuntimePath())) {
             return
         }
+        val text = foregroundThreadSession.composerDraft.trim()
         val previousDraft = foregroundThreadSession.composerDraft
         foregroundThreadSession = foregroundThreadSession.copy(
             composerDraft = "",
@@ -274,9 +259,18 @@ class StukayAppState(
                         ),
                     )
                 }.onFailure { error ->
+                    val pendingApprovals = threadRepository.unresolvedApprovals(targetThreadId)
+                    val thread = threadRepository.loadThread(targetThreadId)
                     foregroundThreadSession = foregroundThreadSession.copy(
                         composerDraft = previousDraft,
-                        streamState = ForegroundThreadStreamState.Failed,
+                        activeTurnId = null,
+                        streamState = if (canUseRuntimePath()) {
+                            ForegroundThreadStreamState.Ready
+                        } else {
+                            ForegroundThreadStreamState.Failed
+                        },
+                        blockedReason = blockedReasonFor(thread, pendingApprovals),
+                        pendingApprovals = pendingApprovals,
                         lastError = error.message ?: "Не удалось отправить turn/start.",
                     )
                     logger.error(
@@ -294,7 +288,10 @@ class StukayAppState(
 
     fun interruptTurn(threadId: String) {
         val targetThreadId = ThreadId(threadId)
-        val activeTurnId = foregroundThreadSession.activeTurnId ?: foregroundThreadSession.lastTurnId ?: return
+        if (!foregroundThreadSession.canStopTurn(runtimePathAvailable = canUseRuntimePath())) {
+            return
+        }
+        val activeTurnId = foregroundThreadSession.activeTurnId ?: return
         foregroundThreadSession = foregroundThreadSession.copy(
             streamState = ForegroundThreadStreamState.Interrupting,
             lastTurnId = activeTurnId,
@@ -331,6 +328,13 @@ class StukayAppState(
         decision: ApprovalDecision,
     ) {
         val activeThreadId = foregroundThreadSession.activeThreadId ?: return
+        if (!canUseRuntimePath()) {
+            foregroundThreadSession = failedForegroundSession(
+                threadId = activeThreadId,
+                message = "Host Bridge runtime path доступен только после connect/reconnect.",
+            )
+            return
+        }
         foregroundThreadSession = foregroundThreadSession.copy(
             lastRequestId = requestId,
             lastError = null,
@@ -354,9 +358,9 @@ class StukayAppState(
                         ),
                     )
                 }.onFailure { error ->
-                    foregroundThreadSession = foregroundThreadSession.copy(
-                        lastError = error.message ?: "Не удалось отправить approval response.",
-                        streamState = ForegroundThreadStreamState.Failed,
+                    foregroundThreadSession = failedForegroundSession(
+                        threadId = activeThreadId,
+                        message = error.message ?: "Не удалось отправить approval response.",
                     )
                 }
             }
@@ -369,6 +373,8 @@ class StukayAppState(
         } else {
             ForegroundThreadSessionState()
         }
+
+    fun runtimePathAvailable(): Boolean = canUseRuntimePath()
 
     fun updatePairingInput(value: String) {
         pairingInput = value
@@ -809,11 +815,13 @@ class StukayAppState(
         )
         foregroundRuntimeExecutor.execute {
             var attachedStream: HostBridgeEventStream? = null
-            val result = runCatching {
+            val result = runCatching<HostBridgeEventStream> {
                 threadRepository.readThread(threadId, includeTurns = true)
                 attachedStream = threadRepository.openEventStream(threadId)
                 threadRepository.resumeThread(threadId)
-                attachedStream
+                requireNotNull(attachedStream) {
+                    "Foreground event stream did not attach."
+                }
             }
             mainHandler.post {
                 if (generation != foregroundStreamGeneration || foregroundThreadSession.activeThreadId != threadId) {
@@ -840,9 +848,9 @@ class StukayAppState(
                     startForegroundEventLoop(threadId, generation, stream)
                 }.onFailure { error ->
                     attachedStream?.close()
-                    foregroundThreadSession = foregroundThreadSession.copy(
-                        streamState = ForegroundThreadStreamState.Failed,
-                        lastError = error.message ?: "Не удалось восстановить foreground thread.",
+                    foregroundThreadSession = failedForegroundSession(
+                        threadId = threadId,
+                        message = error.message ?: "Не удалось восстановить foreground thread.",
                     )
                     logger.error(
                         logEvent(
@@ -986,22 +994,42 @@ class StukayAppState(
     ) {
         val thread = threadRepository.loadThread(threadId)
         val pendingApprovals = threadRepository.unresolvedApprovals(threadId)
-        val blockedReason = when {
-            pendingApprovals.isNotEmpty() -> ForegroundThreadBlockedReason.WaitingOnApproval
-            thread?.status == ThreadStatus.WaitingForUserInput -> ForegroundThreadBlockedReason.WaitingOnUserInput
-            else -> null
-        }
         foregroundThreadSession = foregroundThreadSession.copy(
             activeThreadId = threadId,
             activeTurnId = activeTurnId,
             streamState = streamState,
-            blockedReason = blockedReason,
+            blockedReason = blockedReasonFor(thread, pendingApprovals),
             pendingApprovals = pendingApprovals,
             lastTurnId = lastTurnId,
             lastRequestId = lastRequestId,
             lastItemId = lastItemId,
             lastError = null,
         )
+    }
+
+    private fun failedForegroundSession(
+        threadId: ThreadId,
+        message: String,
+    ): ForegroundThreadSessionState {
+        val thread = threadRepository.loadThread(threadId)
+        val pendingApprovals = threadRepository.unresolvedApprovals(threadId)
+        return foregroundThreadSession.copy(
+            activeThreadId = threadId,
+            activeTurnId = null,
+            streamState = ForegroundThreadStreamState.Failed,
+            blockedReason = blockedReasonFor(thread, pendingApprovals),
+            pendingApprovals = pendingApprovals,
+            lastError = message,
+        )
+    }
+
+    private fun blockedReasonFor(
+        thread: CodexThread?,
+        pendingApprovals: List<TimelineItem.ApprovalRequest>,
+    ): ForegroundThreadBlockedReason? = when {
+        pendingApprovals.isNotEmpty() -> ForegroundThreadBlockedReason.WaitingOnApproval
+        thread?.status == ThreadStatus.WaitingForUserInput -> ForegroundThreadBlockedReason.WaitingOnUserInput
+        else -> null
     }
 
     private fun closeForegroundThreadSession() {

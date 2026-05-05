@@ -513,10 +513,12 @@ Make the runtime slice testable and reviewable as an engineering surface, not on
 
 - local status: `milestone 1 done`, `milestone 2 done`, `milestone 3 done`, `milestone 4 in_progress`
 - current branch: `codex/real-thread-runtime-approval-layer`
-- checkpoint commit already created:
+- checkpoint and follow-up commits already created:
   - `cdf3d14 Implement real thread runtime approval layer`
-- latest follow-up state after checkpoint review loop:
-  - review-driven fixes for runtime gating, resume/stream recovery, approval cleanup, off-screen session retention, composer guards and SSE EOF parsing are applied locally and pending a dedicated follow-up commit
+  - `8cb7dfa Fix runtime review follow-up issues`
+- latest state after the second review loop on `8cb7dfa`:
+  - review-driven fixes for fresher `thread/resume` merge semantics, runtime-path action gating, recoverable `Failed` off-screen retention, failed-state approval hydration, non-reentrant composer policy, blocked-turn `Stop` and thread-screen error surfacing are applied locally
+  - same-agent re-review is closed with no confirmed new findings; one multi-approval reconnect hypothesis was rejected locally because current helper/runtime contract does not expose authoritative approval inventory in `thread/read` / `thread/resume`
 - checkpoint verification already green before the follow-up diff:
   - `.\gradlew.bat :app:testDebugUnitTest --console=plain`
   - `.\gradlew.bat :core:model:testDebugUnitTest :feature:projects:testDebugUnitTest :feature:thread:testDebugUnitTest :core:logging:testDebugUnitTest :app:assembleDebug :app:lintDebug --console=plain`
@@ -524,16 +526,15 @@ Make the runtime slice testable and reviewable as an engineering surface, not on
   - `python C:\Users\v.vlasov\.codex\skills\repo-harness-lifecycle\scripts\validate_lifecycle_stack.py --root .`
   - `android describe --project_dir .`
   - `codex mcp get jetbrains`
-- follow-up diff revalidated locally:
-  - `.\gradlew.bat :app:testDebugUnitTest --console=plain`
+- second-wave fixes revalidated locally:
+  - `.\gradlew.bat :core:model:testDebugUnitTest :feature:thread:testDebugUnitTest :app:testDebugUnitTest --console=plain`
+  - `.\gradlew.bat :core:model:testDebugUnitTest :feature:projects:testDebugUnitTest :feature:thread:testDebugUnitTest :core:logging:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug :app:lintDebug --console=plain`
   - `python -W error::ResourceWarning -m unittest discover -s tools/hostbridge/tests -p "test_*.py"`
 - remaining work before `verified`:
-  - follow-up commit for review-driven fixes
-  - rerun full combined Gradle gate after the follow-up diff
   - emulator proof
   - physical Pixel 9 Pro XL proof
   - semantics-aware device proof through `android layout`
-  - protocol-required branch-wide review loop / findings triage / re-review result on the latest commit set
+  - final branch-wide review loop relative to `main`
 
 ## Stage Report Template
 

@@ -1,6 +1,6 @@
 {
   "goal": "Закрыть Real Thread Runtime + Approval Safety Layer поверх уже доказанного Host Bridge transport.",
-  "stage": "real_thread_runtime_approval_layer_followup_commit_pending",
+  "stage": "real_thread_runtime_approval_layer_local_green_device_proof_pending",
   "done": [
     "helper runtime surface extended to typed thread list/read/resume/start/interrupt/approval endpoints plus SSE thread events",
     "CodexRuntimeClient moved from app/list-only loop to generic JSON-RPC client with thread subscriptions and server-request routing",
@@ -11,10 +11,8 @@
     "targeted regression tests added for runtime store grouping/reducer and helper thread endpoints/SSE/approval surface"
   ],
   "next": [
-    "commit the review-driven follow-up diff after checkpoint cdf3d14",
-    "run a new review loop on the latest commit set and wait for all agent replies",
-    "rerun the full combined Gradle gate after the follow-up diff",
     "run emulator and physical Pixel proof for the new runtime slice",
+    "run the final branch-wide review loop relative to main",
     "run merge-readiness review after device proof"
   ],
   "edited_files": [
@@ -33,9 +31,11 @@
     "core/logging/src/main/java/dev/vitalcc/stukay/core/logging/DiagnosticsSummary.kt",
     "core/logging/src/main/java/dev/vitalcc/stukay/core/logging/DiagnosticsSummaryProvider.kt",
     "core/logging/src/main/java/dev/vitalcc/stukay/core/logging/RuntimeDiagnosticsSnapshot.kt",
+    "core/model/src/main/java/dev/vitalcc/stukay/core/model/ForegroundThreadSessionPolicy.kt",
     "core/model/src/main/java/dev/vitalcc/stukay/core/model/ForegroundThreadSessionState.kt",
     "core/model/src/main/java/dev/vitalcc/stukay/core/model/ThreadModels.kt",
     "core/model/src/main/java/dev/vitalcc/stukay/core/model/TimelineModels.kt",
+    "core/model/src/test/java/dev/vitalcc/stukay/core/model/ForegroundThreadSessionPolicyTest.kt",
     "core/model/src/test/java/dev/vitalcc/stukay/core/model/ThreadStatusTest.kt",
     "feature/diagnostics/src/main/java/dev/vitalcc/stukay/feature/diagnostics/ui/DiagnosticsRoute.kt",
     "feature/projects/src/main/java/dev/vitalcc/stukay/feature/projects/ui/ProjectRoute.kt",
@@ -58,10 +58,10 @@
     ".tmp/.codex/task_state/latest.md",
     ".tmp/.codex/task_state/latest.json"
   ],
-  "verify_status": "lifecycle validator returns warn-only without fail; android describe and codex mcp get jetbrains both succeed; :app:testDebugUnitTest is green; the full combined Gradle gate was green on the checkpoint diff before the latest follow-up fixes and needs a clean rerun after the follow-up diff; helper Python suite is green under ResourceWarning-strict mode",
+  "verify_status": "lifecycle validator returns warn-only without fail; android describe and codex mcp get jetbrains both succeed; :core:model:testDebugUnitTest :feature:thread:testDebugUnitTest :app:testDebugUnitTest is green for the second review-driven fix wave; :core:model:testDebugUnitTest :feature:projects:testDebugUnitTest :feature:thread:testDebugUnitTest :core:logging:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug :app:lintDebug is green on the latest local diff; helper Python suite is green under ResourceWarning-strict mode",
   "open_questions": [
-    "clean combined Gradle rerun after the latest follow-up diff is still pending",
-    "device proof for emulator and physical Pixel was not re-run in this turn"
+    "device proof for emulator and physical Pixel was not re-run in this turn",
+    "the stale multi-approval reconnect hypothesis was not confirmed against the current helper/runtime contract and does not block this commit"
   ],
   "updated_at_utc": "2026-05-05T10:20:00Z"
 }

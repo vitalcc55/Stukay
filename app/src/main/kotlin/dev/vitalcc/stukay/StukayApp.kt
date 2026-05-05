@@ -115,6 +115,7 @@ fun StukayApp(
                     thread = appState.thread(threadId),
                     timeline = appState.timeline(threadId),
                     sessionState = appState.threadSessionState(threadId),
+                    runtimePathAvailable = appState.runtimePathAvailable(),
                     logger = appState.logger,
                     onComposerChanged = appState::updateComposerDraft,
                     onSend = {

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-05-05
+
+- После review loop по commit `8cb7dfa` закрыт дополнительный runtime tail: `thread/resume` теперь заменяет same-id items более свежим runtime snapshot и не держит stale approvals вне `waitingOnApproval`.
+- Foreground thread session теперь честнее переживает failure/reconnect: off-screen retain включает recoverable `Failed`, open-failure path ре-гидратирует pending approvals, а `Send`/`Stop` завязаны на runtime availability и non-reentrant session policy.
+- Добавлены прямые regression tests для foreground session policy, runtime-path guard в `HostBridgeRepository` и resume-merge reconciliation в `RuntimeThreadStore`.
+
 ## 2026-05-04
 
 - Реализован `Real Thread Runtime + Approval Safety Layer`: helper получил typed thread/turn/approval HTTP routes и SSE event stream, а Android shell переведен с fake delegates на runtime-backed `Projects` / `Project` / `Thread`.
