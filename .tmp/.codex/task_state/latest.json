@@ -1,6 +1,6 @@
 {
   "goal": "Закрыть Real Thread Runtime + Approval Safety Layer поверх уже доказанного Host Bridge transport.",
-  "stage": "real_thread_runtime_approval_layer_local_green",
+  "stage": "real_thread_runtime_approval_layer_followup_commit_pending",
   "done": [
     "helper runtime surface extended to typed thread list/read/resume/start/interrupt/approval endpoints plus SSE thread events",
     "CodexRuntimeClient moved from app/list-only loop to generic JSON-RPC client with thread subscriptions and server-request routing",
@@ -11,8 +11,10 @@
     "targeted regression tests added for runtime store grouping/reducer and helper thread endpoints/SSE/approval surface"
   ],
   "next": [
+    "commit the review-driven follow-up diff after checkpoint cdf3d14",
+    "run a new review loop on the latest commit set and wait for all agent replies",
+    "rerun the full combined Gradle gate after the follow-up diff",
     "run emulator and physical Pixel proof for the new runtime slice",
-    "sync active execution docs and evidence surfaces to the post-implementation state",
     "run merge-readiness review after device proof"
   ],
   "edited_files": [
@@ -25,6 +27,7 @@
     "app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayRuntimeGraph.kt",
     "app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeClient.kt",
     "app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeRepository.kt",
+    "app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeClientTest.kt",
     "app/src/test/kotlin/dev/vitalcc/stukay/runtime/RuntimeThreadStoreTest.kt",
     "app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HttpJsonHostBridgeRepositoryTest.kt",
     "core/logging/src/main/java/dev/vitalcc/stukay/core/logging/DiagnosticsSummary.kt",
@@ -49,14 +52,16 @@
     "tools/hostbridge/server.py",
     "tools/hostbridge/tests/test_server.py",
     "docs/generated/project-interfaces.md",
+    "docs/exec-plans/active/real-thread-runtime-approval-layer-plan.md",
     "Documentation.md",
     "docs/CHANGELOG.md",
     ".tmp/.codex/task_state/latest.md",
     ".tmp/.codex/task_state/latest.json"
   ],
-  "verify_status": "lifecycle validator returns warn-only without fail; android describe and codex mcp get jetbrains both succeed; :app:testDebugUnitTest is green; :core:model:testDebugUnitTest :feature:projects:testDebugUnitTest :feature:thread:testDebugUnitTest :core:logging:testDebugUnitTest :app:assembleDebug :app:lintDebug are green; helper Python suite is green under ResourceWarning-strict mode",
+  "verify_status": "lifecycle validator returns warn-only without fail; android describe and codex mcp get jetbrains both succeed; :app:testDebugUnitTest is green; the full combined Gradle gate was green on the checkpoint diff before the latest follow-up fixes and needs a clean rerun after the follow-up diff; helper Python suite is green under ResourceWarning-strict mode",
   "open_questions": [
+    "clean combined Gradle rerun after the latest follow-up diff is still pending",
     "device proof for emulator and physical Pixel was not re-run in this turn"
   ],
-  "updated_at_utc": "2026-05-04T15:45:00Z"
+  "updated_at_utc": "2026-05-05T10:20:00Z"
 }

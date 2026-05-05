@@ -477,7 +477,13 @@ private class OkHttpHostBridgeEventStream(
                     failureCode = HostBridgeClientFailureCode.Unavailable,
                     message = error.message ?: "SSE stream к Host Bridge helper оборван.",
                 )
-            } ?: return null
+            } ?: run {
+                if (payload.isEmpty()) {
+                    return null
+                }
+                val eventPayload = parseJsonObject(payload.toString())
+                return eventPayload.toHostBridgeThreadEvent(pairingPayload)
+            }
             if (line.isEmpty()) {
                 if (payload.isEmpty()) {
                     continue
@@ -556,7 +562,7 @@ private fun sanitizeRemoteDiagnosticText(
 }
 
 private fun JsonArray.toHostBridgeThreadList(): List<HostBridgeThreadPayload> = buildList {
-    for (index in indices) {
+    for (index in this@toHostBridgeThreadList.indices) {
         add(this@toHostBridgeThreadList[index].jsonObject.toHostBridgeThread())
     }
 }
@@ -589,7 +595,7 @@ private fun JsonObject.toHostBridgeTurn(): HostBridgeTurnPayload = HostBridgeTur
 )
 
 private fun JsonArray.toHostBridgeTimeline(): List<HostBridgeTimelineItemPayload> = buildList {
-    for (index in indices) {
+    for (index in this@toHostBridgeTimeline.indices) {
         add(this@toHostBridgeTimeline[index].jsonObject.toHostBridgeTimelineItem())
     }
 }

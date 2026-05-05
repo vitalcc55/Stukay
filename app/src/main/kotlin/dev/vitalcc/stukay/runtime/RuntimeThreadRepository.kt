@@ -40,7 +40,7 @@ class RuntimeThreadRepository(
 
     override fun resumeThread(threadId: ThreadId): CodexThread? {
         val payload = hostBridgeRepository.resumeThread(threadId.value)
-        store.replaceThread(payload)
+        store.mergeResumedThread(payload)
         return store.loadThread(threadId)
     }
 

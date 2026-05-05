@@ -5,6 +5,7 @@ import dev.vitalcc.stukay.runtime.hostbridge.HostBridgeApprovalPayload
 import dev.vitalcc.stukay.runtime.hostbridge.HostBridgeThreadEvent
 import dev.vitalcc.stukay.runtime.hostbridge.HostBridgeThreadPayload
 import dev.vitalcc.stukay.runtime.hostbridge.HostBridgeThreadStatusPayload
+import dev.vitalcc.stukay.runtime.hostbridge.HostBridgeTimelineItemPayload
 import dev.vitalcc.stukay.runtime.hostbridge.HostBridgeTurnPayload
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -99,6 +100,36 @@ class RuntimeThreadStoreTest {
     }
 
     @Test
+    fun resolvingOneApprovalDoesNotDropWaitingStateWhileAnotherApprovalRemains() {
+        val store = RuntimeThreadStore(nowProvider = { 220L })
+        store.replaceThread(
+            threadPayload(
+                id = "thread-main-1",
+                cwd = "C:\\Users\\v.vlasov\\Desktop\\Stukay",
+                title = "Main thread",
+                preview = "Preview",
+                updatedAtEpochMs = 1_000L,
+            ),
+        )
+
+        store.applyEvent(approvalEvent("request-1", "approval-1"))
+        store.applyEvent(approvalEvent("request-2", "approval-2"))
+        store.applyEvent(
+            HostBridgeThreadEvent(
+                method = "serverRequest/resolved",
+                threadId = "thread-main-1",
+                requestId = "request-1",
+            ),
+        )
+
+        val thread = store.loadThread(dev.vitalcc.stukay.core.model.ThreadId("thread-main-1"))
+        val pending = store.unresolvedApprovals(dev.vitalcc.stukay.core.model.ThreadId("thread-main-1"))
+        assertEquals(ThreadStatus.WaitingForApproval, thread?.status)
+        assertEquals(1, pending.size)
+        assertEquals("request-2", pending.single().requestId)
+    }
+
+    @Test
     fun assistantDeltaAndInterruptedTurnUpdateThreadState() {
         val store = RuntimeThreadStore(nowProvider = { 300L })
         store.replaceThread(
@@ -143,6 +174,83 @@ class RuntimeThreadStoreTest {
         assertEquals(ThreadStatus.Interrupted, interruptedThread?.status)
     }
 
+    @Test
+    fun mergeResumedThreadPreservesPreviouslyHydratedTimeline() {
+        val store = RuntimeThreadStore(nowProvider = { 400L })
+        store.replaceThread(
+            threadPayload(
+                id = "thread-main-1",
+                cwd = "C:\\Users\\v.vlasov\\Desktop\\Stukay",
+                title = "Main thread",
+                preview = "Preview",
+                updatedAtEpochMs = 1_000L,
+            ).copy(
+                timeline = listOf(
+                    HostBridgeTimelineItemPayload(
+                        type = "commandRun",
+                        id = "cmd-1",
+                        threadId = "thread-main-1",
+                        turnId = "turn-1",
+                        commandPreview = "dir",
+                        status = "completed",
+                    ),
+                ),
+            ),
+        )
+
+        store.mergeResumedThread(
+            threadPayload(
+                id = "thread-main-1",
+                cwd = "C:\\Users\\v.vlasov\\Desktop\\Stukay",
+                title = "Main thread resumed",
+                preview = "Resume preview",
+                updatedAtEpochMs = 2_000L,
+            ),
+        )
+
+        val timeline = store.loadTimeline(dev.vitalcc.stukay.core.model.ThreadId("thread-main-1"))
+        assertTrue(timeline.any { item -> item is dev.vitalcc.stukay.core.model.TimelineItem.CommandRun })
+    }
+
+    @Test
+    fun replaceThreadPreservesUnresolvedApprovalsNotPersistedInThreadReadSnapshot() {
+        val store = RuntimeThreadStore(nowProvider = { 500L })
+        store.replaceThread(
+            threadPayload(
+                id = "thread-main-1",
+                cwd = "C:\\Users\\v.vlasov\\Desktop\\Stukay",
+                title = "Main thread",
+                preview = "Preview",
+                updatedAtEpochMs = 1_000L,
+            ),
+        )
+        store.applyEvent(approvalEvent("request-1", "approval-1"))
+
+        store.replaceThread(
+            threadPayload(
+                id = "thread-main-1",
+                cwd = "C:\\Users\\v.vlasov\\Desktop\\Stukay",
+                title = "Main thread rehydrated",
+                preview = "Rehydrated preview",
+                updatedAtEpochMs = 2_000L,
+            ).copy(
+                timeline = listOf(
+                    HostBridgeTimelineItemPayload(
+                        type = "userMessage",
+                        id = "user-1",
+                        threadId = "thread-main-1",
+                        turnId = "turn-1",
+                        text = "Hello",
+                    ),
+                ),
+            ),
+        )
+
+        val pending = store.unresolvedApprovals(dev.vitalcc.stukay.core.model.ThreadId("thread-main-1"))
+        assertEquals(1, pending.size)
+        assertEquals("request-1", pending.single().requestId)
+    }
+
     private fun threadPayload(
         id: String,
         cwd: String,
@@ -161,6 +269,25 @@ class RuntimeThreadStoreTest {
         status = HostBridgeThreadStatusPayload(
             type = "idle",
             activeFlags = emptyList(),
+        ),
+    )
+
+    private fun approvalEvent(requestId: String, approvalId: String): HostBridgeThreadEvent = HostBridgeThreadEvent(
+        method = "item/commandExecution/requestApproval",
+        threadId = "thread-main-1",
+        requestId = requestId,
+        approval = HostBridgeApprovalPayload(
+            id = approvalId,
+            requestId = requestId,
+            itemId = approvalId,
+            threadId = "thread-main-1",
+            turnId = "turn-1",
+            kind = "command",
+            title = "Approve command",
+            description = "Need to run command",
+            availableDecisions = listOf("accept", "decline", "cancel"),
+            command = "dir",
+            cwd = "C:\\Users\\v.vlasov\\Desktop\\Stukay",
         ),
     )
 }

@@ -50,9 +50,31 @@ class RuntimeThreadStore(
     fun replaceThread(payload: HostBridgeThreadPayload) {
         val existing = threadsById[payload.id]
         val timeline = if (payload.timeline.isNotEmpty()) {
-            payload.timeline.map(::toTimelineItem).toMutableList()
+            mergeEphemeralTimeline(
+                baseTimeline = payload.timeline.map(::toTimelineItem),
+                existingTimeline = existing?.timeline.orEmpty(),
+            )
         } else {
             existing?.timeline ?: mutableListOf()
+        }
+        threadsById[payload.id] = CachedRuntimeThread(
+            thread = toCodexThread(payload),
+            timeline = timeline,
+        )
+    }
+
+    @Synchronized
+    fun mergeResumedThread(payload: HostBridgeThreadPayload) {
+        val existing = threadsById[payload.id]
+        val timeline = when {
+            existing == null -> payload.timeline.map(::toTimelineItem).toMutableList()
+            existing.timeline.isNotEmpty() && payload.timeline.isNotEmpty() -> mergeTimelineById(
+                existing.timeline,
+                payload.timeline.map(::toTimelineItem),
+            )
+            existing.timeline.isNotEmpty() -> existing.timeline.toMutableList()
+            payload.timeline.isNotEmpty() -> payload.timeline.map(::toTimelineItem).toMutableList()
+            else -> mutableListOf()
         }
         threadsById[payload.id] = CachedRuntimeThread(
             thread = toCodexThread(payload),
@@ -120,7 +142,6 @@ class RuntimeThreadStore(
             cached.timeline.clear()
             cached.timeline.addAll(updated)
             cached.thread = cached.thread.copy(
-                status = ThreadStatus.Idle,
                 preview = reason,
                 lastUpdatedAtEpochMs = nowProvider(),
             )
@@ -371,6 +392,9 @@ class RuntimeThreadStore(
         }.toMutableList()
         cached.timeline.clear()
         cached.timeline.addAll(updated)
+        val remainingApprovals = updated.count { item ->
+            item is TimelineItem.ApprovalRequest && !item.resolved
+        }
         cached.timeline += TimelineItem.StatusEvent(
             id = "${threadId.value}-approval-resolved-$requestId",
             threadId = threadId,
@@ -379,8 +403,16 @@ class RuntimeThreadStore(
         )
         if (cached.thread.status == ThreadStatus.WaitingForApproval) {
             cached.thread = cached.thread.copy(
-                status = ThreadStatus.Idle,
-                preview = reason,
+                status = if (remainingApprovals > 0) {
+                    ThreadStatus.WaitingForApproval
+                } else {
+                    ThreadStatus.Running
+                },
+                preview = if (remainingApprovals > 0) {
+                    cached.thread.preview
+                } else {
+                    "Approval resolved; awaiting runtime status."
+                },
                 lastUpdatedAtEpochMs = nowProvider(),
             )
         }
@@ -549,6 +581,34 @@ class RuntimeThreadStore(
         networkHost = networkHost,
         networkProtocol = networkProtocol,
     )
+
+    private fun mergeEphemeralTimeline(
+        baseTimeline: List<TimelineItem>,
+        existingTimeline: List<TimelineItem>,
+    ): MutableList<TimelineItem> {
+        val merged = baseTimeline.toMutableList()
+        val knownIds = merged.mapTo(linkedSetOf()) { item -> item.id }
+        existingTimeline.forEach { item ->
+            if (item is TimelineItem.ApprovalRequest && !item.resolved && knownIds.add(item.id)) {
+                merged += item
+            }
+        }
+        return merged
+    }
+
+    private fun mergeTimelineById(
+        existingTimeline: List<TimelineItem>,
+        resumedTimeline: List<TimelineItem>,
+    ): MutableList<TimelineItem> {
+        val merged = existingTimeline.toMutableList()
+        val knownIds = merged.mapTo(linkedSetOf()) { item -> item.id }
+        resumedTimeline.forEach { item ->
+            if (knownIds.add(item.id)) {
+                merged += item
+            }
+        }
+        return merged
+    }
 
     private data class CachedRuntimeThread(
         var thread: CodexThread,

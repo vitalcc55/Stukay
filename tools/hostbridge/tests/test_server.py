@@ -316,6 +316,31 @@ class ServerTest(unittest.TestCase):
         self.assertEqual({}, approval_response)
         self.assertEqual([("request-1", {"decision": "accept"})], client.recorded_approval_responses)
 
+    def test_approval_response_route_keeps_non_accept_scalar_decisions(self):
+        client = FakeRuntimeClient([])
+        server, thread = _start_server(lambda: client, "secret-token")
+        try:
+            for decision in ("acceptForSession", "decline", "cancel"):
+                _json_request(
+                    server,
+                    "POST",
+                    "/v1/approvals/request-1/respond",
+                    body={"decision": decision},
+                )
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+        self.assertEqual(
+            [
+                ("request-1", {"decision": "acceptForSession"}),
+                ("request-1", {"decision": "decline"}),
+                ("request-1", {"decision": "cancel"}),
+            ],
+            client.recorded_approval_responses,
+        )
+
 
 def _start_server(runtime_client_factory, token: str):
     service = HostBridgeService(session_token=token, runtime_client_factory=runtime_client_factory)

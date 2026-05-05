@@ -144,8 +144,22 @@ class StukayAppState(
         }
         val nextThreadId = routeContext.threadId
         val activeThreadId = foregroundThreadSession.activeThreadId?.value
-        if (activeThreadId != null && nextThreadId != activeThreadId) {
-            clearForegroundThreadSession("Foreground thread moved away from active route.")
+        val shouldKeepOffscreenSession = activeThreadId != null &&
+            nextThreadId == null &&
+            (
+                foregroundThreadSession.pendingApprovals.isNotEmpty() ||
+                    foregroundThreadSession.activeTurnId != null ||
+                    foregroundThreadSession.streamState in setOf(
+                        ForegroundThreadStreamState.Hydrating,
+                        ForegroundThreadStreamState.Streaming,
+                        ForegroundThreadStreamState.Interrupting,
+                        ForegroundThreadStreamState.AwaitingReconnect,
+                    )
+                )
+        if (activeThreadId != null && nextThreadId != null && nextThreadId != activeThreadId) {
+            closeForegroundThreadSession()
+        } else if (activeThreadId != null && nextThreadId == null && !shouldKeepOffscreenSession) {
+            closeForegroundThreadSession()
         }
         if (routeContext.routePattern == "projects" || routeContext.projectId != null || routeContext.threadId != null) {
             refreshRuntimeIndexAsync("route_changed")
@@ -186,6 +200,14 @@ class StukayAppState(
 
     fun openThreadSession(threadId: String) {
         val targetThreadId = ThreadId(threadId)
+        if (!canUseRuntimePath()) {
+            foregroundThreadSession = foregroundThreadSession.copy(
+                activeThreadId = targetThreadId,
+                streamState = ForegroundThreadStreamState.Failed,
+                lastError = "Host Bridge runtime path доступен только после connect/reconnect.",
+            )
+            return
+        }
         if (foregroundThreadSession.activeThreadId == targetThreadId &&
             foregroundThreadSession.streamState !in setOf(
                 ForegroundThreadStreamState.Idle,
@@ -210,9 +232,18 @@ class StukayAppState(
     fun sendPrompt(threadId: String) {
         val targetThreadId = ThreadId(threadId)
         val text = foregroundThreadSession.composerDraft.trim()
-        if (text.isEmpty()) {
+        if (text.isEmpty() ||
+            foregroundThreadSession.activeTurnId != null ||
+            foregroundThreadSession.blockedReason != null ||
+            foregroundThreadSession.streamState in setOf(
+                ForegroundThreadStreamState.Hydrating,
+                ForegroundThreadStreamState.AwaitingReconnect,
+                ForegroundThreadStreamState.Interrupting,
+            )
+        ) {
             return
         }
+        val previousDraft = foregroundThreadSession.composerDraft
         foregroundThreadSession = foregroundThreadSession.copy(
             composerDraft = "",
             streamState = ForegroundThreadStreamState.Streaming,
@@ -244,6 +275,7 @@ class StukayAppState(
                     )
                 }.onFailure { error ->
                     foregroundThreadSession = foregroundThreadSession.copy(
+                        composerDraft = previousDraft,
                         streamState = ForegroundThreadStreamState.Failed,
                         lastError = error.message ?: "Не удалось отправить turn/start.",
                     )
@@ -463,7 +495,7 @@ class StukayAppState(
         hostBridgeProbeBarrier.disable()
         hostBridgeImmediateProbeCoordinator.disable()
         cancelHostBridgeProbeLoop()
-        clearForegroundThreadSession("Host Bridge disconnected.")
+        closeForegroundThreadSession()
         if (!hasSavedPairing()) {
             if (clearPairing) {
                 pairingInput = ""
@@ -730,7 +762,7 @@ class StukayAppState(
             )
 
     private fun refreshRuntimeIndexAsync(reason: String) {
-        if (!hasSavedPairing()) {
+        if (!canUseRuntimePath()) {
             return
         }
         hostBridgeExecutor.execute {
@@ -776,15 +808,19 @@ class StukayAppState(
             lastError = null,
         )
         foregroundRuntimeExecutor.execute {
+            var attachedStream: HostBridgeEventStream? = null
             val result = runCatching {
                 threadRepository.readThread(threadId, includeTurns = true)
+                attachedStream = threadRepository.openEventStream(threadId)
                 threadRepository.resumeThread(threadId)
+                attachedStream
             }
             mainHandler.post {
                 if (generation != foregroundStreamGeneration || foregroundThreadSession.activeThreadId != threadId) {
+                    result.getOrNull()?.close()
                     return@post
                 }
-                result.onSuccess {
+                result.onSuccess { stream ->
                     domainRevisionState += 1
                     syncForegroundSession(
                         threadId = threadId,
@@ -801,8 +837,9 @@ class StukayAppState(
                             ),
                         ),
                     )
-                    startForegroundEventStream(threadId, generation)
+                    startForegroundEventLoop(threadId, generation, stream)
                 }.onFailure { error ->
+                    attachedStream?.close()
                     foregroundThreadSession = foregroundThreadSession.copy(
                         streamState = ForegroundThreadStreamState.Failed,
                         lastError = error.message ?: "Не удалось восстановить foreground thread.",
@@ -824,24 +861,12 @@ class StukayAppState(
         }
     }
 
-    private fun startForegroundEventStream(
+    private fun startForegroundEventLoop(
         threadId: ThreadId,
         generation: Long,
+        stream: HostBridgeEventStream,
     ) {
         foregroundStreamExecutor.execute {
-            val stream = runCatching {
-                threadRepository.openEventStream(threadId)
-            }.getOrElse { error ->
-                mainHandler.post {
-                    if (generation == foregroundStreamGeneration) {
-                        foregroundThreadSession = foregroundThreadSession.copy(
-                            streamState = ForegroundThreadStreamState.Failed,
-                            lastError = error.message ?: "Не удалось открыть event stream.",
-                        )
-                    }
-                }
-                return@execute
-            }
             foregroundEventStream = stream
             try {
                 while (generation == foregroundStreamGeneration && foregroundThreadSession.activeThreadId == threadId) {
@@ -936,6 +961,17 @@ class StukayAppState(
                 lastItemId = event.itemId ?: foregroundThreadSession.lastItemId,
             )
 
+            "error" -> foregroundThreadSession = foregroundThreadSession.copy(
+                activeThreadId = threadId,
+                activeTurnId = null,
+                streamState = ForegroundThreadStreamState.Failed,
+                blockedReason = null,
+                pendingApprovals = threadRepository.unresolvedApprovals(threadId),
+                lastTurnId = event.turnId?.let(::TurnId) ?: foregroundThreadSession.lastTurnId,
+                lastItemId = event.itemId ?: foregroundThreadSession.lastItemId,
+                lastError = event.message ?: "Foreground runtime error.",
+            )
+
             else -> syncForegroundSession(threadId = threadId)
         }
     }
@@ -968,12 +1004,7 @@ class StukayAppState(
         )
     }
 
-    private fun clearForegroundThreadSession(reason: String) {
-        val activeThreadId = foregroundThreadSession.activeThreadId
-        if (activeThreadId != null) {
-            threadRepository.clearActiveApprovals(activeThreadId, reason)
-            domainRevisionState += 1
-        }
+    private fun closeForegroundThreadSession() {
         closeForegroundEventStream()
         foregroundThreadSession = ForegroundThreadSessionState()
     }
@@ -1115,6 +1146,12 @@ class StukayAppState(
     ) == PackageManager.PERMISSION_GRANTED
 
     private fun hasSavedPairing(): Boolean = hostBridgeState.pairedHost != null
+
+    private fun canUseRuntimePath(): Boolean = hasSavedPairing() &&
+        hostBridgeState.phase in setOf(
+            HostBridgeConnectionPhase.Connected,
+            HostBridgeConnectionPhase.Degraded,
+        )
 
     private companion object {
         const val HOST_BRIDGE_PROBE_INTERVAL_MS = 5_000L

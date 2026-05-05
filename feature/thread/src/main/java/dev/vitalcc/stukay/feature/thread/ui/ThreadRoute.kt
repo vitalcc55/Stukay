@@ -214,6 +214,8 @@ fun ThreadRoute(
                             Button(
                                 onClick = onSend,
                                 enabled = sessionState.composerDraft.isNotBlank() &&
+                                    sessionState.activeTurnId == null &&
+                                    sessionState.blockedReason == null &&
                                     sessionState.streamState !in setOf(
                                         ForegroundThreadStreamState.Hydrating,
                                         ForegroundThreadStreamState.AwaitingReconnect,

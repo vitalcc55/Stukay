@@ -505,7 +505,7 @@ Make the runtime slice testable and reviewable as an engineering surface, not on
 
 #### Acceptance checklist
 
-- [x] Key runtime flows are discoverable via semantics tree.
+- [ ] Key runtime flows are discoverable via semantics tree.
 - [x] Diagnostics surface can explain what thread/turn/approval is currently blocked or active.
 - [ ] Proof covers read path, send, stream, interrupt, reconnect, and approvals.
 
@@ -513,17 +513,27 @@ Make the runtime slice testable and reviewable as an engineering surface, not on
 
 - local status: `milestone 1 done`, `milestone 2 done`, `milestone 3 done`, `milestone 4 in_progress`
 - current branch: `codex/real-thread-runtime-approval-layer`
-- local verification already green:
+- checkpoint commit already created:
+  - `cdf3d14 Implement real thread runtime approval layer`
+- latest follow-up state after checkpoint review loop:
+  - review-driven fixes for runtime gating, resume/stream recovery, approval cleanup, off-screen session retention, composer guards and SSE EOF parsing are applied locally and pending a dedicated follow-up commit
+- checkpoint verification already green before the follow-up diff:
   - `.\gradlew.bat :app:testDebugUnitTest --console=plain`
   - `.\gradlew.bat :core:model:testDebugUnitTest :feature:projects:testDebugUnitTest :feature:thread:testDebugUnitTest :core:logging:testDebugUnitTest :app:assembleDebug :app:lintDebug --console=plain`
   - `python -W error::ResourceWarning -m unittest discover -s tools/hostbridge/tests -p "test_*.py"`
   - `python C:\Users\v.vlasov\.codex\skills\repo-harness-lifecycle\scripts\validate_lifecycle_stack.py --root .`
   - `android describe --project_dir .`
   - `codex mcp get jetbrains`
+- follow-up diff revalidated locally:
+  - `.\gradlew.bat :app:testDebugUnitTest --console=plain`
+  - `python -W error::ResourceWarning -m unittest discover -s tools/hostbridge/tests -p "test_*.py"`
 - remaining work before `verified`:
+  - follow-up commit for review-driven fixes
+  - rerun full combined Gradle gate after the follow-up diff
   - emulator proof
   - physical Pixel 9 Pro XL proof
-  - protocol-required review loop / findings triage / re-review result
+  - semantics-aware device proof through `android layout`
+  - protocol-required branch-wide review loop / findings triage / re-review result on the latest commit set
 
 ## Stage Report Template
 

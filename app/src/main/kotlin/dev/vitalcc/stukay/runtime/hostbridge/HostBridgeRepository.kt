@@ -479,6 +479,9 @@ class HttpJsonHostBridgeRepository(
         check(resolveLocalNetworkAccessState(payload) == LocalNetworkAccessState.Ready) {
             "Host Bridge runtime path сейчас недоступен для этого endpoint."
         }
+        check(state.phase in setOf(HostBridgeConnectionPhase.Connected, HostBridgeConnectionPhase.Degraded)) {
+            "Host Bridge runtime path доступен только после connect/reconnect."
+        }
         return payload
     }
 

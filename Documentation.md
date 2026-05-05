@@ -1,7 +1,7 @@
 # Documentation.md
 
 ## Current Milestone Status
-- current: `Real Thread Runtime + Approval Safety Layer` локально реализован поверх Host Bridge MVP; static/local gates green, foreground thread runtime и approval path заведены в shell.
+- current: `Real Thread Runtime + Approval Safety Layer` локально реализован поверх Host Bridge MVP; checkpoint gates уже были green, а review-driven follow-up fixes после checkpoint локально подтверждены таргетными тестами и ждут отдельного commit + re-review.
 - done: helper больше не ограничивается `/v1/runtime/summary`: добавлены typed `thread/list` / `thread/read` / `thread/resume` / `turn/start` / `turn/interrupt` / approval-response routes и SSE event stream для активного thread. Android-side `OkHttpHostBridgeClient` перешел на nested JSON contract, `RuntimeThreadStore` стал общим runtime-backed read model для `Projects` / `Project` / `Thread`, а `RuntimeThreadRepository` и `RuntimeProjectsRepository` перестали делегировать в fake repositories. `StukayAppState` теперь держит foreground thread session с hydrate/resume, composer/send/stop, event-stream reducer, reconnect recovery, pending approvals и runtime diagnostics snapshot. `ThreadRoute` убрал fake run controls, получил composer, stop, approval actions, blocked-state banner и стабильные semantics/test tags; `Projects`, `Project` и `Diagnostics` переведены на честный runtime-backed copy и identifiers. Добавлены новые regression tests для runtime store и helper thread endpoints / SSE / approval surface.
 - next: прогнать device proof для emulator и Pixel 9 Pro XL по сценарию `open existing thread -> send -> stream -> interrupt -> reconnect -> approval`, затем синхронизировать active execution docs под post-implementation state и прогнать merge-readiness review.
 
@@ -38,8 +38,8 @@
 - expected result: lifecycle validator проходит; допустимы только известные `warn`, без `fail`.
 
 ## Latest Review Outcome
-- findings: post-proof external review hypotheses и follow-up internal review loop дали восемь подтвержденных классов дефектов, и все они закрыты в текущем diff: Android 16 `Nearby devices` больше не является unconditional connect gate для admissible private/local endpoint, helper redirects больше не могут увести client за local boundary, queued auto-probe больше не может оживить manual disconnect cycle, callback storm больше не копит redundant immediate probe backlog внутри single-thread executor, auth/protocol failures больше не показывают stale runtime snapshot как `live`, remote-controlled diagnostic strings больше не могут отражать bearer/token values в state/log/UI, helper bind host теперь ограничен loopback/private-only surface, а helper summary больше не занижает `app/list count` на multi-page inventories. До этого Stage 5 live proof уже выявил и закрыл еще один реальный host-helper дефект: error path в `tools/hostbridge/server.py` мог рухнуть в `NameError`, а Windows default spawn не всегда резолвил runnable `codex` binary.
-- residual risks: bounded cleartext MVP intentionally остается debt до TLS/public-path milestone, public/tunnel endpoint path остается out of scope, diagnostics все еще без persistence/export, а suppression `Instantiatable` нужно будет пересмотреть после стабилизации AGP/SDK 36.
+- findings: для checkpoint `cdf3d14 Implement real thread runtime approval layer` уже был поднят review loop по milestone diff, и локально подтверждены как минимум следующие root-cause классы до очередного re-review: disconnect должен реально закрывать runtime path, navigation-away не должен чистить live approvals как stale, foreground session не должна терять события между `resume` и attach stream, `thread/resume` не должен перетирать более полный `thread/read` snapshot, `serverRequest/resolved` не должен ложно демотировать очередь approvals в `Idle`, `turn/start` не должен быть разрешен поверх active/blocked turn, runtime error должен переводить foreground state в `Failed`, failed `turn/start` не должен терять composer draft, `thread/read` не должен вымывать unresolved approvals при reopen, а SSE parser не должен терять последний event на EOF. Эти исправления уже внесены локально и ждут отдельного follow-up commit + нового re-review.
+- residual risks: bounded cleartext/local-only runtime path остается сознательным ограничением до TLS/public-path milestone; device proof по emulator и физическому Pixel 9 Pro XL для нового runtime slice еще не прогонялся; полноценный `waitingOnUserInput` dialog UX все еще out of scope.
 
 ## Known Issues And Follow-ups
 - item: В текущем runtime JetBrains MCP tools могут быть недоступны как native namespace до перезапуска Codex App, хотя server-side конфиг уже работает.
@@ -68,10 +68,14 @@
 - purpose: verified Android CLI project surface
 - artifact: `codex mcp get jetbrains`
 - purpose: verified Codex-side JetBrains MCP config
+- artifact: commit `cdf3d14`
+- purpose: checkpoint commit for `Real Thread Runtime + Approval Safety Layer` before review loop
 - artifact: `.\gradlew.bat :core:model:testDebugUnitTest :feature:projects:testDebugUnitTest :feature:thread:testDebugUnitTest :core:logging:testDebugUnitTest :app:assembleDebug :app:lintDebug --console=plain`
 - purpose: verified runtime-backed Android domain/store/UI slice after real thread runtime migration
 - artifact: `python -W error::ResourceWarning -m unittest discover -s tools/hostbridge/tests -p 'test_*.py'`
 - purpose: verified helper thread routes, approval response path and SSE event normalization in addition to legacy runtime summary path
+- artifact: `docs/exec-plans/active/host-bridge-mvp-proof.md`
+- purpose: archived evidence from the previous Host Bridge MVP milestone; not the primary proof source for `cdf3d14`
 - artifact: `https://app.notion.com/p/353f585cf06881c682d5ccb7437ada86`
 - purpose: active Notion project record for cross-project visibility
 - artifact: `.\gradlew.bat :core:model:testDebugUnitTest :feature:projects:testDebugUnitTest :feature:thread:testDebugUnitTest :core:logging:testDebugUnitTest :app:assembleDebug :app:testDebugUnitTest --console=plain`
