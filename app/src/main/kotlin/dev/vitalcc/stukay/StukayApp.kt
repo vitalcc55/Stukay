@@ -13,7 +13,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import dev.vitalcc.stukay.core.logging.LogArea
-import dev.vitalcc.stukay.core.logging.logEvent
+import dev.vitalcc.stukay.core.logging.LogEvents
 import dev.vitalcc.stukay.core.model.RouteContext
 import dev.vitalcc.stukay.core.design.theme.StukayTheme
 import dev.vitalcc.stukay.core.model.ApprovalDecision
@@ -43,7 +43,7 @@ fun StukayApp(
     LaunchedEffect(routeContext) {
         appState.updateCurrentRouteContext(routeContext)
         appState.logger.info(
-            logEvent(
+            LogEvents.info(
                 area = LogArea.Navigation,
                 eventName = "navigation_changed",
                 messageHuman = "Navigation route changed",
@@ -123,6 +123,9 @@ fun StukayApp(
                     },
                     onStop = {
                         appState.interruptTurn(threadId)
+                    },
+                    onLoadOlderHistory = {
+                        appState.loadOlderHistory(threadId)
                     },
                     onResolveApproval = { requestId, decision ->
                         appState.resolveApproval(

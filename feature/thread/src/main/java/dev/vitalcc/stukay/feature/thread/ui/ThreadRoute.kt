@@ -23,20 +23,18 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import dev.vitalcc.stukay.core.logging.AppLogger
-import dev.vitalcc.stukay.core.logging.LogArea
-import dev.vitalcc.stukay.core.logging.logEvent
 import dev.vitalcc.stukay.core.model.ApprovalDecision
 import dev.vitalcc.stukay.core.model.CodexThread
 import dev.vitalcc.stukay.core.model.ForegroundThreadBlockedReason
 import dev.vitalcc.stukay.core.model.ForegroundThreadSessionState
 import dev.vitalcc.stukay.core.model.ForegroundThreadStreamState
+import dev.vitalcc.stukay.core.model.ThreadHistoryState
 import dev.vitalcc.stukay.core.model.ThreadStatus
 import dev.vitalcc.stukay.core.model.TimelineItem
 import dev.vitalcc.stukay.core.model.canSendPrompt
@@ -57,20 +55,10 @@ fun ThreadRoute(
     onComposerChanged: (String) -> Unit,
     onSend: () -> Unit,
     onStop: () -> Unit,
+    onLoadOlderHistory: () -> Unit,
     onResolveApproval: (String, ApprovalDecision) -> Unit,
     onNavigateBack: () -> Unit,
 ) {
-    LaunchedEffect(thread?.id) {
-        logger.info(
-            logEvent(
-                area = LogArea.Thread,
-                eventName = "thread_opened",
-                messageHuman = "Runtime thread screen opened",
-                fields = mapOf("screen" to "thread", "threadId" to (thread?.id?.value ?: "missing")),
-            ),
-        )
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -117,6 +105,34 @@ fun ThreadRoute(
                             },
                     ) {
                         Text(text = statusBannerText(thread, sessionState))
+                    }
+                }
+
+                if (sessionState.historyState.hasOlderHistory || sessionState.historyState.isLoadingOlderHistory) {
+                    item {
+                        ExpressiveCard(
+                            title = "History",
+                            subtitle = historyBannerText(sessionState.historyState),
+                            modifier = Modifier
+                                .testTag("thread.history.status")
+                                .semantics {
+                                    stateDescription = historyBannerText(sessionState.historyState)
+                                },
+                        ) {
+                            Button(
+                                onClick = onLoadOlderHistory,
+                                enabled = !sessionState.historyState.isLoadingOlderHistory,
+                                modifier = Modifier.testTag("thread.history.loadOlder"),
+                            ) {
+                                Text(
+                                    text = if (sessionState.historyState.isLoadingOlderHistory) {
+                                        "Загрузка старой истории..."
+                                    } else {
+                                        "Загрузить старое"
+                                    },
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -258,6 +274,12 @@ fun ThreadRoute(
             }
         }
     }
+}
+
+private fun historyBannerText(state: ThreadHistoryState): String = when {
+    state.isLoadingOlderHistory -> "Старая история треда загружается из runtime."
+    state.hasOlderHistory -> "Доступна более старая история треда."
+    else -> "Вся доступная история уже загружена."
 }
 
 @Composable

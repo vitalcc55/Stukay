@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-05-13
+
+- Runtime slice обновлен под `codex-cli 0.130.0`: `references/openai-codex` переведен на `rust-v0.130.0`, а repo-local runtime assumptions синхронизированы с `thread/turns/list`, `itemsView`, `sessionId` и approval timestamps.
+- Host Bridge helper больше не использует `thread/read` / `thread/resume` как притворный full-history path: added typed `/v1/threads/{id}/history` over `thread/turns/list`, summary-only read/resume, и overlay pending approvals для resume recovery.
+- Android runtime/store/UI переведены на large-thread model: `ThreadHistoryState`, partial history merge, manual `Загрузить старое`, separate pending approvals queue, richer diagnostics snapshot и новые regression tests для helper transport/store/repository seams.
+
 ## 2026-05-05
 
 - После review loop по commit `8cb7dfa` закрыт дополнительный runtime tail: `thread/resume` теперь заменяет same-id items более свежим runtime snapshot и не держит stale approvals вне `waitingOnApproval`.

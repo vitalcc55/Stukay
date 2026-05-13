@@ -8,6 +8,11 @@ from typing import Any
 
 JsonDict = dict[str, Any]
 
+_PENDING_APPROVAL_METHODS = {
+    "item/commandExecution/requestApproval",
+    "item/fileChange/requestApproval",
+}
+
 
 @dataclass(frozen=True)
 class RuntimeSummary:
@@ -63,12 +68,44 @@ class RuntimeSummary:
 
 def normalize_thread_list(threads: list[JsonDict]) -> JsonDict:
     return {
-        "data": [normalize_thread(thread, include_timeline=False) for thread in threads],
+        "data": [
+            normalize_thread(
+                thread,
+                include_timeline=False,
+                pending_server_requests=[],
+            )
+            for thread in threads
+        ],
     }
 
 
-def normalize_thread_response(thread: JsonDict) -> JsonDict:
-    return {"thread": normalize_thread(thread, include_timeline=True)}
+def normalize_thread_response(
+    thread: JsonDict,
+    pending_server_requests: list[JsonDict] | None = None,
+) -> JsonDict:
+    return {
+        "thread": normalize_thread(
+            thread,
+            include_timeline=True,
+            pending_server_requests=pending_server_requests or [],
+        ),
+    }
+
+
+def normalize_thread_turns_page(*, thread_id: str, result: JsonDict) -> JsonDict:
+    turns = result.get("data")
+    if not isinstance(turns, list):
+        raise ValueError("thread/turns/list response is missing data array")
+    return {
+        "threadId": thread_id,
+        "data": [
+            normalize_turn_history_turn(thread_id=thread_id, turn=turn)
+            for turn in turns
+            if isinstance(turn, dict)
+        ],
+        "nextCursor": _string_or_none(result.get("nextCursor")),
+        "backwardsCursor": _string_or_none(result.get("backwardsCursor")),
+    }
 
 
 def normalize_turn_response(turn: JsonDict) -> JsonDict:
@@ -94,7 +131,7 @@ def normalize_stream_message(message: JsonDict) -> JsonDict | None:
         item = params.get("item")
         if not isinstance(item, dict):
             return None
-        return {
+        payload = {
             "method": method,
             "threadId": params.get("threadId"),
             "turnId": params.get("turnId"),
@@ -105,6 +142,11 @@ def normalize_stream_message(message: JsonDict) -> JsonDict | None:
                 is_streaming=False,
             ),
         }
+        if method == "item/started":
+            payload["startedAtEpochMs"] = _int_or_none(params.get("startedAtMs"))
+        if method == "item/completed":
+            payload["completedAtEpochMs"] = _int_or_none(params.get("completedAtMs"))
+        return payload
     if method in {"turn/started", "turn/completed"}:
         turn = params.get("turn")
         if not isinstance(turn, dict):
@@ -156,6 +198,7 @@ def normalize_server_request(*, method: str, request_id: str, params: JsonDict) 
             "turnId": params.get("turnId"),
             "itemId": params.get("itemId"),
             "questionCount": question_count,
+            "startedAtEpochMs": _int_or_none(params.get("startedAtMs")),
         }
     approval_kind = "command" if method == "item/commandExecution/requestApproval" else "fileChange"
     available_decisions = params.get("availableDecisions")
@@ -176,6 +219,7 @@ def normalize_server_request(*, method: str, request_id: str, params: JsonDict) 
         "threadId": params.get("threadId"),
         "turnId": params.get("turnId"),
         "itemId": params.get("itemId"),
+        "startedAtEpochMs": _int_or_none(params.get("startedAtMs")),
         "approval": {
             "id": _string_or_none(params.get("approvalId")) or request_id,
             "requestId": request_id,
@@ -186,6 +230,7 @@ def normalize_server_request(*, method: str, request_id: str, params: JsonDict) 
             "title": _approval_title(params, approval_kind, network_host),
             "description": _approval_description(params, approval_kind, network_host, network_protocol),
             "availableDecisions": scalar_decisions,
+            "startedAtEpochMs": _int_or_none(params.get("startedAtMs")),
             "command": _string_or_none(params.get("command")),
             "cwd": _string_or_none(params.get("cwd")),
             "grantRoot": _string_or_none(params.get("grantRoot")),
@@ -196,14 +241,22 @@ def normalize_server_request(*, method: str, request_id: str, params: JsonDict) 
     }
 
 
-def normalize_thread(thread: JsonDict, *, include_timeline: bool) -> JsonDict:
+def normalize_thread(
+    thread: JsonDict,
+    *,
+    include_timeline: bool,
+    pending_server_requests: list[JsonDict],
+) -> JsonDict:
     cwd = _string_or_none(thread.get("cwd")) or ""
     normalized: JsonDict = {
         "id": thread.get("id"),
+        "sessionId": _string_or_none(thread.get("sessionId")) or _string_or_none(thread.get("id")) or "",
+        "ephemeral": bool(thread.get("ephemeral")) if isinstance(thread.get("ephemeral"), bool) else False,
         "cwd": cwd,
         "title": _thread_title(thread, cwd),
         "preview": _string_or_none(thread.get("preview")) or "",
         "sourceKind": _source_kind(thread.get("source")),
+        "threadSource": _thread_source(thread.get("threadSource")),
         "updatedAtEpochMs": _seconds_to_epoch_ms(thread.get("updatedAt")),
         "createdAtEpochMs": _seconds_to_epoch_ms(thread.get("createdAt")),
         "status": normalize_thread_status(thread.get("status")),
@@ -214,6 +267,20 @@ def normalize_thread(thread: JsonDict, *, include_timeline: bool) -> JsonDict:
             thread_id=_string_or_none(thread.get("id")) or "",
             turns=thread.get("turns"),
         )
+    else:
+        normalized["timeline"] = []
+    normalized["pendingApprovals"] = [
+        approval["approval"]
+        for request in pending_server_requests
+        if isinstance(request, dict)
+        and _string_or_none(request.get("method")) in _PENDING_APPROVAL_METHODS
+        for approval in [normalize_server_request(
+            method=_string_or_none(request.get("method")) or "",
+            request_id=str(request.get("id")),
+            params=request.get("params") if isinstance(request.get("params"), dict) else {},
+        )]
+        if approval.get("threadId") == normalized["id"] and isinstance(approval.get("approval"), dict)
+    ]
     return normalized
 
 
@@ -238,6 +305,30 @@ def normalize_turn(turn: JsonDict) -> JsonDict:
         "completedAtEpochMs": _seconds_to_epoch_ms(turn.get("completedAt")),
         "durationMs": _int_or_none(turn.get("durationMs")),
         "errorMessage": _extract_turn_error_message(turn.get("error")),
+    }
+
+
+def normalize_turn_history_turn(*, thread_id: str, turn: JsonDict) -> JsonDict:
+    items = turn.get("items")
+    normalized_items = [
+        normalize_thread_item(
+            thread_id=thread_id,
+            turn_id=_string_or_none(turn.get("id")),
+            item=item,
+            is_streaming=False,
+        )
+        for item in items
+        if isinstance(items, list) and isinstance(item, dict)
+    ]
+    return {
+        "id": turn.get("id"),
+        "status": _string_or_none(turn.get("status")) or "inProgress",
+        "itemsView": _string_or_none(turn.get("itemsView")) or "full",
+        "startedAtEpochMs": _seconds_to_epoch_ms(turn.get("startedAt")),
+        "completedAtEpochMs": _seconds_to_epoch_ms(turn.get("completedAt")),
+        "durationMs": _int_or_none(turn.get("durationMs")),
+        "errorMessage": _extract_turn_error_message(turn.get("error")),
+        "items": [item for item in normalized_items if item is not None],
     }
 
 
@@ -386,6 +477,10 @@ def _source_kind(source: Any) -> str:
         if isinstance(sub_agent, dict):
             return "subAgent"
     return "unknown"
+
+
+def _thread_source(value: Any) -> str | None:
+    return value if isinstance(value, str) and value != "" else None
 
 
 def _join_user_content(content: Any) -> str:

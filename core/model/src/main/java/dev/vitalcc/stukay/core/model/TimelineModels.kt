@@ -86,6 +86,7 @@ sealed interface TimelineItem {
         val requestId: String? = null,
         val itemId: String? = null,
         val availableDecisions: List<ApprovalDecision> = emptyList(),
+        val startedAtEpochMs: Long? = null,
         val commandPreview: String? = null,
         val cwd: String? = null,
         val grantRoot: String? = null,

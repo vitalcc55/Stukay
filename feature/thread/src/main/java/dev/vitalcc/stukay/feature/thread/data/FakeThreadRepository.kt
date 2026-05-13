@@ -7,6 +7,7 @@ import dev.vitalcc.stukay.core.model.ApprovalRisk
 import dev.vitalcc.stukay.core.model.CodexThread
 import dev.vitalcc.stukay.core.model.CommandRunStatus
 import dev.vitalcc.stukay.core.model.ProjectId
+import dev.vitalcc.stukay.core.model.ThreadHistoryState
 import dev.vitalcc.stukay.core.model.ThreadId
 import dev.vitalcc.stukay.core.model.ThreadStatus
 import dev.vitalcc.stukay.core.model.TimelineItem
@@ -99,7 +100,13 @@ class FakeThreadRepository : ThreadRepository {
         .map { it.thread }
         .sortedByDescending { thread -> thread.lastUpdatedAtEpochMs }
 
-    override fun readThread(threadId: ThreadId, includeTurns: Boolean): CodexThread? = loadThread(threadId)
+    override fun readThreadSummary(threadId: ThreadId): CodexThread? = loadThread(threadId)
+
+    override fun historyState(threadId: ThreadId): ThreadHistoryState = ThreadHistoryState()
+
+    override fun loadInitialHistory(threadId: ThreadId): ThreadHistoryState = ThreadHistoryState()
+
+    override fun loadOlderHistory(threadId: ThreadId): ThreadHistoryState = ThreadHistoryState()
 
     override fun resumeThread(threadId: ThreadId): CodexThread? = loadThread(threadId)
 

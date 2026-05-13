@@ -1,42 +1,37 @@
 {
-  "goal": "Закрыть Real Thread Runtime + Approval Safety Layer поверх уже доказанного Host Bridge transport.",
-  "stage": "real_thread_runtime_approval_layer_local_green_device_proof_pending",
+  "goal": "Обновить Real Thread Runtime + Approval Safety Layer под codex-cli 0.130.0 и large-thread history через thread/turns/list.",
+  "stage": "real_thread_runtime_0130_large_thread_local_green_review_pending",
   "done": [
-    "helper runtime surface extended to typed thread list/read/resume/start/interrupt/approval endpoints plus SSE thread events",
-    "CodexRuntimeClient moved from app/list-only loop to generic JSON-RPC client with thread subscriptions and server-request routing",
-    "Android HostBridge client moved to nested JSON parsing and runtime payload models using kotlinx-serialization-json",
-    "RuntimeThreadStore, RuntimeThreadRepository and RuntimeProjectsRepository replaced fake read path with runtime-backed projects/threads/timeline caches",
-    "StukayAppState now owns one foreground thread session with hydrate/resume, send, interrupt, reconnect recovery, approval state and runtime diagnostics snapshot",
-    "ThreadRoute removed fake controls and now exposes composer, send, stop, approval actions, status banner and stable runtime semantics/test tags",
-    "targeted regression tests added for runtime store grouping/reducer and helper thread endpoints/SSE/approval surface"
+    "reference baseline switched to rust-v0.130.0",
+    "helper runtime contract split into summary/read-resume path plus typed paged history route",
+    "CodexRuntimeClient now supports excludeTurns resume and thread/turns/list page loading",
+    "Android HostBridge client models now carry sessionId, pendingApprovals, paged history payloads, and event lifecycle timestamps",
+    "RuntimeThreadStore now owns partial history state and separate pending approvals queue",
+    "foreground thread session now hydrates via read summary, pre-resume stream attach, resume, and initial history page load",
+    "thread UI now exposes manual older-history loading and matching diagnostics state",
+    "python helper suite and app testDebugUnitTest are green on the current diff"
   ],
   "next": [
-    "run emulator and physical Pixel proof for the new runtime slice",
-    "run the final branch-wide review loop relative to main",
-    "run merge-readiness review after device proof"
+    "run pre-commit sandbox review loop through subagents on the uncommitted diff",
+    "run emulator and physical Pixel proof for open existing thread -> load older -> send -> stream -> interrupt -> reconnect -> approval",
+    "run branch-wide review relative to main after device proof"
   ],
   "edited_files": [
-    "app/build.gradle.kts",
     "app/src/main/kotlin/dev/vitalcc/stukay/StukayApp.kt",
-    "app/src/main/kotlin/dev/vitalcc/stukay/runtime/RuntimeProjectsRepository.kt",
     "app/src/main/kotlin/dev/vitalcc/stukay/runtime/RuntimeThreadRepository.kt",
     "app/src/main/kotlin/dev/vitalcc/stukay/runtime/RuntimeThreadStore.kt",
     "app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayAppState.kt",
-    "app/src/main/kotlin/dev/vitalcc/stukay/runtime/StukayRuntimeGraph.kt",
     "app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeClient.kt",
     "app/src/main/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeRepository.kt",
-    "app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeClientTest.kt",
     "app/src/test/kotlin/dev/vitalcc/stukay/runtime/RuntimeThreadStoreTest.kt",
+    "app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HostBridgeClientTest.kt",
     "app/src/test/kotlin/dev/vitalcc/stukay/runtime/hostbridge/HttpJsonHostBridgeRepositoryTest.kt",
-    "core/logging/src/main/java/dev/vitalcc/stukay/core/logging/DiagnosticsSummary.kt",
-    "core/logging/src/main/java/dev/vitalcc/stukay/core/logging/DiagnosticsSummaryProvider.kt",
+    "core/logging/src/main/java/dev/vitalcc/stukay/core/logging/LogEvents.kt",
     "core/logging/src/main/java/dev/vitalcc/stukay/core/logging/RuntimeDiagnosticsSnapshot.kt",
-    "core/model/src/main/java/dev/vitalcc/stukay/core/model/ForegroundThreadSessionPolicy.kt",
+    "core/logging/src/main/kotlin/dev/vitalcc/stukay/core/logging/LogEventFactory.kt",
     "core/model/src/main/java/dev/vitalcc/stukay/core/model/ForegroundThreadSessionState.kt",
     "core/model/src/main/java/dev/vitalcc/stukay/core/model/ThreadModels.kt",
     "core/model/src/main/java/dev/vitalcc/stukay/core/model/TimelineModels.kt",
-    "core/model/src/test/java/dev/vitalcc/stukay/core/model/ForegroundThreadSessionPolicyTest.kt",
-    "core/model/src/test/java/dev/vitalcc/stukay/core/model/ThreadStatusTest.kt",
     "feature/diagnostics/src/main/java/dev/vitalcc/stukay/feature/diagnostics/ui/DiagnosticsRoute.kt",
     "feature/projects/src/main/java/dev/vitalcc/stukay/feature/projects/ui/ProjectRoute.kt",
     "feature/projects/src/main/java/dev/vitalcc/stukay/feature/projects/ui/ProjectsRoute.kt",
@@ -44,12 +39,11 @@
     "feature/thread/src/main/java/dev/vitalcc/stukay/feature/thread/data/FakeThreadRepository.kt",
     "feature/thread/src/main/java/dev/vitalcc/stukay/feature/thread/data/ThreadRepository.kt",
     "feature/thread/src/main/java/dev/vitalcc/stukay/feature/thread/ui/ThreadRoute.kt",
-    "feature/thread/src/test/java/dev/vitalcc/stukay/feature/thread/data/FakeThreadRepositoryTest.kt",
-    "feature/thread/src/test/java/dev/vitalcc/stukay/feature/thread/domain/ThreadUseCasesTest.kt",
-    "gradle/libs.versions.toml",
     "tools/hostbridge/models.py",
     "tools/hostbridge/runtime_client.py",
     "tools/hostbridge/server.py",
+    "tools/hostbridge/tests/test_models.py",
+    "tools/hostbridge/tests/test_runtime_client.py",
     "tools/hostbridge/tests/test_server.py",
     "docs/generated/project-interfaces.md",
     "docs/exec-plans/active/real-thread-runtime-approval-layer-plan.md",
@@ -58,10 +52,15 @@
     ".tmp/.codex/task_state/latest.md",
     ".tmp/.codex/task_state/latest.json"
   ],
-  "verify_status": "lifecycle validator returns warn-only without fail; android describe and codex mcp get jetbrains both succeed; :core:model:testDebugUnitTest :feature:thread:testDebugUnitTest :app:testDebugUnitTest is green for the second review-driven fix wave; :core:model:testDebugUnitTest :feature:projects:testDebugUnitTest :feature:thread:testDebugUnitTest :core:logging:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug :app:lintDebug is green on the latest local diff; helper Python suite is green under ResourceWarning-strict mode",
-  "open_questions": [
-    "device proof for emulator and physical Pixel was not re-run in this turn",
-    "the stale multi-approval reconnect hypothesis was not confirmed against the current helper/runtime contract and does not block this commit"
+  "verify_status": [
+    "python C:\\Users\\v.vlasov\\.codex\\skills\\repo-harness-lifecycle\\scripts\\validate_lifecycle_stack.py --root . -> warn only, no fail",
+    "python -W error::ResourceWarning -m unittest discover -s tools/hostbridge/tests -p 'test_*.py' -> passes",
+    ".\\gradlew.bat :app:testDebugUnitTest --console=plain -> passes",
+    ".\\gradlew.bat :core:model:testDebugUnitTest :feature:projects:testDebugUnitTest :feature:thread:testDebugUnitTest :core:logging:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug :app:lintDebug --console=plain -> passes"
   ],
-  "updated_at_utc": "2026-05-05T10:20:00Z"
+  "open_questions": [
+    "device proof for emulator and physical Pixel has not been re-run in this turn",
+    "nested references/openai-codex checkout is gitignored in the outer repo and is recorded here as a local expected baseline rather than a tracked artifact"
+  ],
+  "updated_at_utc": "2026-05-13T00:00:00Z"
 }

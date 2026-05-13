@@ -441,6 +441,14 @@ private class FakeHostBridgeClient(
         threadId: String,
     ): HostBridgeThreadPayload = error("Not used in this test")
 
+    override fun loadThreadHistoryPage(
+        pairingPayload: dev.vitalcc.stukay.core.model.PairingPayload,
+        threadId: String,
+        cursor: String?,
+        limit: Int,
+        sortDirection: String,
+    ): HostBridgeThreadHistoryPagePayload = error("Not used in this test")
+
     override fun startTurn(
         pairingPayload: dev.vitalcc.stukay.core.model.PairingPayload,
         threadId: String,
@@ -470,6 +478,7 @@ private fun assertRuntimePathUnavailable(repository: HttpJsonHostBridgeRepositor
         { repository.listThreads() },
         { repository.readThread("thread-1") },
         { repository.resumeThread("thread-1") },
+        { repository.loadThreadHistoryPage("thread-1", null, 50, "desc") },
         { repository.startTurn("thread-1", "hello") },
         { repository.interruptTurn("thread-1", "turn-1") },
         { repository.respondToApproval("request-1", dev.vitalcc.stukay.core.model.ApprovalDecision.AcceptOnce) },

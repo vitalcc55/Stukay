@@ -24,7 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.vitalcc.stukay.core.logging.AppLogger
 import dev.vitalcc.stukay.core.logging.LogArea
-import dev.vitalcc.stukay.core.logging.logEvent
+import dev.vitalcc.stukay.core.logging.LogEvents
 import dev.vitalcc.stukay.core.model.HostBridgeConnectionPhase
 import dev.vitalcc.stukay.core.model.HostBridgeConnectionState
 import dev.vitalcc.stukay.core.model.HostRuntimeSnapshotScope
@@ -54,7 +54,7 @@ fun SettingsRoute(
 ) {
     LaunchedEffect(Unit) {
         logger.info(
-            logEvent(
+            LogEvents.info(
                 area = LogArea.Ui,
                 eventName = "screen_opened",
                 messageHuman = "Settings screen opened",
@@ -259,3 +259,4 @@ private fun runtimeSummaryText(state: HostBridgeConnectionState): String {
     }
     return parts.joinToString(" · ")
 }
+

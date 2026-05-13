@@ -32,6 +32,13 @@ interface HostBridgeRepository {
 
     fun resumeThread(threadId: String): HostBridgeThreadPayload
 
+    fun loadThreadHistoryPage(
+        threadId: String,
+        cursor: String?,
+        limit: Int,
+        sortDirection: String,
+    ): HostBridgeThreadHistoryPagePayload
+
     fun startTurn(threadId: String, text: String): HostBridgeTurnPayload
 
     fun interruptTurn(threadId: String, turnId: String)
@@ -195,6 +202,20 @@ class HttpJsonHostBridgeRepository(
     override fun resumeThread(threadId: String): HostBridgeThreadPayload = client.resumeThread(
         pairingPayload = requireRuntimePayload(),
         threadId = threadId,
+    )
+
+    @Synchronized
+    override fun loadThreadHistoryPage(
+        threadId: String,
+        cursor: String?,
+        limit: Int,
+        sortDirection: String,
+    ): HostBridgeThreadHistoryPagePayload = client.loadThreadHistoryPage(
+        pairingPayload = requireRuntimePayload(),
+        threadId = threadId,
+        cursor = cursor,
+        limit = limit,
+        sortDirection = sortDirection,
     )
 
     @Synchronized

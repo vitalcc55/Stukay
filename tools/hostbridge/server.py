@@ -8,7 +8,7 @@ import re
 import time
 import threading
 from typing import Callable
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from tools.hostbridge.auth import extract_bearer_token, is_authorized, resolve_session_token
 from tools.hostbridge.models import (
@@ -16,12 +16,14 @@ from tools.hostbridge.models import (
     normalize_stream_message,
     normalize_thread_list,
     normalize_thread_response,
+    normalize_thread_turns_page,
     normalize_turn_response,
 )
 from tools.hostbridge.runtime_client import CodexRuntimeClient, RuntimeClientError
 
 THREAD_LIST_SOURCE_KINDS = ["cli", "vscode", "appServer"]
 _THREAD_PATH_RE = re.compile(r"^/v1/threads/(?P<thread_id>[^/]+)$")
+_THREAD_HISTORY_RE = re.compile(r"^/v1/threads/(?P<thread_id>[^/]+)/history$")
 _THREAD_RESUME_RE = re.compile(r"^/v1/threads/(?P<thread_id>[^/]+)/resume$")
 _THREAD_TURNS_RE = re.compile(r"^/v1/threads/(?P<thread_id>[^/]+)/turns$")
 _THREAD_INTERRUPT_RE = re.compile(r"^/v1/threads/(?P<thread_id>[^/]+)/turns/(?P<turn_id>[^/]+)/interrupt$")
@@ -91,26 +93,47 @@ class HostBridgeService:
     def read_thread(self, thread_id: str) -> dict[str, object]:
         with self._lock:
             client = self._get_runtime_client()
-            response = client.read_thread(thread_id, include_turns=True)
+            response = client.read_thread(thread_id, include_turns=False)
+            pending_requests = client.pending_server_requests_for_thread(thread_id)
         thread = response.get("thread")
         if not isinstance(thread, dict):
             raise RuntimeClientError(
                 code="runtime_protocol_error",
                 public_message="Host Bridge received an invalid thread/read response.",
             )
-        return normalize_thread_response(thread)
+        return normalize_thread_response(thread, pending_server_requests=pending_requests)
 
     def resume_thread(self, thread_id: str) -> dict[str, object]:
         with self._lock:
             client = self._get_runtime_client()
-            response = client.resume_thread(thread_id)
+            response = client.resume_thread(thread_id, exclude_turns=True)
+            pending_requests = client.pending_server_requests_for_thread(thread_id)
         thread = response.get("thread")
         if not isinstance(thread, dict):
             raise RuntimeClientError(
                 code="runtime_protocol_error",
                 public_message="Host Bridge received an invalid thread/resume response.",
             )
-        return normalize_thread_response(thread)
+        return normalize_thread_response(thread, pending_server_requests=pending_requests)
+
+    def list_thread_history_page(
+        self,
+        thread_id: str,
+        *,
+        cursor: str | None,
+        limit: int,
+        sort_direction: str,
+    ) -> dict[str, object]:
+        with self._lock:
+            client = self._get_runtime_client()
+            response = client.list_thread_turns_page(
+                thread_id,
+                cursor=cursor,
+                limit=limit,
+                sort_direction=sort_direction,
+                items_view="full",
+            )
+        return normalize_thread_turns_page(thread_id=thread_id, result=response)
 
     def start_turn(self, thread_id: str, text: str) -> dict[str, object]:
         with self._lock:
@@ -181,6 +204,21 @@ def _build_handler(service: HostBridgeService):
             if thread_match is not None:
                 thread_id = unquote(thread_match.group("thread_id"))
                 self._run_runtime_json(service.read_thread, thread_id)
+                return
+            history_match = _THREAD_HISTORY_RE.match(path)
+            if history_match is not None:
+                thread_id = unquote(history_match.group("thread_id"))
+                query = parse_qs(parsed.query)
+                cursor = _single_query_value(query, "cursor")
+                limit = _int_query_value(query, "limit", default=50)
+                sort_direction = _single_query_value(query, "sortDirection") or "desc"
+                self._run_runtime_json(
+                    service.list_thread_history_page,
+                    thread_id,
+                    cursor=cursor,
+                    limit=limit,
+                    sort_direction=sort_direction,
+                )
                 return
             stream_match = _THREAD_EVENTS_RE.match(path)
             if stream_match is not None:
@@ -261,9 +299,9 @@ def _build_handler(service: HostBridgeService):
                 return {}
             return payload
 
-        def _run_runtime_json(self, callback: Callable, *args) -> None:
+        def _run_runtime_json(self, callback: Callable, *args, **kwargs) -> None:
             try:
-                payload = callback(*args)
+                payload = callback(*args, **kwargs)
             except RuntimeClientError as error:
                 self._write_runtime_error(error)
                 return
@@ -399,6 +437,25 @@ def _sanitize_runtime_error(error: Exception) -> tuple[str, str]:
     if isinstance(error, RuntimeClientError):
         return error.code, error.public_message
     return "runtime_unavailable", "Host Bridge runtime is unavailable."
+
+
+def _single_query_value(query: dict[str, list[str]], key: str) -> str | None:
+    values = query.get(key)
+    if not values:
+        return None
+    value = values[0].strip()
+    return value or None
+
+
+def _int_query_value(query: dict[str, list[str]], key: str, *, default: int) -> int:
+    value = _single_query_value(query, key)
+    if value is None:
+        return default
+    try:
+        parsed = int(value)
+    except ValueError:
+        return default
+    return parsed if parsed > 0 else default
 
 
 if __name__ == "__main__":

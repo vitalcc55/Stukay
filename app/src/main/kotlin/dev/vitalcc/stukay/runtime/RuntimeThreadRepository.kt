@@ -3,6 +3,7 @@ package dev.vitalcc.stukay.runtime
 import dev.vitalcc.stukay.core.model.ApprovalDecision
 import dev.vitalcc.stukay.core.model.CodexThread
 import dev.vitalcc.stukay.core.model.ProjectId
+import dev.vitalcc.stukay.core.model.ThreadHistoryState
 import dev.vitalcc.stukay.core.model.ThreadId
 import dev.vitalcc.stukay.core.model.TurnId
 import dev.vitalcc.stukay.core.model.TimelineItem
@@ -17,6 +18,10 @@ class RuntimeThreadRepository(
     private val hostBridgeRepository: HostBridgeRepository,
     private val store: RuntimeThreadStore,
 ) : ThreadRepository {
+    private companion object {
+        const val DEFAULT_HISTORY_PAGE_SIZE = 50
+    }
+
     override fun loadThreads(projectId: ProjectId): List<CodexThread> = store.loadThreads(projectId)
 
     override fun loadThread(threadId: ThreadId): CodexThread? = store.loadThread(threadId)
@@ -29,13 +34,48 @@ class RuntimeThreadRepository(
         return store.loadAllThreads()
     }
 
-    override fun readThread(
-        threadId: ThreadId,
-        includeTurns: Boolean,
-    ): CodexThread? {
+    override fun readThreadSummary(threadId: ThreadId): CodexThread? {
         val payload = hostBridgeRepository.readThread(threadId.value)
         store.replaceThread(payload)
         return store.loadThread(threadId)
+    }
+
+    override fun historyState(threadId: ThreadId): ThreadHistoryState = store.historyState(threadId)
+
+    override fun loadInitialHistory(threadId: ThreadId): ThreadHistoryState {
+        store.setHistoryLoading(threadId, true)
+        return try {
+            val page = hostBridgeRepository.loadThreadHistoryPage(
+                threadId = threadId.value,
+                cursor = null,
+                limit = DEFAULT_HISTORY_PAGE_SIZE,
+                sortDirection = "desc",
+            )
+            store.applyHistoryPage(threadId, page, isInitialPage = true)
+            store.historyState(threadId)
+        } catch (error: Throwable) {
+            store.setHistoryLoading(threadId, false)
+            throw error
+        }
+    }
+
+    override fun loadOlderHistory(threadId: ThreadId): ThreadHistoryState {
+        val historyState = store.historyState(threadId)
+        val cursor = historyState.nextCursor ?: return historyState
+        store.setHistoryLoading(threadId, true)
+        return try {
+            val page = hostBridgeRepository.loadThreadHistoryPage(
+                threadId = threadId.value,
+                cursor = cursor,
+                limit = DEFAULT_HISTORY_PAGE_SIZE,
+                sortDirection = "desc",
+            )
+            store.applyHistoryPage(threadId, page)
+            store.historyState(threadId)
+        } catch (error: Throwable) {
+            store.setHistoryLoading(threadId, false)
+            throw error
+        }
     }
 
     override fun resumeThread(threadId: ThreadId): CodexThread? {

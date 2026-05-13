@@ -3,6 +3,7 @@ package dev.vitalcc.stukay.feature.thread.data
 import dev.vitalcc.stukay.core.model.ApprovalDecision
 import dev.vitalcc.stukay.core.model.CodexThread
 import dev.vitalcc.stukay.core.model.ProjectId
+import dev.vitalcc.stukay.core.model.ThreadHistoryState
 import dev.vitalcc.stukay.core.model.ThreadId
 import dev.vitalcc.stukay.core.model.TimelineItem
 import dev.vitalcc.stukay.core.model.TurnId
@@ -16,10 +17,13 @@ interface ThreadRepository {
 
     fun refreshIndex(): List<CodexThread>
 
-    fun readThread(
-        threadId: ThreadId,
-        includeTurns: Boolean = true,
-    ): CodexThread?
+    fun readThreadSummary(threadId: ThreadId): CodexThread?
+
+    fun historyState(threadId: ThreadId): ThreadHistoryState
+
+    fun loadInitialHistory(threadId: ThreadId): ThreadHistoryState
+
+    fun loadOlderHistory(threadId: ThreadId): ThreadHistoryState
 
     fun resumeThread(threadId: ThreadId): CodexThread?
 

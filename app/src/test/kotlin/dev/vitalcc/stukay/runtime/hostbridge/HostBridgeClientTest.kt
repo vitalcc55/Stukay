@@ -310,6 +310,7 @@ class HostBridgeClientTest {
                   "data": [
                     {
                       "id": "thread-1",
+                      "sessionId": "session-1",
                       "cwd": "C:\\Users\\v.vlasov\\Desktop\\Stukay",
                       "title": "Runtime thread",
                       "preview": "First preview",
@@ -335,6 +336,7 @@ class HostBridgeClientTest {
 
             assertEquals(1, payload.data.size)
             assertEquals("thread-1", payload.data.single().id)
+            assertEquals("session-1", payload.data.single().sessionId)
             assertEquals("active", payload.data.single().status.type)
             assertEquals(listOf("waitingOnApproval"), payload.data.single().status.activeFlags)
         } finally {
@@ -343,7 +345,7 @@ class HostBridgeClientTest {
     }
 
     @Test
-    fun readThreadParsesTimelineItems() {
+    fun readThreadParsesMetadataWithoutRequiringHydratedTimeline() {
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/v1/threads/thread-1") { exchange ->
             exchange.responseHeaders.add("Content-Type", "application/json")
@@ -351,17 +353,32 @@ class HostBridgeClientTest {
                 {
                   "thread": {
                     "id": "thread-1",
+                    "sessionId": "session-1",
                     "cwd": "C:\\Users\\v.vlasov\\Desktop\\Stukay",
                     "title": "Runtime thread",
                     "preview": "First preview",
                     "sourceKind": "appServer",
+                    "threadSource": "user",
                     "updatedAtEpochMs": 2000,
                     "createdAtEpochMs": 1000,
                     "turnCount": 1,
                     "status": {"type": "idle", "activeFlags": []},
-                    "timeline": [
-                      {"type": "userMessage", "id": "user-1", "threadId": "thread-1", "turnId": "turn-1", "text": "Hello"},
-                      {"type": "assistantMessage", "id": "assistant-1", "threadId": "thread-1", "turnId": "turn-1", "itemId": "assistant-1", "text": "World", "streaming": false}
+                    "timeline": [],
+                    "pendingApprovals": [
+                      {
+                        "id": "approval-1",
+                        "requestId": "request-1",
+                        "itemId": "item-1",
+                        "threadId": "thread-1",
+                        "turnId": "turn-1",
+                        "kind": "command",
+                        "title": "Approve command",
+                        "description": "Need to run command",
+                        "availableDecisions": ["accept", "acceptForSession", "decline", "cancel"],
+                        "startedAtEpochMs": 123456789,
+                        "command": "dir",
+                        "cwd": "C:\\Users\\v.vlasov\\Desktop\\Stukay"
+                      }
                     ]
                   }
                 }
@@ -374,9 +391,61 @@ class HostBridgeClientTest {
             val client = OkHttpHostBridgeClient()
             val payload = client.readThread(pairingPayload(server.address.port), "thread-1")
 
-            assertEquals(2, payload.timeline.size)
-            assertEquals("assistantMessage", payload.timeline[1].type)
-            assertEquals("assistant-1", payload.timeline[1].itemId)
+            assertEquals("session-1", payload.sessionId)
+            assertEquals("user", payload.threadSource)
+            assertTrue(payload.timeline.isEmpty())
+            assertEquals(1, payload.pendingApprovals.size)
+            assertEquals(123456789L, payload.pendingApprovals.single().startedAtEpochMs)
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
+    fun loadThreadHistoryPageParsesTurnsCursorsAndItemsView() {
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/v1/threads/thread-1/history") { exchange ->
+            exchange.responseHeaders.add("Content-Type", "application/json")
+            val body = """
+                {
+                  "threadId": "thread-1",
+                  "data": [
+                    {
+                      "id": "turn-1",
+                      "status": "completed",
+                      "itemsView": "full",
+                      "startedAtEpochMs": 15000,
+                      "completedAtEpochMs": 16000,
+                      "durationMs": 1000,
+                      "items": [
+                        {"type": "userMessage", "id": "user-1", "threadId": "thread-1", "turnId": "turn-1", "text": "Hello"},
+                        {"type": "assistantMessage", "id": "assistant-1", "threadId": "thread-1", "turnId": "turn-1", "itemId": "assistant-1", "text": "World", "streaming": false}
+                      ]
+                    }
+                  ],
+                  "nextCursor": "cursor-2",
+                  "backwardsCursor": "cursor-0"
+                }
+            """.trimIndent().toByteArray()
+            exchange.sendResponseHeaders(200, body.size.toLong())
+            exchange.responseBody.use { it.write(body) }
+        }
+        server.start()
+        try {
+            val client = OkHttpHostBridgeClient()
+            val payload = client.loadThreadHistoryPage(
+                pairingPayload = pairingPayload(server.address.port),
+                threadId = "thread-1",
+                cursor = "cursor-1",
+                limit = 25,
+                sortDirection = "asc",
+            )
+
+            assertEquals("thread-1", payload.threadId)
+            assertEquals("cursor-2", payload.nextCursor)
+            assertEquals("cursor-0", payload.backwardsCursor)
+            assertEquals("full", payload.data.single().itemsView)
+            assertEquals("assistantMessage", payload.data.single().items[1].type)
         } finally {
             server.stop(0)
         }
@@ -413,7 +482,7 @@ class HostBridgeClientTest {
         server.createContext("/v1/threads/thread-1/events") { exchange ->
             exchange.responseHeaders.add("Content-Type", "text/event-stream")
             val body = """
-                data: {"method":"item/commandExecution/requestApproval","threadId":"thread-1","requestId":"request-1","approval":{"id":"approval-1","requestId":"request-1","itemId":"item-1","threadId":"thread-1","turnId":"turn-1","kind":"command","title":"Approve command","description":"Need to run command","availableDecisions":["accept","acceptForSession","decline","cancel"],"command":"dir","cwd":"C:\\Users\\v.vlasov\\Desktop\\Stukay"}}
+                data: {"method":"item/commandExecution/requestApproval","threadId":"thread-1","requestId":"request-1","startedAtEpochMs":123456789,"approval":{"id":"approval-1","requestId":"request-1","itemId":"item-1","threadId":"thread-1","turnId":"turn-1","kind":"command","title":"Approve command","description":"Need to run command","availableDecisions":["accept","acceptForSession","decline","cancel"],"startedAtEpochMs":123456789,"command":"dir","cwd":"C:\\Users\\v.vlasov\\Desktop\\Stukay"}}
 
             """.trimIndent().toByteArray()
             exchange.sendResponseHeaders(200, 0)
@@ -426,8 +495,38 @@ class HostBridgeClientTest {
                 val event = stream.nextEvent()
                 assertEquals("item/commandExecution/requestApproval", event?.method)
                 assertEquals("request-1", event?.requestId)
+                assertEquals(123456789L, event?.startedAtEpochMs)
                 assertEquals("approval-1", event?.approval?.id)
+                assertEquals(123456789L, event?.approval?.startedAtEpochMs)
                 assertEquals(listOf("accept", "acceptForSession", "decline", "cancel"), event?.approval?.availableDecisions)
+            }
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
+    fun openThreadEventStreamParsesItemLifecycleTimestamps() {
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/v1/threads/thread-1/events") { exchange ->
+            exchange.responseHeaders.add("Content-Type", "text/event-stream")
+            val body = """
+                data: {"method":"item/started","threadId":"thread-1","turnId":"turn-1","startedAtEpochMs":1000,"item":{"type":"assistantMessage","id":"assistant-1","threadId":"thread-1","turnId":"turn-1","itemId":"assistant-1","text":"Hello","streaming":true}}
+
+                data: {"method":"item/completed","threadId":"thread-1","turnId":"turn-1","completedAtEpochMs":2000,"item":{"type":"assistantMessage","id":"assistant-1","threadId":"thread-1","turnId":"turn-1","itemId":"assistant-1","text":"Hello world","streaming":false}}
+
+            """.trimIndent().toByteArray()
+            exchange.sendResponseHeaders(200, 0)
+            exchange.responseBody.use { it.write(body) }
+        }
+        server.start()
+        try {
+            val client = OkHttpHostBridgeClient()
+            client.openThreadEventStream(pairingPayload(server.address.port), "thread-1").use { stream ->
+                val started = stream.nextEvent()
+                val completed = stream.nextEvent()
+                assertEquals(1000L, started?.startedAtEpochMs)
+                assertEquals(2000L, completed?.completedAtEpochMs)
             }
         } finally {
             server.stop(0)

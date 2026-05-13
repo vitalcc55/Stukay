@@ -24,7 +24,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import dev.vitalcc.stukay.core.logging.AppLogger
 import dev.vitalcc.stukay.core.logging.LogArea
-import dev.vitalcc.stukay.core.logging.logEvent
+import dev.vitalcc.stukay.core.logging.LogEvents
 import dev.vitalcc.stukay.core.model.CodexProject
 import dev.vitalcc.stukay.core.model.CodexThread
 import dev.vitalcc.stukay.core.model.ThreadId
@@ -45,7 +45,7 @@ fun ProjectRoute(
 ) {
     LaunchedEffect(project?.id) {
         logger.info(
-            logEvent(
+            LogEvents.info(
                 area = LogArea.Ui,
                 eventName = "screen_opened",
                 messageHuman = "Project screen opened",
@@ -129,3 +129,4 @@ fun ProjectRoute(
 }
 
 private fun threadTag(raw: String): String = raw.replace(Regex("[^A-Za-z0-9._-]"), "_")
+

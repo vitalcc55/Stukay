@@ -10,12 +10,15 @@ import dev.vitalcc.stukay.core.model.CommandRunStatus
 import dev.vitalcc.stukay.core.model.FileChangeKind
 import dev.vitalcc.stukay.core.model.ProjectId
 import dev.vitalcc.stukay.core.model.ProjectStatus
+import dev.vitalcc.stukay.core.model.ThreadHistoryState
 import dev.vitalcc.stukay.core.model.ThreadId
 import dev.vitalcc.stukay.core.model.ThreadStatus
 import dev.vitalcc.stukay.core.model.TimelineItem
 import dev.vitalcc.stukay.core.model.TurnId
 import dev.vitalcc.stukay.runtime.hostbridge.HostBridgeApprovalPayload
+import dev.vitalcc.stukay.runtime.hostbridge.HostBridgeHistoryTurnPayload
 import dev.vitalcc.stukay.runtime.hostbridge.HostBridgeThreadEvent
+import dev.vitalcc.stukay.runtime.hostbridge.HostBridgeThreadHistoryPagePayload
 import dev.vitalcc.stukay.runtime.hostbridge.HostBridgeThreadPayload
 import dev.vitalcc.stukay.runtime.hostbridge.HostBridgeThreadStatusPayload
 import dev.vitalcc.stukay.runtime.hostbridge.HostBridgeTimelineItemPayload
@@ -32,14 +35,15 @@ class RuntimeThreadStore(
         val nextThreads = linkedMapOf<String, CachedRuntimeThread>()
         payloads.forEach { payload ->
             val existing = threadsById[payload.id]
-            val timeline = if (payload.timeline.isNotEmpty()) {
-                payload.timeline.map(::toTimelineItem).toMutableList()
-            } else {
-                existing?.timeline ?: mutableListOf()
-            }
             nextThreads[payload.id] = CachedRuntimeThread(
                 thread = toCodexThread(payload),
-                timeline = timeline,
+                timeline = existing?.timeline ?: mutableListOf(),
+                pendingApprovals = mergePendingApprovals(
+                    existingApprovals = existing?.pendingApprovals.orEmpty(),
+                    payloadApprovals = payload.pendingApprovals.map { approval -> approval.toApprovalRequest() },
+                    keepMissingApprovals = "waitingOnApproval" in payload.status.activeFlags,
+                ),
+                historyState = existing?.historyState ?: ThreadHistoryState(),
             )
         }
         threadsById.clear()
@@ -49,17 +53,20 @@ class RuntimeThreadStore(
     @Synchronized
     fun replaceThread(payload: HostBridgeThreadPayload) {
         val existing = threadsById[payload.id]
-        val timeline = if (payload.timeline.isNotEmpty()) {
-            mergeEphemeralTimeline(
-                baseTimeline = payload.timeline.map(::toTimelineItem),
-                existingTimeline = existing?.timeline.orEmpty(),
-            )
-        } else {
-            existing?.timeline ?: mutableListOf()
-        }
+        val snapshotTimeline = payload.timeline.map(::toTimelineItem)
+        val mergedTimeline = mergeHistoryWithExisting(
+            pageItems = snapshotTimeline,
+            existingItems = existing?.timeline.orEmpty(),
+        )
         threadsById[payload.id] = CachedRuntimeThread(
             thread = toCodexThread(payload),
-            timeline = timeline,
+            timeline = mergedTimeline,
+            pendingApprovals = mergePendingApprovals(
+                existingApprovals = existing?.pendingApprovals.orEmpty(),
+                payloadApprovals = payload.pendingApprovals.map { approval -> approval.toApprovalRequest() },
+                keepMissingApprovals = true,
+            ),
+            historyState = existing?.historyState ?: ThreadHistoryState(),
         )
     }
 
@@ -67,24 +74,54 @@ class RuntimeThreadStore(
     fun mergeResumedThread(payload: HostBridgeThreadPayload) {
         val existing = threadsById[payload.id]
         val resumedTimeline = payload.timeline.map(::toTimelineItem)
-        val keepMissingApprovals = "waitingOnApproval" in payload.status.activeFlags
-        val timeline = when {
-            existing == null -> resumedTimeline.toMutableList()
-            existing.timeline.isNotEmpty() && resumedTimeline.isNotEmpty() -> mergeTimelineById(
-                existing.timeline,
-                resumedTimeline,
-                keepMissingApprovals = keepMissingApprovals,
-            )
-            existing.timeline.isNotEmpty() -> pruneMissingApprovals(
-                existingTimeline = existing.timeline,
-                keepMissingApprovals = keepMissingApprovals,
-            )
-            resumedTimeline.isNotEmpty() -> resumedTimeline.toMutableList()
-            else -> mutableListOf()
-        }
+        val mergedTimeline = mergeHistoryWithExisting(
+            pageItems = resumedTimeline,
+            existingItems = existing?.timeline.orEmpty(),
+        )
         threadsById[payload.id] = CachedRuntimeThread(
             thread = toCodexThread(payload),
-            timeline = timeline,
+            timeline = mergedTimeline,
+            pendingApprovals = mergePendingApprovals(
+                existingApprovals = existing?.pendingApprovals.orEmpty(),
+                payloadApprovals = payload.pendingApprovals.map { approval -> approval.toApprovalRequest() },
+                keepMissingApprovals = "waitingOnApproval" in payload.status.activeFlags,
+            ),
+            historyState = existing?.historyState ?: ThreadHistoryState(),
+        )
+    }
+
+    @Synchronized
+    fun setHistoryLoading(threadId: ThreadId, isLoading: Boolean) {
+        val cached = threadsById[threadId.value] ?: return
+        cached.historyState = cached.historyState.copy(isLoadingOlderHistory = isLoading)
+    }
+
+    @Synchronized
+    fun applyHistoryPage(
+        threadId: ThreadId,
+        page: HostBridgeThreadHistoryPagePayload,
+        isInitialPage: Boolean = false,
+    ) {
+        val cached = threadsById[threadId.value] ?: return
+        val chronologicalItems = page.data
+            .asReversed()
+            .flatMap { turn -> turn.toTimelineItems(page.threadId) }
+        cached.timeline = if (isInitialPage) {
+            mergeInitialHistoryPage(
+                pageItems = chronologicalItems,
+                existingItems = cached.timeline,
+            )
+        } else {
+            mergeHistoryWithExisting(
+                pageItems = chronologicalItems,
+                existingItems = cached.timeline,
+            )
+        }
+        cached.historyState = ThreadHistoryState(
+            nextCursor = page.nextCursor,
+            backwardsCursor = page.backwardsCursor,
+            hasOlderHistory = page.nextCursor != null,
+            isLoadingOlderHistory = false,
         )
     }
 
@@ -117,41 +154,37 @@ class RuntimeThreadStore(
     fun loadTimeline(threadId: ThreadId): List<TimelineItem> = threadsById[threadId.value]?.timeline?.toList().orEmpty()
 
     @Synchronized
+    fun historyState(threadId: ThreadId): ThreadHistoryState = threadsById[threadId.value]?.historyState ?: ThreadHistoryState()
+
+    @Synchronized
     fun unresolvedApprovals(threadId: ThreadId): List<TimelineItem.ApprovalRequest> = threadsById[threadId.value]
-        ?.timeline
-        ?.mapNotNull { item -> item as? TimelineItem.ApprovalRequest }
-        ?.filter { approval -> !approval.resolved }
+        ?.pendingApprovals
+        ?.filterNot { approval -> approval.resolved }
         .orEmpty()
 
     @Synchronized
     fun clearActiveApprovals(threadId: ThreadId, reason: String) {
         val cached = threadsById[threadId.value] ?: return
-        var changed = false
-        val updated = cached.timeline.map { item ->
-            if (item is TimelineItem.ApprovalRequest && !item.resolved) {
-                changed = true
-                item.copy(
-                    resolved = true,
-                    stale = true,
-                )
-            } else {
-                item
-            }
-        }.toMutableList()
-        if (changed) {
-            updated += TimelineItem.StatusEvent(
-                id = "${threadId.value}-approval-cleared-${updated.size}",
-                threadId = threadId,
-                title = "Approval cleared",
-                detail = reason,
-            )
-            cached.timeline.clear()
-            cached.timeline.addAll(updated)
-            cached.thread = cached.thread.copy(
-                preview = reason,
-                lastUpdatedAtEpochMs = nowProvider(),
-            )
+        val staleApprovals = cached.pendingApprovals
+            .filterNot { approval -> approval.resolved }
+            .map { approval -> approval.copy(resolved = true, stale = true) }
+        if (staleApprovals.isEmpty()) {
+            return
         }
+        cached.pendingApprovals = cached.pendingApprovals.filter { it.resolved }.toMutableList()
+        staleApprovals.forEach { approval ->
+            cached.timeline += approval
+        }
+        cached.timeline += TimelineItem.StatusEvent(
+            id = "${threadId.value}-approval-cleared-${cached.timeline.size}",
+            threadId = threadId,
+            title = "Approval cleared",
+            detail = reason,
+        )
+        cached.thread = cached.thread.copy(
+            preview = reason,
+            lastUpdatedAtEpochMs = nowProvider(),
+        )
     }
 
     @Synchronized
@@ -365,13 +398,11 @@ class RuntimeThreadStore(
     private fun upsertApproval(payload: HostBridgeApprovalPayload) {
         val cached = threadsById[payload.threadId] ?: return
         val approval = payload.toApprovalRequest()
-        val existingIndex = cached.timeline.indexOfFirst { item ->
-            item is TimelineItem.ApprovalRequest && item.requestId == payload.requestId
-        }
+        val existingIndex = cached.pendingApprovals.indexOfFirst { item -> item.requestId == payload.requestId }
         if (existingIndex >= 0) {
-            cached.timeline[existingIndex] = approval
+            cached.pendingApprovals[existingIndex] = approval
         } else {
-            cached.timeline += approval
+            cached.pendingApprovals += approval
         }
         cached.thread = cached.thread.copy(
             status = ThreadStatus.WaitingForApproval,
@@ -386,35 +417,37 @@ class RuntimeThreadStore(
         reason: String,
     ) {
         val cached = threadsById[threadId.value] ?: return
-        val updated = cached.timeline.map { item ->
-            if (item is TimelineItem.ApprovalRequest && item.requestId == requestId && !item.resolved) {
-                item.copy(
-                    resolved = true,
-                    stale = false,
-                )
-            } else {
-                item
+        val resolvedApprovals = mutableListOf<TimelineItem.ApprovalRequest>()
+        cached.pendingApprovals = cached.pendingApprovals.mapNotNull { approval ->
+            when {
+                approval.requestId == requestId && !approval.resolved -> {
+                    resolvedApprovals += approval.copy(
+                        resolved = true,
+                        stale = false,
+                    )
+                    null
+                }
+
+                else -> approval
             }
         }.toMutableList()
-        cached.timeline.clear()
-        cached.timeline.addAll(updated)
-        val remainingApprovals = updated.count { item ->
-            item is TimelineItem.ApprovalRequest && !item.resolved
+        if (resolvedApprovals.isNotEmpty()) {
+            cached.timeline += resolvedApprovals
+            cached.timeline += TimelineItem.StatusEvent(
+                id = "${threadId.value}-approval-resolved-$requestId",
+                threadId = threadId,
+                title = "Approval resolved",
+                detail = reason,
+            )
         }
-        cached.timeline += TimelineItem.StatusEvent(
-            id = "${threadId.value}-approval-resolved-$requestId",
-            threadId = threadId,
-            title = "Approval resolved",
-            detail = reason,
-        )
         if (cached.thread.status == ThreadStatus.WaitingForApproval) {
             cached.thread = cached.thread.copy(
-                status = if (remainingApprovals > 0) {
+                status = if (cached.pendingApprovals.any { approval -> !approval.resolved }) {
                     ThreadStatus.WaitingForApproval
                 } else {
                     ThreadStatus.Running
                 },
-                preview = if (remainingApprovals > 0) {
+                preview = if (cached.pendingApprovals.any { approval -> !approval.resolved }) {
                     cached.thread.preview
                 } else {
                     "Approval resolved; awaiting runtime status."
@@ -438,6 +471,8 @@ class RuntimeThreadStore(
                 lastUpdatedAtEpochMs = nowProvider(),
             ),
             timeline = mutableListOf(),
+            pendingApprovals = mutableListOf(),
+            historyState = ThreadHistoryState(),
         )
     }
 
@@ -481,8 +516,11 @@ class RuntimeThreadStore(
         preview = payload.preview,
         status = toThreadStatus(payload.status),
         lastUpdatedAtEpochMs = payload.updatedAtEpochMs ?: nowProvider(),
+        sessionId = payload.sessionId.takeIf { it.isNotBlank() } ?: payload.id,
+        ephemeral = payload.ephemeral,
         cwd = payload.cwd.takeIf { it.isNotBlank() },
         sourceKind = payload.sourceKind,
+        threadSource = payload.threadSource,
     )
 
     private fun toThreadStatus(status: HostBridgeThreadStatusPayload): ThreadStatus {
@@ -556,6 +594,28 @@ class RuntimeThreadStore(
         )
     }
 
+    private fun HostBridgeHistoryTurnPayload.toTimelineItems(threadId: String): List<TimelineItem> {
+        val items = items.map(::toTimelineItem).toMutableList()
+        when (status.lowercase()) {
+            "interrupted" -> items += TimelineItem.StatusEvent(
+                id = "${this.id}-interrupted",
+                threadId = ThreadId(threadId),
+                title = "Turn interrupted",
+                detail = "Последний turn был прерван пользователем.",
+                turnId = TurnId(this.id),
+            )
+
+            "failed" -> items += TimelineItem.StatusEvent(
+                id = "${this.id}-error",
+                threadId = ThreadId(threadId),
+                title = "Turn failed",
+                detail = errorMessage ?: "Turn failed.",
+                turnId = TurnId(this.id),
+            )
+        }
+        return items
+    }
+
     private fun HostBridgeApprovalPayload.toApprovalRequest(): TimelineItem.ApprovalRequest = TimelineItem.ApprovalRequest(
         id = itemId,
         threadId = ThreadId(threadId),
@@ -581,6 +641,7 @@ class RuntimeThreadStore(
                 else -> null
             }
         },
+        startedAtEpochMs = startedAtEpochMs,
         commandPreview = command,
         cwd = cwd,
         grantRoot = grantRoot,
@@ -588,55 +649,78 @@ class RuntimeThreadStore(
         networkProtocol = networkProtocol,
     )
 
-    private fun mergeEphemeralTimeline(
-        baseTimeline: List<TimelineItem>,
-        existingTimeline: List<TimelineItem>,
+    private fun mergePendingApprovals(
+        existingApprovals: List<TimelineItem.ApprovalRequest>,
+        payloadApprovals: List<TimelineItem.ApprovalRequest>,
+        keepMissingApprovals: Boolean,
+    ): MutableList<TimelineItem.ApprovalRequest> {
+        if (payloadApprovals.isNotEmpty()) {
+            val merged = LinkedHashMap<String, TimelineItem.ApprovalRequest>()
+            payloadApprovals.forEach { approval ->
+                merged[approval.requestId ?: approval.approvalId.value] = approval
+            }
+            if (keepMissingApprovals) {
+                existingApprovals
+                    .filterNot { approval -> approval.resolved }
+                    .forEach { approval ->
+                        merged.putIfAbsent(approval.requestId ?: approval.approvalId.value, approval)
+                    }
+            }
+            return merged.values.toMutableList()
+        }
+        return if (keepMissingApprovals) {
+            existingApprovals.filterNot { approval -> approval.resolved }.toMutableList()
+        } else {
+            mutableListOf()
+        }
+    }
+
+    private fun mergeHistoryWithExisting(
+        pageItems: List<TimelineItem>,
+        existingItems: List<TimelineItem>,
     ): MutableList<TimelineItem> {
-        val merged = baseTimeline.toMutableList()
+        if (pageItems.isEmpty()) {
+            return existingItems.toMutableList()
+        }
+        val merged = pageItems.toMutableList()
         val knownIds = merged.mapTo(linkedSetOf()) { item -> item.id }
-        existingTimeline.forEach { item ->
-            if (item is TimelineItem.ApprovalRequest && !item.resolved && knownIds.add(item.id)) {
+        existingItems.forEach { item ->
+            if (knownIds.add(item.id)) {
                 merged += item
             }
         }
         return merged
     }
 
-    private fun mergeTimelineById(
-        existingTimeline: List<TimelineItem>,
-        resumedTimeline: List<TimelineItem>,
-        keepMissingApprovals: Boolean,
+    private fun mergeInitialHistoryPage(
+        pageItems: List<TimelineItem>,
+        existingItems: List<TimelineItem>,
     ): MutableList<TimelineItem> {
-        val resumedById = LinkedHashMap<String, TimelineItem>()
-        resumedTimeline.forEach { item ->
-            resumedById[item.id] = item
+        if (existingItems.isEmpty() || pageItems.isEmpty()) {
+            return mergeHistoryWithExisting(pageItems, existingItems)
         }
+        val pageIds = pageItems.mapTo(linkedSetOf()) { item -> item.id }
+        val firstOverlap = existingItems.indexOfFirst { item -> item.id in pageIds }
+        val lastOverlap = existingItems.indexOfLast { item -> item.id in pageIds }
+        if (firstOverlap < 0 || lastOverlap < 0) {
+            return pageItems.toMutableList()
+        }
+        val prefix = existingItems.take(firstOverlap).filter { item -> item.id !in pageIds }
+        val suffix = existingItems.drop(lastOverlap + 1).filter { item -> item.id !in pageIds }
         val merged = mutableListOf<TimelineItem>()
-        existingTimeline.forEach { item ->
-            val replacement = resumedById.remove(item.id)
-            when {
-                replacement != null -> merged += replacement
-                item is TimelineItem.ApprovalRequest && !item.resolved && !keepMissingApprovals -> Unit
-                else -> merged += item
+        val knownIds = linkedSetOf<String>()
+        (prefix + pageItems + suffix).forEach { item ->
+            if (knownIds.add(item.id)) {
+                merged += item
             }
         }
-        merged += resumedById.values
         return merged
     }
 
-    private fun pruneMissingApprovals(
-        existingTimeline: List<TimelineItem>,
-        keepMissingApprovals: Boolean,
-    ): MutableList<TimelineItem> = existingTimeline
-        .filterNot { item ->
-            item is TimelineItem.ApprovalRequest &&
-                !item.resolved &&
-                !keepMissingApprovals
-        }
-        .toMutableList()
-
     private data class CachedRuntimeThread(
         var thread: CodexThread,
-        val timeline: MutableList<TimelineItem>,
+        var timeline: MutableList<TimelineItem>,
+        var pendingApprovals: MutableList<TimelineItem.ApprovalRequest>,
+        var historyState: ThreadHistoryState,
     )
 }

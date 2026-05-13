@@ -191,11 +191,47 @@ class CodexRuntimeClient:
             {"threadId": thread_id, "includeTurns": include_turns},
         )
 
-    def resume_thread(self, thread_id: str) -> JsonDict:
+    def resume_thread(self, thread_id: str, *, exclude_turns: bool = False) -> JsonDict:
         return self.request(
             "thread/resume",
-            {"threadId": thread_id},
+            {"threadId": thread_id, "excludeTurns": exclude_turns},
         )
+
+    def list_thread_turns_page(
+        self,
+        thread_id: str,
+        *,
+        cursor: str | None,
+        limit: int,
+        sort_direction: str,
+        items_view: str,
+    ) -> JsonDict:
+        result = self.request(
+            "thread/turns/list",
+            {
+                "threadId": thread_id,
+                "cursor": cursor,
+                "limit": limit,
+                "sortDirection": sort_direction,
+                "itemsView": items_view,
+            },
+        )
+        data = result.get("data")
+        if not isinstance(data, list):
+            raise RuntimeClientError(
+                code="runtime_protocol_error",
+                public_message="Host Bridge received an invalid thread/turns/list response.",
+                detail=self._failure_detail("thread/turns/list response is missing data array"),
+            )
+        for cursor_key in ("nextCursor", "backwardsCursor"):
+            cursor_value = result.get(cursor_key)
+            if cursor_value is not None and (not isinstance(cursor_value, str) or not cursor_value):
+                raise RuntimeClientError(
+                    code="runtime_protocol_error",
+                    public_message="Host Bridge received an invalid pagination cursor from thread/turns/list.",
+                    detail=self._failure_detail(f"thread/turns/list {cursor_key} must be string or null"),
+                )
+        return result
 
     def start_turn(self, thread_id: str, text: str) -> JsonDict:
         return self.request(
@@ -240,6 +276,16 @@ class CodexRuntimeClient:
                     public_message="Host Bridge no longer has the requested approval prompt in memory.",
                 )
         self._write_message({"id": request_id, "result": result})
+
+    def pending_server_requests_for_thread(self, thread_id: str) -> list[JsonDict]:
+        with self._lifecycle_lock:
+            return [
+                request
+                for request in self._pending_server_requests.values()
+                if isinstance(request, dict)
+                and isinstance(request.get("params"), dict)
+                and request["params"].get("threadId") == thread_id
+            ]
 
     def request(self, method: str, params: JsonDict | None = None) -> JsonDict:
         with self._lifecycle_lock:

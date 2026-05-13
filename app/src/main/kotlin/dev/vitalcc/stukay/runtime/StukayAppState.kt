@@ -20,7 +20,7 @@ import dev.vitalcc.stukay.core.logging.LogArea
 import dev.vitalcc.stukay.core.logging.LogSink
 import dev.vitalcc.stukay.core.logging.RuntimeDiagnosticsSnapshot
 import dev.vitalcc.stukay.core.logging.StructuredLogger
-import dev.vitalcc.stukay.core.logging.logEvent
+import dev.vitalcc.stukay.core.logging.LogEvents
 import dev.vitalcc.stukay.core.model.ApprovalDecision
 import dev.vitalcc.stukay.core.model.CodexProject
 import dev.vitalcc.stukay.core.model.CodexThread
@@ -129,7 +129,7 @@ class StukayAppState(
     init {
         networkMonitor.start()
         logger.info(
-            logEvent(
+            LogEvents.info(
                 area = LogArea.App,
                 eventName = "app_started",
                 messageHuman = "Stukay app shell started",
@@ -218,6 +218,49 @@ class StukayAppState(
         recoverForegroundThreadSession(targetThreadId, "thread_opened")
     }
 
+    fun loadOlderHistory(threadId: String) {
+        val targetThreadId = ThreadId(threadId)
+        val currentHistoryState = threadRepository.historyState(targetThreadId)
+        if (!currentHistoryState.hasOlderHistory || currentHistoryState.isLoadingOlderHistory) {
+            return
+        }
+        val expectedGeneration = foregroundStreamGeneration
+        foregroundThreadSession = foregroundThreadSession.copy(
+            historyState = currentHistoryState.copy(isLoadingOlderHistory = true),
+            lastError = null,
+        )
+        foregroundRuntimeExecutor.execute {
+            val result = runCatching {
+                threadRepository.loadOlderHistory(targetThreadId)
+            }
+            mainHandler.post {
+                if (expectedGeneration != foregroundStreamGeneration ||
+                    foregroundThreadSession.activeThreadId != targetThreadId
+                ) {
+                    return@post
+                }
+                result.onSuccess {
+                    domainRevisionState += 1
+                    syncForegroundSession(threadId = targetThreadId)
+                }.onFailure { error ->
+                    foregroundThreadSession = foregroundThreadSession.copy(
+                        historyState = threadRepository.historyState(targetThreadId),
+                        lastError = error.message ?: "Не удалось догрузить более старую историю.",
+                    )
+                    logger.warn(
+                        LogEvents.info(
+                            area = LogArea.Thread,
+                            eventName = "thread_history_load_failed",
+                            messageHuman = foregroundThreadSession.lastError
+                                ?: "Не удалось догрузить более старую историю.",
+                            fields = mapOf("threadId" to targetThreadId.value),
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
     fun updateComposerDraft(value: String) {
         foregroundThreadSession = foregroundThreadSession.copy(composerDraft = value)
     }
@@ -248,7 +291,7 @@ class StukayAppState(
                         lastTurnId = turnId,
                     )
                     logger.info(
-                        logEvent(
+                        LogEvents.info(
                             area = LogArea.Turn,
                             eventName = "turn_start_requested",
                             messageHuman = "Foreground turn started from Android composer.",
@@ -274,7 +317,7 @@ class StukayAppState(
                         lastError = error.message ?: "Не удалось отправить turn/start.",
                     )
                     logger.error(
-                        logEvent(
+                        LogEvents.info(
                             area = LogArea.Turn,
                             eventName = "turn_start_failed",
                             messageHuman = foregroundThreadSession.lastError ?: "Не удалось отправить turn/start.",
@@ -303,7 +346,7 @@ class StukayAppState(
             mainHandler.post {
                 result.onSuccess {
                     logger.info(
-                        logEvent(
+                        LogEvents.info(
                             area = LogArea.Turn,
                             eventName = "turn_interrupt_requested",
                             messageHuman = "Interrupt requested for active turn.",
@@ -346,7 +389,7 @@ class StukayAppState(
             mainHandler.post {
                 result.onSuccess {
                     logger.info(
-                        logEvent(
+                        LogEvents.info(
                             area = LogArea.Approval,
                             eventName = "approval_response_sent",
                             messageHuman = "Approval response sent through Host Bridge.",
@@ -403,7 +446,7 @@ class StukayAppState(
                     applyHostBridgeState(nextState)
                     refreshRuntimeIndexAsync("pairing_saved")
                     logger.info(
-                        logEvent(
+                        LogEvents.info(
                             area = LogArea.HostBridge,
                             eventName = "pairing_saved",
                             messageHuman = "Сохранен pairing payload host bridge.",
@@ -417,7 +460,7 @@ class StukayAppState(
                 }.onFailure { error ->
                     hostBridgeState = failedHostBridgeState(error.message ?: "Не удалось сохранить pairing payload.")
                     logger.error(
-                        logEvent(
+                        LogEvents.info(
                             area = LogArea.Security,
                             eventName = "pairing_save_failed",
                             messageHuman = hostBridgeState.lastError ?: "Не удалось сохранить pairing payload.",
@@ -434,7 +477,7 @@ class StukayAppState(
             return
         }
         logger.info(
-            logEvent(
+            LogEvents.info(
                 area = LogArea.Connection,
                 eventName = "host_bridge_connect_started",
                 messageHuman = "Запущена попытка подключения к host bridge.",
@@ -468,7 +511,7 @@ class StukayAppState(
             return
         }
         logger.info(
-            logEvent(
+            LogEvents.info(
                 area = LogArea.Connection,
                 eventName = "host_bridge_reconnect_started",
                 messageHuman = "Запущена попытка повторного подключения к host bridge.",
@@ -531,7 +574,7 @@ class StukayAppState(
                     pairingInput = ""
                 }
                 logger.info(
-                    logEvent(
+                    LogEvents.info(
                         area = LogArea.Connection,
                         eventName = if (clearPairing) {
                             "pairing_cleared"
@@ -552,7 +595,7 @@ class StukayAppState(
 
     fun requestLocalNetworkPermission() {
         logger.info(
-            logEvent(
+            LogEvents.info(
                 area = LogArea.Connection,
                 eventName = "local_network_permission_requested",
                 messageHuman = "Запрошено разрешение Nearby devices для Android 16 local network path.",
@@ -563,7 +606,7 @@ class StukayAppState(
     fun onLocalNetworkPermissionResult(granted: Boolean) {
         localNetworkPermissionGranted = granted
         logger.info(
-            logEvent(
+            LogEvents.info(
                 area = LogArea.Connection,
                 eventName = "local_network_permission_result",
                 messageHuman = if (granted) {
@@ -707,7 +750,7 @@ class StukayAppState(
 
     private fun onAndroidNetworkChanged() {
         logger.info(
-            logEvent(
+            LogEvents.info(
                 area = LogArea.Connection,
                 eventName = "android_network_changed",
                 messageHuman = "Android network path изменился.",
@@ -779,7 +822,7 @@ class StukayAppState(
                 result.onSuccess {
                     domainRevisionState += 1
                     logger.info(
-                        logEvent(
+                        LogEvents.info(
                             area = LogArea.Thread,
                             eventName = "thread_index_refreshed",
                             messageHuman = "Runtime-backed thread index refreshed.",
@@ -788,7 +831,7 @@ class StukayAppState(
                     )
                 }.onFailure { error ->
                     logger.warn(
-                        logEvent(
+                        LogEvents.info(
                             area = LogArea.Thread,
                             eventName = "thread_index_refresh_failed",
                             messageHuman = error.message ?: "Не удалось обновить thread index.",
@@ -815,27 +858,56 @@ class StukayAppState(
         )
         foregroundRuntimeExecutor.execute {
             var attachedStream: HostBridgeEventStream? = null
-            val result = runCatching<HostBridgeEventStream> {
-                threadRepository.readThread(threadId, includeTurns = true)
+            val result = runCatching {
+                threadRepository.readThreadSummary(threadId)
                 attachedStream = threadRepository.openEventStream(threadId)
-                threadRepository.resumeThread(threadId)
-                requireNotNull(attachedStream) {
-                    "Foreground event stream did not attach."
+                val resumedThread = threadRepository.resumeThread(threadId)
+                var initialHistoryError: Throwable? = null
+                if (resumedThread?.ephemeral != true) {
+                    runCatching {
+                        threadRepository.loadInitialHistory(threadId)
+                    }.onFailure { error ->
+                        initialHistoryError = error
+                    }
                 }
+                RecoveryResult(
+                    stream = requireNotNull(attachedStream) {
+                        "Foreground event stream did not attach."
+                    },
+                    initialHistoryError = initialHistoryError,
+                )
             }
             mainHandler.post {
                 if (generation != foregroundStreamGeneration || foregroundThreadSession.activeThreadId != threadId) {
-                    result.getOrNull()?.close()
+                    result.getOrNull()?.stream?.close()
                     return@post
                 }
-                result.onSuccess { stream ->
+                result.onSuccess { recovery ->
                     domainRevisionState += 1
                     syncForegroundSession(
                         threadId = threadId,
                         streamState = ForegroundThreadStreamState.Ready,
                     )
+                    if (recovery.initialHistoryError != null) {
+                        foregroundThreadSession = foregroundThreadSession.copy(
+                            lastError = recovery.initialHistoryError.message
+                                ?: "Не удалось загрузить начальную страницу истории.",
+                        )
+                        logger.warn(
+                            LogEvents.info(
+                                area = LogArea.Thread,
+                                eventName = "foreground_thread_initial_history_failed",
+                                messageHuman = foregroundThreadSession.lastError
+                                    ?: "Не удалось загрузить начальную страницу истории.",
+                                fields = mapOf(
+                                    "threadId" to threadId.value,
+                                    "reason" to reason,
+                                ),
+                            ),
+                        )
+                    }
                     logger.info(
-                        logEvent(
+                        LogEvents.info(
                             area = LogArea.Thread,
                             eventName = "foreground_thread_rehydrated",
                             messageHuman = "Foreground thread rehydrated from runtime.",
@@ -845,7 +917,7 @@ class StukayAppState(
                             ),
                         ),
                     )
-                    startForegroundEventLoop(threadId, generation, stream)
+                    startForegroundEventLoop(threadId, generation, recovery.stream)
                 }.onFailure { error ->
                     attachedStream?.close()
                     foregroundThreadSession = failedForegroundSession(
@@ -853,7 +925,7 @@ class StukayAppState(
                         message = error.message ?: "Не удалось восстановить foreground thread.",
                     )
                     logger.error(
-                        logEvent(
+                        LogEvents.info(
                             area = LogArea.Thread,
                             eventName = "foreground_thread_rehydrate_failed",
                             messageHuman = foregroundThreadSession.lastError
@@ -916,6 +988,11 @@ class StukayAppState(
             }
         }
     }
+
+    private data class RecoveryResult(
+        val stream: HostBridgeEventStream,
+        val initialHistoryError: Throwable?,
+    )
 
     private fun handleForegroundEvent(
         threadId: ThreadId,
@@ -994,12 +1071,14 @@ class StukayAppState(
     ) {
         val thread = threadRepository.loadThread(threadId)
         val pendingApprovals = threadRepository.unresolvedApprovals(threadId)
+        val historyState = threadRepository.historyState(threadId)
         foregroundThreadSession = foregroundThreadSession.copy(
             activeThreadId = threadId,
             activeTurnId = activeTurnId,
             streamState = streamState,
             blockedReason = blockedReasonFor(thread, pendingApprovals),
             pendingApprovals = pendingApprovals,
+            historyState = historyState,
             lastTurnId = lastTurnId,
             lastRequestId = lastRequestId,
             lastItemId = lastItemId,
@@ -1019,6 +1098,7 @@ class StukayAppState(
             streamState = ForegroundThreadStreamState.Failed,
             blockedReason = blockedReasonFor(thread, pendingApprovals),
             pendingApprovals = pendingApprovals,
+            historyState = threadRepository.historyState(threadId),
             lastError = message,
         )
     }
@@ -1043,20 +1123,29 @@ class StukayAppState(
         foregroundEventStream = null
     }
 
-    private fun runtimeDiagnosticsSnapshot(): RuntimeDiagnosticsSnapshot = RuntimeDiagnosticsSnapshot(
-        activeThreadId = foregroundThreadSession.activeThreadId?.value,
-        activeTurnId = foregroundThreadSession.activeTurnId?.value,
-        streamState = foregroundThreadSession.streamState.name,
-        blockedReason = foregroundThreadSession.blockedReason?.name,
-        pendingApprovalSummary = foregroundThreadSession.pendingApprovals.joinToString { approval ->
-            approval.requestId ?: approval.approvalId.value
-        }.ifBlank { null },
-        reconnectGeneration = foregroundThreadSession.reconnectGeneration,
-        lastRecoverAttemptAtEpochMs = foregroundThreadSession.lastRecoverAttemptAtEpochMs,
-        lastTurnId = foregroundThreadSession.lastTurnId?.value,
-        lastRequestId = foregroundThreadSession.lastRequestId,
-        lastItemId = foregroundThreadSession.lastItemId,
-    )
+    private fun runtimeDiagnosticsSnapshot(): RuntimeDiagnosticsSnapshot {
+        val activeThread = foregroundThreadSession.activeThreadId?.let { threadId ->
+            threadRepository.loadThread(threadId)
+        }
+        return RuntimeDiagnosticsSnapshot(
+            activeThreadId = foregroundThreadSession.activeThreadId?.value,
+            activeSessionId = activeThread?.sessionId,
+            activeTurnId = foregroundThreadSession.activeTurnId?.value,
+            streamState = foregroundThreadSession.streamState.name,
+            blockedReason = foregroundThreadSession.blockedReason?.name,
+            pendingApprovalSummary = foregroundThreadSession.pendingApprovals.joinToString { approval ->
+                approval.requestId ?: approval.approvalId.value
+            }.ifBlank { null },
+            historyNextCursor = foregroundThreadSession.historyState.nextCursor,
+            hasOlderHistory = foregroundThreadSession.historyState.hasOlderHistory,
+            isLoadingOlderHistory = foregroundThreadSession.historyState.isLoadingOlderHistory,
+            reconnectGeneration = foregroundThreadSession.reconnectGeneration,
+            lastRecoverAttemptAtEpochMs = foregroundThreadSession.lastRecoverAttemptAtEpochMs,
+            lastTurnId = foregroundThreadSession.lastTurnId?.value,
+            lastRequestId = foregroundThreadSession.lastRequestId,
+            lastItemId = foregroundThreadSession.lastItemId,
+        )
+    }
 
     private fun didHostBridgeStateMeaningfullyChange(
         previousState: HostBridgeConnectionState,
@@ -1088,6 +1177,9 @@ class StukayAppState(
         hostBridgeState.runtimeSummary.lastTransportError?.let { put("lastTransportError", it) }
         foregroundThreadSession.activeThreadId?.value?.let { put("activeThreadId", it) }
         foregroundThreadSession.activeTurnId?.value?.let { put("activeTurnId", it) }
+        foregroundThreadSession.historyState.nextCursor?.let { put("historyNextCursor", it) }
+        put("hasOlderHistory", foregroundThreadSession.historyState.hasOlderHistory.toString())
+        put("isLoadingOlderHistory", foregroundThreadSession.historyState.isLoadingOlderHistory.toString())
         put("foregroundStreamState", foregroundThreadSession.streamState.name)
         foregroundThreadSession.lastRequestId?.let { put("lastRequestId", it) }
         foregroundThreadSession.lastItemId?.let { put("lastItemId", it) }
@@ -1108,7 +1200,7 @@ class StukayAppState(
     private fun logHostBridgeTransition() {
         when (hostBridgeState.phase) {
             HostBridgeConnectionPhase.Connected -> logger.info(
-                logEvent(
+                LogEvents.info(
                     area = LogArea.Connection,
                     eventName = "host_bridge_connect_succeeded",
                     messageHuman = "Подключение к host bridge помечено как готовое.",
@@ -1117,7 +1209,7 @@ class StukayAppState(
             )
 
             HostBridgeConnectionPhase.Degraded -> logger.warn(
-                logEvent(
+                LogEvents.info(
                     area = LogArea.Connection,
                     eventName = "host_bridge_degraded",
                     messageHuman = hostBridgeState.lastError ?: "Host bridge перешел в degraded state.",
@@ -1126,7 +1218,7 @@ class StukayAppState(
             )
 
             HostBridgeConnectionPhase.Failed -> logger.error(
-                logEvent(
+                LogEvents.info(
                     area = LogArea.HostBridge,
                     eventName = "host_bridge_connect_failed",
                     messageHuman = hostBridgeState.lastError ?: "Подключение к host bridge завершилось ошибкой.",
@@ -1139,7 +1231,7 @@ class StukayAppState(
                     hostBridgeState.localNetworkAccessState == LocalNetworkAccessState.Ready
                 ) {
                     logger.warn(
-                        logEvent(
+                        LogEvents.info(
                             area = LogArea.Connection,
                             eventName = "host_bridge_permission_advisory",
                             messageHuman = "Nearby devices остается manual opt-in advisory для Android 16 local-network path.",
@@ -1148,7 +1240,7 @@ class StukayAppState(
                     )
                 } else {
                     logger.info(
-                        logEvent(
+                        LogEvents.info(
                             area = LogArea.Connection,
                             eventName = "host_bridge_state_updated",
                             messageHuman = "Состояние host bridge обновлено.",
@@ -1158,7 +1250,7 @@ class StukayAppState(
                 }
 
             else -> logger.info(
-                logEvent(
+                LogEvents.info(
                     area = LogArea.Connection,
                     eventName = "host_bridge_state_updated",
                     messageHuman = "Состояние host bridge обновлено.",
@@ -1185,3 +1277,4 @@ class StukayAppState(
         const val HOST_BRIDGE_PROBE_INTERVAL_MS = 5_000L
     }
 }
+

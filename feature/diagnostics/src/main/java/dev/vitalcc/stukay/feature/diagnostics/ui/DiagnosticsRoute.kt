@@ -18,14 +18,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import dev.vitalcc.stukay.core.logging.AppLogger
 import dev.vitalcc.stukay.core.logging.DiagnosticsSummary
-import dev.vitalcc.stukay.core.logging.LogArea
-import dev.vitalcc.stukay.core.logging.logEvent
 import dev.vitalcc.stukay.core.model.HostBridgeConnectionState
 import dev.vitalcc.stukay.core.model.HostRuntimeSnapshotScope
 import dev.vitalcc.stukay.core.model.RouteContext
@@ -44,17 +41,6 @@ fun DiagnosticsRoute(
     hostBridgeState: HostBridgeConnectionState,
     onNavigateBack: () -> Unit,
 ) {
-    LaunchedEffect(Unit) {
-        logger.info(
-            logEvent(
-                area = LogArea.Diagnostics,
-                eventName = "diagnostics_opened",
-                messageHuman = "Diagnostics screen opened",
-                fields = mapOf("screen" to "diagnostics"),
-            ),
-        )
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -97,6 +83,9 @@ fun DiagnosticsRoute(
                             Text(text = "Total logs: ${diagnosticsSummary.totalLogs}")
                             diagnosticsSummary.runtimeSnapshot?.let { runtime ->
                                 Text(text = "Active thread: ${runtime.activeThreadId ?: "none"}")
+                                runtime.activeSessionId?.let { sessionId ->
+                                    Text(text = "Active session: $sessionId")
+                                }
                                 Text(text = "Active turn: ${runtime.activeTurnId ?: "none"}")
                                 Text(text = "Stream state: ${runtime.streamState}")
                                 runtime.blockedReason?.let { blockedReason ->
@@ -105,6 +94,11 @@ fun DiagnosticsRoute(
                                 runtime.pendingApprovalSummary?.let { pendingApprovals ->
                                     Text(text = "Pending approvals: $pendingApprovals")
                                 }
+                                runtime.historyNextCursor?.let { historyCursor ->
+                                    Text(text = "Следующий history cursor: $historyCursor")
+                                }
+                                Text(text = "Есть более старая история: ${runtime.hasOlderHistory}")
+                                Text(text = "Идёт загрузка старой истории: ${runtime.isLoadingOlderHistory}")
                                 Text(text = "Reconnect generation: ${runtime.reconnectGeneration}")
                                 runtime.lastRecoverAttemptAtEpochMs?.let { recoverAt ->
                                     Text(text = "Last recover attempt: $recoverAt")

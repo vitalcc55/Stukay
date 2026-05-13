@@ -24,6 +24,8 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okio.BufferedSource
 import java.io.Closeable
 import java.io.IOException
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 
 interface HostBridgeClient {
@@ -34,6 +36,14 @@ interface HostBridgeClient {
     fun readThread(pairingPayload: PairingPayload, threadId: String): HostBridgeThreadPayload
 
     fun resumeThread(pairingPayload: PairingPayload, threadId: String): HostBridgeThreadPayload
+
+    fun loadThreadHistoryPage(
+        pairingPayload: PairingPayload,
+        threadId: String,
+        cursor: String?,
+        limit: Int,
+        sortDirection: String,
+    ): HostBridgeThreadHistoryPagePayload
 
     fun startTurn(
         pairingPayload: PairingPayload,
@@ -121,15 +131,19 @@ data class HostBridgeThreadStatusPayload(
 
 data class HostBridgeThreadPayload(
     val id: String,
+    val sessionId: String = "",
+    val ephemeral: Boolean = false,
     val cwd: String,
     val title: String,
     val preview: String,
     val sourceKind: String,
+    val threadSource: String? = null,
     val updatedAtEpochMs: Long?,
     val createdAtEpochMs: Long?,
     val turnCount: Int,
     val status: HostBridgeThreadStatusPayload,
     val timeline: List<HostBridgeTimelineItemPayload> = emptyList(),
+    val pendingApprovals: List<HostBridgeApprovalPayload> = emptyList(),
 )
 
 data class HostBridgeTurnPayload(
@@ -139,6 +153,24 @@ data class HostBridgeTurnPayload(
     val completedAtEpochMs: Long?,
     val durationMs: Long?,
     val errorMessage: String?,
+)
+
+data class HostBridgeThreadHistoryPagePayload(
+    val threadId: String,
+    val data: List<HostBridgeHistoryTurnPayload>,
+    val nextCursor: String?,
+    val backwardsCursor: String?,
+)
+
+data class HostBridgeHistoryTurnPayload(
+    val id: String,
+    val status: String,
+    val itemsView: String,
+    val startedAtEpochMs: Long?,
+    val completedAtEpochMs: Long?,
+    val durationMs: Long?,
+    val errorMessage: String?,
+    val items: List<HostBridgeTimelineItemPayload>,
 )
 
 data class HostBridgeTimelineItemPayload(
@@ -171,6 +203,7 @@ data class HostBridgeApprovalPayload(
     val title: String,
     val description: String,
     val availableDecisions: List<String>,
+    val startedAtEpochMs: Long? = null,
     val command: String? = null,
     val cwd: String? = null,
     val grantRoot: String? = null,
@@ -191,6 +224,8 @@ data class HostBridgeThreadEvent(
     val requestId: String? = null,
     val approval: HostBridgeApprovalPayload? = null,
     val questionCount: Int? = null,
+    val startedAtEpochMs: Long? = null,
+    val completedAtEpochMs: Long? = null,
     val message: String? = null,
 )
 
@@ -241,9 +276,32 @@ class OkHttpHostBridgeClient(
             pairingPayload = pairingPayload,
             path = "/v1/threads/$threadId/resume",
             method = "POST",
-            requestBody = buildJsonObject { },
+            requestBody = buildJsonObject {
+                put("excludeTurns", true)
+            },
         )
         return payload.requireObject("thread").toHostBridgeThread()
+    }
+
+    override fun loadThreadHistoryPage(
+        pairingPayload: PairingPayload,
+        threadId: String,
+        cursor: String?,
+        limit: Int,
+        sortDirection: String,
+    ): HostBridgeThreadHistoryPagePayload {
+        val payload = executeJsonRequest(
+            pairingPayload = pairingPayload,
+            path = historyPagePath(
+                threadId = threadId,
+                cursor = cursor,
+                limit = limit,
+                sortDirection = sortDirection,
+            ),
+            method = "GET",
+            requestBody = null,
+        )
+        return payload.toHostBridgeThreadHistoryPage()
     }
 
     override fun startTurn(
@@ -507,6 +565,25 @@ private class OkHttpHostBridgeEventStream(
 
 private fun url(endpoint: String, path: String): String = endpoint.trimEnd('/') + path
 
+private fun historyPagePath(
+    threadId: String,
+    cursor: String?,
+    limit: Int,
+    sortDirection: String,
+): String = buildString {
+    append("/v1/threads/")
+    append(threadId)
+    append("/history")
+    append("?limit=")
+    append(limit)
+    append("&sortDirection=")
+    append(sortDirection)
+    if (!cursor.isNullOrBlank()) {
+        append("&cursor=")
+        append(URLEncoder.encode(cursor, StandardCharsets.UTF_8))
+    }
+}
+
 private fun parseJsonObject(rawBody: String): JsonObject = try {
     JSON.decodeFromString<JsonElement>(rawBody).jsonObject
 } catch (_: Exception) {
@@ -569,15 +646,19 @@ private fun JsonArray.toHostBridgeThreadList(): List<HostBridgeThreadPayload> = 
 
 private fun JsonObject.toHostBridgeThread(): HostBridgeThreadPayload = HostBridgeThreadPayload(
     id = requireString("id"),
+    sessionId = optStringOrNull("sessionId") ?: requireString("id"),
+    ephemeral = optBooleanOrDefault("ephemeral", false),
     cwd = optStringOrNull("cwd").orEmpty(),
     title = optStringOrNull("title").orEmpty(),
     preview = optStringOrNull("preview").orEmpty(),
     sourceKind = optStringOrNull("sourceKind") ?: "unknown",
+    threadSource = optStringOrNull("threadSource"),
     updatedAtEpochMs = optLongOrNull("updatedAtEpochMs"),
     createdAtEpochMs = optLongOrNull("createdAtEpochMs"),
     turnCount = optIntOrNull("turnCount") ?: 0,
     status = requireObject("status").toHostBridgeThreadStatus(),
     timeline = optArrayOrNull("timeline")?.toHostBridgeTimeline() ?: emptyList(),
+    pendingApprovals = optArrayOrNull("pendingApprovals")?.toHostBridgeApprovals() ?: emptyList(),
 )
 
 private fun JsonObject.toHostBridgeThreadStatus(): HostBridgeThreadStatusPayload = HostBridgeThreadStatusPayload(
@@ -599,6 +680,36 @@ private fun JsonArray.toHostBridgeTimeline(): List<HostBridgeTimelineItemPayload
         add(this@toHostBridgeTimeline[index].jsonObject.toHostBridgeTimelineItem())
     }
 }
+
+private fun JsonArray.toHostBridgeApprovals(): List<HostBridgeApprovalPayload> = buildList {
+    for (index in this@toHostBridgeApprovals.indices) {
+        add(this@toHostBridgeApprovals[index].jsonObject.toHostBridgeApproval())
+    }
+}
+
+private fun JsonObject.toHostBridgeThreadHistoryPage(): HostBridgeThreadHistoryPagePayload = HostBridgeThreadHistoryPagePayload(
+    threadId = requireString("threadId"),
+    data = requireArray("data").toHostBridgeHistoryTurns(),
+    nextCursor = optStringOrNull("nextCursor"),
+    backwardsCursor = optStringOrNull("backwardsCursor"),
+)
+
+private fun JsonArray.toHostBridgeHistoryTurns(): List<HostBridgeHistoryTurnPayload> = buildList {
+    for (index in this@toHostBridgeHistoryTurns.indices) {
+        add(this@toHostBridgeHistoryTurns[index].jsonObject.toHostBridgeHistoryTurn())
+    }
+}
+
+private fun JsonObject.toHostBridgeHistoryTurn(): HostBridgeHistoryTurnPayload = HostBridgeHistoryTurnPayload(
+    id = requireString("id"),
+    status = optStringOrNull("status") ?: "inProgress",
+    itemsView = optStringOrNull("itemsView") ?: "full",
+    startedAtEpochMs = optLongOrNull("startedAtEpochMs"),
+    completedAtEpochMs = optLongOrNull("completedAtEpochMs"),
+    durationMs = optLongOrNull("durationMs"),
+    errorMessage = optStringOrNull("errorMessage"),
+    items = optArrayOrNull("items")?.toHostBridgeTimeline() ?: emptyList(),
+)
 
 private fun JsonObject.toHostBridgeTimelineItem(): HostBridgeTimelineItemPayload = HostBridgeTimelineItemPayload(
     type = optStringOrNull("type") ?: "statusEvent",
@@ -630,6 +741,7 @@ private fun JsonObject.toHostBridgeApproval(): HostBridgeApprovalPayload = HostB
     title = optStringOrNull("title").orEmpty(),
     description = optStringOrNull("description").orEmpty(),
     availableDecisions = optArrayOrNull("availableDecisions")?.toStringList() ?: emptyList(),
+    startedAtEpochMs = optLongOrNull("startedAtEpochMs"),
     command = optStringOrNull("command"),
     cwd = optStringOrNull("cwd"),
     grantRoot = optStringOrNull("grantRoot"),
@@ -650,6 +762,8 @@ private fun JsonObject.toHostBridgeThreadEvent(pairingPayload: PairingPayload): 
     requestId = optStringOrNull("requestId"),
     approval = optObjectOrNull("approval")?.toHostBridgeApproval(),
     questionCount = optIntOrNull("questionCount"),
+    startedAtEpochMs = optLongOrNull("startedAtEpochMs"),
+    completedAtEpochMs = optLongOrNull("completedAtEpochMs"),
     message = sanitizeRemoteDiagnosticText(optStringOrNull("message"), pairingPayload.sessionToken),
 )
 

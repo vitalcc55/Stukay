@@ -25,7 +25,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import dev.vitalcc.stukay.core.logging.AppLogger
 import dev.vitalcc.stukay.core.logging.LogArea
-import dev.vitalcc.stukay.core.logging.logEvent
+import dev.vitalcc.stukay.core.logging.LogEvents
 import dev.vitalcc.stukay.core.model.CodexProject
 import dev.vitalcc.stukay.core.model.HostBridgeConnectionPhase
 import dev.vitalcc.stukay.core.model.HostBridgeConnectionState
@@ -50,7 +50,7 @@ fun ProjectsRoute(
 ) {
     LaunchedEffect(Unit) {
         logger.info(
-            logEvent(
+            LogEvents.info(
                 area = LogArea.Ui,
                 eventName = "screen_opened",
                 messageHuman = "Projects screen opened",
@@ -212,3 +212,4 @@ private fun hostBridgeDetail(state: HostBridgeConnectionState): String {
     }.joinToString(" · ")
     return "${pairedHost.hostLabel} · ${pairedHost.transport.name} · ${hostBridgeEndpointDisplayValue(pairedHost.endpoint)} · $runtimeParts.$errorPart"
 }
+

@@ -86,6 +86,99 @@ class RuntimeClientTest(unittest.TestCase):
             finally:
                 client.close()
 
+    def test_read_thread_can_skip_turns_for_summary_hydration(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            params_path = tmp_path / "params.json"
+            script_path = _write_read_thread_probe_app_server(tmp_path, params_path)
+
+            def process_factory() -> subprocess.Popen[str]:
+                return subprocess.Popen(
+                    [sys.executable, "-u", str(script_path)],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    encoding="utf-8",
+                )
+
+            client = CodexRuntimeClient(process_factory=process_factory)
+            try:
+                payload = client.read_thread("thread-1", include_turns=False)
+            finally:
+                client.close()
+
+            self.assertEqual("thread-1", payload["thread"]["id"])
+            recorded_params = json.loads(params_path.read_text(encoding="utf-8"))
+            self.assertEqual({"threadId": "thread-1", "includeTurns": False}, recorded_params)
+
+    def test_resume_thread_requests_metadata_only_when_history_is_paged_separately(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            params_path = tmp_path / "params.json"
+            script_path = _write_resume_thread_probe_app_server(tmp_path, params_path)
+
+            def process_factory() -> subprocess.Popen[str]:
+                return subprocess.Popen(
+                    [sys.executable, "-u", str(script_path)],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    encoding="utf-8",
+                )
+
+            client = CodexRuntimeClient(process_factory=process_factory)
+            try:
+                payload = client.resume_thread("thread-1", exclude_turns=True)
+            finally:
+                client.close()
+
+            self.assertEqual("thread-1", payload["thread"]["id"])
+            recorded_params = json.loads(params_path.read_text(encoding="utf-8"))
+            self.assertEqual({"threadId": "thread-1", "excludeTurns": True}, recorded_params)
+
+    def test_list_thread_turns_returns_single_page_with_full_items_view(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            params_path = tmp_path / "params.json"
+            script_path = _write_thread_turns_probe_app_server(tmp_path, params_path)
+
+            def process_factory() -> subprocess.Popen[str]:
+                return subprocess.Popen(
+                    [sys.executable, "-u", str(script_path)],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    encoding="utf-8",
+                )
+
+            client = CodexRuntimeClient(process_factory=process_factory)
+            try:
+                payload = client.list_thread_turns_page(
+                    "thread-1",
+                    cursor="cursor-2",
+                    limit=25,
+                    sort_direction="asc",
+                    items_view="full",
+                )
+            finally:
+                client.close()
+
+            self.assertEqual("turn-1", payload["data"][0]["id"])
+            recorded_params = json.loads(params_path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                {
+                    "threadId": "thread-1",
+                    "cursor": "cursor-2",
+                    "limit": 25,
+                    "sortDirection": "asc",
+                    "itemsView": "full",
+                },
+                recorded_params,
+            )
+
     def test_resolve_codex_command_prefers_windows_cmd_shim(self):
         command = resolve_codex_command(
             "codex",
@@ -193,6 +286,90 @@ while True:
         print(json.dumps({"id": message["id"], "result": result}), flush=True)
     else:
         print(json.dumps({"id": message["id"], "error": {"code": -32601, "message": "unknown"}}), flush=True)
+""".strip(),
+        encoding="utf-8",
+    )
+    return script_path
+
+
+def _write_read_thread_probe_app_server(tmp_path: Path, params_path: Path) -> Path:
+    script_path = tmp_path / "read_thread_probe_app_server.py"
+    script_path.write_text(
+        f"""
+import json
+from pathlib import Path
+
+params_path = Path(r"{params_path}")
+
+while True:
+    line = input()
+    message = json.loads(line)
+    method = message.get("method")
+    if method == "initialize":
+        print(json.dumps({{"id": message["id"], "result": {{"userAgent": "fake-agent"}}}}), flush=True)
+    elif method == "initialized":
+        continue
+    elif method == "thread/read":
+        params_path.write_text(json.dumps(message.get("params")), encoding="utf-8")
+        print(json.dumps({{"id": message["id"], "result": {{"thread": {{"id": "thread-1"}}}}}}), flush=True)
+    else:
+        print(json.dumps({{"id": message["id"], "error": {{"code": -32601, "message": "unknown"}}}}), flush=True)
+""".strip(),
+        encoding="utf-8",
+    )
+    return script_path
+
+
+def _write_resume_thread_probe_app_server(tmp_path: Path, params_path: Path) -> Path:
+    script_path = tmp_path / "resume_thread_probe_app_server.py"
+    script_path.write_text(
+        f"""
+import json
+from pathlib import Path
+
+params_path = Path(r"{params_path}")
+
+while True:
+    line = input()
+    message = json.loads(line)
+    method = message.get("method")
+    if method == "initialize":
+        print(json.dumps({{"id": message["id"], "result": {{"userAgent": "fake-agent"}}}}), flush=True)
+    elif method == "initialized":
+        continue
+    elif method == "thread/resume":
+        params_path.write_text(json.dumps(message.get("params")), encoding="utf-8")
+        print(json.dumps({{"id": message["id"], "result": {{"thread": {{"id": "thread-1"}}}}}}), flush=True)
+    else:
+        print(json.dumps({{"id": message["id"], "error": {{"code": -32601, "message": "unknown"}}}}), flush=True)
+""".strip(),
+        encoding="utf-8",
+    )
+    return script_path
+
+
+def _write_thread_turns_probe_app_server(tmp_path: Path, params_path: Path) -> Path:
+    script_path = tmp_path / "thread_turns_probe_app_server.py"
+    script_path.write_text(
+        f"""
+import json
+from pathlib import Path
+
+params_path = Path(r"{params_path}")
+
+while True:
+    line = input()
+    message = json.loads(line)
+    method = message.get("method")
+    if method == "initialize":
+        print(json.dumps({{"id": message["id"], "result": {{"userAgent": "fake-agent"}}}}), flush=True)
+    elif method == "initialized":
+        continue
+    elif method == "thread/turns/list":
+        params_path.write_text(json.dumps(message.get("params")), encoding="utf-8")
+        print(json.dumps({{"id": message["id"], "result": {{"data": [{{"id": "turn-1"}}], "nextCursor": "cursor-3", "backwardsCursor": "cursor-1"}}}}), flush=True)
+    else:
+        print(json.dumps({{"id": message["id"], "error": {{"code": -32601, "message": "unknown"}}}}), flush=True)
 """.strip(),
         encoding="utf-8",
     )

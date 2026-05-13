@@ -22,6 +22,7 @@ data class ForegroundThreadSessionState(
     val streamState: ForegroundThreadStreamState = ForegroundThreadStreamState.Idle,
     val blockedReason: ForegroundThreadBlockedReason? = null,
     val pendingApprovals: List<TimelineItem.ApprovalRequest> = emptyList(),
+    val historyState: ThreadHistoryState = ThreadHistoryState(),
     val reconnectGeneration: Int = 0,
     val lastRecoverAttemptAtEpochMs: Long? = null,
     val lastTurnId: TurnId? = null,

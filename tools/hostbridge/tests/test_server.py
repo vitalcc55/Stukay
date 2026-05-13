@@ -20,6 +20,7 @@ class FakeRuntimeClient:
         self.calls = 0
         self.recorded_interrupts = []
         self.recorded_approval_responses = []
+        self.pending_requests_by_thread = {}
 
     def fetch_app_list(self):
         self.calls += 1
@@ -39,7 +40,11 @@ class FakeRuntimeClient:
         self.calls += 1
         return self._responses.pop(0)
 
-    def resume_thread(self, thread_id):
+    def resume_thread(self, thread_id, *, exclude_turns=False):
+        self.calls += 1
+        return self._responses.pop(0)
+
+    def list_thread_turns_page(self, thread_id, *, cursor, limit, sort_direction, items_view):
         self.calls += 1
         return self._responses.pop(0)
 
@@ -53,6 +58,9 @@ class FakeRuntimeClient:
 
     def respond_server_request(self, request_id, result):
         self.recorded_approval_responses.append((request_id, result))
+
+    def pending_server_requests_for_thread(self, thread_id):
+        return list(self.pending_requests_by_thread.get(thread_id, []))
 
     def subscribe_thread(self, thread_id):
         response = self._responses.pop(0)
@@ -228,21 +236,13 @@ class ServerTest(unittest.TestCase):
     def test_thread_routes_return_normalized_runtime_payloads(self):
         raw_thread = {
             "id": "thread-1",
+            "sessionId": "session-1",
             "cwd": "C:\\Users\\v.vlasov\\Desktop\\Stukay",
             "name": "Runtime thread",
             "preview": "First preview",
             "source": "appServer",
             "status": {"type": "active", "activeFlags": ["waitingOnApproval"]},
-            "turns": [
-                {
-                    "id": "turn-1",
-                    "status": "completed",
-                    "items": [
-                        {"type": "userMessage", "id": "user-1", "content": [{"type": "text", "text": "Hello"}]},
-                        {"type": "agentMessage", "id": "assistant-1", "text": "World"},
-                    ],
-                },
-            ],
+            "turns": [],
             "createdAt": 10,
             "updatedAt": 20,
         }
@@ -266,10 +266,94 @@ class ServerTest(unittest.TestCase):
             thread.join(timeout=2)
 
         self.assertEqual("thread-1", list_payload["data"][0]["id"])
+        self.assertEqual("session-1", list_payload["data"][0]["sessionId"])
         self.assertEqual("active", list_payload["data"][0]["status"]["type"])
-        self.assertEqual("assistantMessage", read_payload["thread"]["timeline"][1]["type"])
+        self.assertEqual([], read_payload["thread"]["timeline"])
         self.assertEqual("Runtime thread", resume_payload["thread"]["title"])
         self.assertEqual("turn-2", start_payload["turn"]["id"])
+
+    def test_thread_history_route_returns_paged_turns_with_cursors(self):
+        client = FakeRuntimeClient(
+            [
+                {
+                    "data": [
+                        {
+                            "id": "turn-1",
+                            "status": "completed",
+                            "itemsView": "full",
+                            "startedAt": 15,
+                            "completedAt": 16,
+                            "durationMs": 1500,
+                            "items": [
+                                {"type": "userMessage", "id": "user-1", "content": [{"type": "text", "text": "Hello"}]},
+                                {"type": "agentMessage", "id": "assistant-1", "text": "World"},
+                            ],
+                        },
+                    ],
+                    "nextCursor": "cursor-2",
+                    "backwardsCursor": "cursor-0",
+                },
+            ],
+        )
+        server, thread = _start_server(lambda: client, "secret-token")
+        try:
+            history_payload = _json_request(
+                server,
+                "GET",
+                "/v1/threads/thread-1/history?cursor=cursor-1&limit=25&sortDirection=asc",
+            )
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+        self.assertEqual("thread-1", history_payload["threadId"])
+        self.assertEqual("turn-1", history_payload["data"][0]["id"])
+        self.assertEqual("full", history_payload["data"][0]["itemsView"])
+        self.assertEqual("assistantMessage", history_payload["data"][0]["items"][1]["type"])
+        self.assertEqual("cursor-2", history_payload["nextCursor"])
+        self.assertEqual("cursor-0", history_payload["backwardsCursor"])
+
+    def test_resume_route_overlays_pending_approvals_without_thread_history(self):
+        raw_thread = {
+            "id": "thread-1",
+            "sessionId": "session-1",
+            "cwd": "C:\\Users\\v.vlasov\\Desktop\\Stukay",
+            "name": "Runtime thread",
+            "preview": "First preview",
+            "source": "appServer",
+            "status": {"type": "active", "activeFlags": ["waitingOnApproval"]},
+            "turns": [],
+            "createdAt": 10,
+            "updatedAt": 20,
+        }
+        client = FakeRuntimeClient([{"thread": raw_thread}])
+        client.pending_requests_by_thread["thread-1"] = [
+            {
+                "id": "request-1",
+                "method": "item/commandExecution/requestApproval",
+                "params": {
+                    "threadId": "thread-1",
+                    "turnId": "turn-1",
+                    "itemId": "item-1",
+                    "approvalId": "approval-1",
+                    "command": "dir",
+                    "startedAtMs": 123456789,
+                    "availableDecisions": ["accept", "decline", "cancel"],
+                },
+            },
+        ]
+        server, thread = _start_server(lambda: client, "secret-token")
+        try:
+            resume_payload = _json_request(server, "POST", "/v1/threads/thread-1/resume")
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+        approval = resume_payload["thread"]["pendingApprovals"][0]
+        self.assertEqual("approval-1", approval["id"])
+        self.assertEqual(123456789, approval["startedAtEpochMs"])
 
     def test_thread_events_stream_and_approval_response_are_exposed_over_http(self):
         client = FakeRuntimeClient(

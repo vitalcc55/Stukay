@@ -187,7 +187,8 @@ Milestone считается завершенным только если одн
 - approvals are server-initiated JSON-RPC requests; request payloads include at least `threadId`, `turnId`, `itemId`, `requestId` semantics and must be cleared by `serverRequest/resolved`.
 - command approvals can carry `networkApprovalContext`; network approval is not a separate protocol family and should be rendered as a network-specific variant of command approval.
 - `availableDecisions` may constrain what the server wants the client to show. For this slice we must support the shared scalar subset: `accept`, `acceptForSession`, `decline`, `cancel`.
-- `tool/requestUserInput`, `dynamicTools`, `thread/turns/list`, `thread/backgroundTerminals/clean`, `thread/goal/*` are experimental or beyond the bounded slice and must not silently expand scope.
+- `tool/requestUserInput`, `dynamicTools`, `thread/backgroundTerminals/clean`, `thread/goal/*` remain experimental or beyond the bounded slice and must not silently expand scope.
+- `thread/turns/list` became relevant for the `0.130.0` large-thread follow-up and is now the approved history-pagination path for this runtime slice; `thread/turns/items/list` stays unsupported and out of scope.
 
 ### Android
 
