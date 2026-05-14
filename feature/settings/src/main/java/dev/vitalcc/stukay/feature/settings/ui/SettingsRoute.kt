@@ -227,7 +227,6 @@ private fun pairingSubtitle(state: HostBridgeConnectionState): String = when (st
     HostBridgeConnectionPhase.Disconnected -> "Pairing сохранен, подключение отключено вручную."
     HostBridgeConnectionPhase.Failed -> state.lastError ?: "Host bridge вернул ошибочное состояние."
 }
-
 private fun localNetworkDetail(state: HostBridgeConnectionState): String = when (state.localNetworkAccessState) {
     LocalNetworkAccessState.NotConfigured ->
         "Сначала добавьте pairing payload, чтобы оценить local-network path."

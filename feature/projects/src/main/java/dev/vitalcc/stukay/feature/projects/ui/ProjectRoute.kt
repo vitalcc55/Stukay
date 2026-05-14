@@ -127,5 +127,5 @@ fun ProjectRoute(
         }
     }
 }
-private fun threadTag(raw: String): String = raw.replace(Regex("[^A-Za-z0-9._-]"), "_")
 
+private fun threadTag(raw: String): String = raw.replace(Regex("[^A-Za-z0-9._-]"), "_")
