@@ -158,7 +158,6 @@ fun ProjectsRoute(
         }
     }
 }
-
 private fun projectTag(raw: String): String = raw.replace(Regex("[^A-Za-z0-9._-]"), "_")
 
 private fun hostBridgeLabel(state: HostBridgeConnectionState): String = when (state.phase) {

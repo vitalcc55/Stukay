@@ -213,7 +213,6 @@ fun SettingsRoute(
         }
     }
 }
-
 private fun pairingSubtitle(state: HostBridgeConnectionState): String = when (state.phase) {
     HostBridgeConnectionPhase.NotPaired -> "Сначала сохраните pairing payload для одного Windows host."
     HostBridgeConnectionPhase.Paired ->
