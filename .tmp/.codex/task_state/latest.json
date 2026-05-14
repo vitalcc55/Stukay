@@ -1,6 +1,6 @@
 {
   "goal": "Обновить Real Thread Runtime + Approval Safety Layer под codex-cli 0.130.0 и large-thread history через thread/turns/list.",
-  "stage": "real_thread_runtime_0130_large_thread_local_green_review_pending",
+  "stage": "real_thread_runtime_0130_large_thread_pixel_proof_green_review_green",
   "done": [
     "reference baseline switched to rust-v0.130.0",
     "helper runtime contract split into summary/read-resume path plus typed paged history route",
@@ -9,12 +9,15 @@
     "RuntimeThreadStore now owns partial history state and separate pending approvals queue",
     "foreground thread session now hydrates via read summary, pre-resume stream attach, resume, and initial history page load",
     "thread UI now exposes manual older-history loading and matching diagnostics state",
-    "python helper suite and app testDebugUnitTest are green on the current diff"
+    "helper page-size/timeouts and Android refresh coalescing now keep thread/list inside real device budgets",
+    "emulator proof confirms connect -> open project -> open existing thread -> stream -> stop -> reconnect recovery",
+    "physical Pixel proof confirms connect -> runtime-backed projects -> open project -> open existing thread -> stream -> stop -> reconnect recovery",
+    "manual branch-wide static review relative to main is closed, and the current diff now blocks duplicate approval responses, surfaces foreground lastError in diagnostics, and strengthens approval action semantics",
+    "python helper suite and combined Gradle gate are green on the current diff"
   ],
   "next": [
-    "run pre-commit sandbox review loop through subagents on the uncommitted diff",
-    "run emulator and physical Pixel proof for open existing thread -> load older -> send -> stream -> interrupt -> reconnect -> approval",
-    "run branch-wide review relative to main after device proof"
+    "if needed, reproduce a dedicated live approval request on device with a runtime prompt that emits requestApproval rather than plain assistant text",
+    "commit the current diff and continue merge-flow when the user asks"
   ],
   "edited_files": [
     "app/src/main/kotlin/dev/vitalcc/stukay/StukayApp.kt",
@@ -56,11 +59,15 @@
     "python C:\\Users\\v.vlasov\\.codex\\skills\\repo-harness-lifecycle\\scripts\\validate_lifecycle_stack.py --root . -> warn only, no fail",
     "python -W error::ResourceWarning -m unittest discover -s tools/hostbridge/tests -p 'test_*.py' -> passes",
     ".\\gradlew.bat :app:testDebugUnitTest --console=plain -> passes",
-    ".\\gradlew.bat :core:model:testDebugUnitTest :feature:projects:testDebugUnitTest :feature:thread:testDebugUnitTest :core:logging:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug :app:lintDebug --console=plain -> passes"
+    ".\\gradlew.bat :core:model:testDebugUnitTest :feature:projects:testDebugUnitTest :feature:thread:testDebugUnitTest :core:logging:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug :app:lintDebug --console=plain -> passes",
+    "emulator medium_phone: connect -> projects -> project -> thread -> stream -> stop -> helper stop -> reconnect recovery -> passes",
+    "physical Pixel 49091FDAS002GD: connect -> projects -> project -> thread -> stream -> stop -> helper stop -> reconnect recovery -> passes",
+    "manual branch-wide static review relative to main: no new blocking findings after the review-driven follow-up fixes"
   ],
   "open_questions": [
-    "device proof for emulator and physical Pixel has not been re-run in this turn",
+    "emulator Gboard/stylus handwriting popup remains unreliable for long adb input text prompts",
+    "the forced live approval probe on Pixel finished as a plain assistant confirmation message and did not surface a real requestApproval item",
     "nested references/openai-codex checkout is gitignored in the outer repo and is recorded here as a local expected baseline rather than a tracked artifact"
   ],
-  "updated_at_utc": "2026-05-13T00:00:00Z"
+  "updated_at_utc": "2026-05-14T06:25:00Z"
 }

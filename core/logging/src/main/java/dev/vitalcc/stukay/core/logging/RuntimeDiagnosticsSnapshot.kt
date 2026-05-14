@@ -12,7 +12,9 @@ data class RuntimeDiagnosticsSnapshot(
     val isLoadingOlderHistory: Boolean = false,
     val reconnectGeneration: Int = 0,
     val lastRecoverAttemptAtEpochMs: Long? = null,
+    val approvalActionInFlightRequestId: String? = null,
     val lastTurnId: String? = null,
     val lastRequestId: String? = null,
     val lastItemId: String? = null,
+    val lastError: String? = null,
 )

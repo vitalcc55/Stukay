@@ -122,6 +122,12 @@ class StukayAppState(
     @Volatile
     private var foregroundEventStream: HostBridgeEventStream? = null
 
+    @Volatile
+    private var runtimeIndexRefreshInFlight: Boolean = false
+
+    @Volatile
+    private var runtimeIndexRefreshPendingReason: String? = null
+
     private var hostBridgeProbeFuture: ScheduledFuture<*>? = null
     private val hostBridgeProbeBarrier = HostBridgeProbeBarrier()
     private val hostBridgeImmediateProbeCoordinator = HostBridgeImmediateProbeCoordinator()
@@ -361,6 +367,18 @@ class StukayAppState(
                         streamState = ForegroundThreadStreamState.Failed,
                         lastError = error.message ?: "Не удалось отправить turn/interrupt.",
                     )
+                    logger.error(
+                        LogEvents.info(
+                            area = LogArea.Turn,
+                            eventName = "turn_interrupt_failed",
+                            messageHuman = foregroundThreadSession.lastError
+                                ?: "Не удалось отправить turn/interrupt.",
+                            fields = mapOf(
+                                "threadId" to threadId,
+                                "turnId" to activeTurnId.value,
+                            ),
+                        ),
+                    )
                 }
             }
         }
@@ -379,6 +397,7 @@ class StukayAppState(
             return
         }
         foregroundThreadSession = foregroundThreadSession.copy(
+            approvalActionInFlightRequestId = requestId,
             lastRequestId = requestId,
             lastError = null,
         )
@@ -404,6 +423,19 @@ class StukayAppState(
                     foregroundThreadSession = failedForegroundSession(
                         threadId = activeThreadId,
                         message = error.message ?: "Не удалось отправить approval response.",
+                    )
+                    logger.error(
+                        LogEvents.info(
+                            area = LogArea.Approval,
+                            eventName = "approval_response_failed",
+                            messageHuman = foregroundThreadSession.lastError
+                                ?: "Не удалось отправить approval response.",
+                            fields = mapOf(
+                                "threadId" to activeThreadId.value,
+                                "requestId" to requestId,
+                                "decision" to decision.name,
+                            ),
+                        ),
                     )
                 }
             }
@@ -679,9 +711,7 @@ class StukayAppState(
             logHostBridgeTransition()
         }
         when (nextState.phase) {
-            HostBridgeConnectionPhase.Connected,
-            HostBridgeConnectionPhase.Degraded,
-            -> {
+            HostBridgeConnectionPhase.Connected -> {
                 hostBridgeProbeBarrier.enableForGeneration(hostBridgeGeneration)
                 hostBridgeImmediateProbeCoordinator.enableForGeneration(hostBridgeGeneration)
                 ensureHostBridgeProbeLoop()
@@ -693,8 +723,14 @@ class StukayAppState(
                         ForegroundThreadStreamState.Failed,
                     )
                 ) {
-                    recoverForegroundThreadSession(activeThreadId, "host_bridge_recovered")
+                        recoverForegroundThreadSession(activeThreadId, "host_bridge_recovered")
                 }
+            }
+
+            HostBridgeConnectionPhase.Degraded -> {
+                hostBridgeProbeBarrier.enableForGeneration(hostBridgeGeneration)
+                hostBridgeImmediateProbeCoordinator.enableForGeneration(hostBridgeGeneration)
+                ensureHostBridgeProbeLoop()
             }
 
             else -> {
@@ -814,11 +850,24 @@ class StukayAppState(
         if (!canUseRuntimePath()) {
             return
         }
+        synchronized(this) {
+            if (runtimeIndexRefreshInFlight) {
+                runtimeIndexRefreshPendingReason = reason
+                return
+            }
+            runtimeIndexRefreshInFlight = true
+        }
         hostBridgeExecutor.execute {
             val result = runCatching {
                 threadRepository.refreshIndex()
             }
             mainHandler.post {
+                val nextReason = synchronized(this) {
+                    runtimeIndexRefreshInFlight = false
+                    val rerunReason = runtimeIndexRefreshPendingReason
+                    runtimeIndexRefreshPendingReason = null
+                    rerunReason
+                }
                 result.onSuccess {
                     domainRevisionState += 1
                     logger.info(
@@ -838,6 +887,9 @@ class StukayAppState(
                             fields = mapOf("reason" to reason),
                         ),
                     )
+                }
+                if (nextReason != null && canUseRuntimePath()) {
+                    refreshRuntimeIndexAsync(nextReason)
                 }
             }
         }
@@ -1072,6 +1124,10 @@ class StukayAppState(
         val thread = threadRepository.loadThread(threadId)
         val pendingApprovals = threadRepository.unresolvedApprovals(threadId)
         val historyState = threadRepository.historyState(threadId)
+        val approvalActionInFlightRequestId =
+            foregroundThreadSession.approvalActionInFlightRequestId?.takeIf { inFlightRequestId ->
+                pendingApprovals.any { approval -> approval.requestId == inFlightRequestId }
+            }
         foregroundThreadSession = foregroundThreadSession.copy(
             activeThreadId = threadId,
             activeTurnId = activeTurnId,
@@ -1079,6 +1135,7 @@ class StukayAppState(
             blockedReason = blockedReasonFor(thread, pendingApprovals),
             pendingApprovals = pendingApprovals,
             historyState = historyState,
+            approvalActionInFlightRequestId = approvalActionInFlightRequestId,
             lastTurnId = lastTurnId,
             lastRequestId = lastRequestId,
             lastItemId = lastItemId,
@@ -1099,6 +1156,7 @@ class StukayAppState(
             blockedReason = blockedReasonFor(thread, pendingApprovals),
             pendingApprovals = pendingApprovals,
             historyState = threadRepository.historyState(threadId),
+            approvalActionInFlightRequestId = null,
             lastError = message,
         )
     }
@@ -1141,9 +1199,11 @@ class StukayAppState(
             isLoadingOlderHistory = foregroundThreadSession.historyState.isLoadingOlderHistory,
             reconnectGeneration = foregroundThreadSession.reconnectGeneration,
             lastRecoverAttemptAtEpochMs = foregroundThreadSession.lastRecoverAttemptAtEpochMs,
+            approvalActionInFlightRequestId = foregroundThreadSession.approvalActionInFlightRequestId,
             lastTurnId = foregroundThreadSession.lastTurnId?.value,
             lastRequestId = foregroundThreadSession.lastRequestId,
             lastItemId = foregroundThreadSession.lastItemId,
+            lastError = foregroundThreadSession.lastError,
         )
     }
 

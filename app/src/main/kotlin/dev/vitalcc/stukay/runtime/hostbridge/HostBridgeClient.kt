@@ -514,8 +514,8 @@ class OkHttpHostBridgeClient(
             .followRedirects(false)
             .followSslRedirects(false)
             .connectTimeout(5, TimeUnit.SECONDS)
-            .readTimeout(10, TimeUnit.SECONDS)
-            .callTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(20, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
             .build()
     }
 }

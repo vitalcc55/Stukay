@@ -25,6 +25,7 @@ data class ForegroundThreadSessionState(
     val historyState: ThreadHistoryState = ThreadHistoryState(),
     val reconnectGeneration: Int = 0,
     val lastRecoverAttemptAtEpochMs: Long? = null,
+    val approvalActionInFlightRequestId: String? = null,
     val lastTurnId: TurnId? = null,
     val lastRequestId: String? = null,
     val lastItemId: String? = null,

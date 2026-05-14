@@ -28,3 +28,10 @@ fun ForegroundThreadSessionState.canStopTurn(runtimePathAvailable: Boolean): Boo
             ForegroundThreadStreamState.Streaming,
             ForegroundThreadStreamState.Ready,
         )
+
+fun ForegroundThreadSessionState.canResolveApproval(
+    requestId: String?,
+    runtimePathAvailable: Boolean,
+): Boolean = runtimePathAvailable &&
+    !requestId.isNullOrBlank() &&
+    approvalActionInFlightRequestId != requestId

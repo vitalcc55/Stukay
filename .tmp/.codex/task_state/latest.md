@@ -1,7 +1,7 @@
 # Task State
 
 - goal: Обновить `Real Thread Runtime + Approval Safety Layer` под `codex-cli 0.130.0` и large-thread history через `thread/turns/list`, не меняя текущий Android transport direction.
-- stage: real_thread_runtime_0130_large_thread_local_green_review_pending
+- stage: real_thread_runtime_0130_large_thread_pixel_proof_green_review_green
 - done:
   - `references/openai-codex` переведен на `rust-v0.130.0`
   - helper `tools/hostbridge` теперь разделяет summary/read-resume path и paged history path `/v1/threads/{id}/history`, а также отдает `sessionId` и approval `startedAtEpochMs`
@@ -11,10 +11,14 @@
   - `RuntimeThreadRepository` и `StukayAppState` переведены на `read summary -> pre-resume stream attach -> resume -> initial history page`
   - `ThreadRoute` получил manual `Загрузить старое` UX и stable semantics/test tags для history loading
   - diagnostics snapshot обогащён `activeSessionId` и history cursor state
-  - Python helper suite и `:app:testDebugUnitTest` на текущем diff зелёные
+  - helper page-size/timeouts и Android refresh coalescing подправлены под реальный runtime volume, чтобы `thread/list` не деградировал на устройстве
+  - emulator proof подтверждает `connect -> open project -> open existing thread -> stream -> stop -> reconnect recovery`
+  - physical Pixel proof подтверждает `connect -> runtime-backed projects -> open project -> open existing thread -> stream -> stop -> reconnect recovery`
+  - branch-wide static review относительно `main` закрыт вручную; duplicate approval response, foreground diagnostics tail и approval semantics доусилены на текущем diff
+  - Python helper suite и combined Gradle gate зелёные на текущем diff
 - next:
-  - выполнить pre-commit sandbox review loop через субагентов на текущий незакоммиченный diff
-  - после локального review loop прогнать emulator/physical Pixel proof и затем branch-wide review относительно `main`
+  - при необходимости добрать отдельный live approval device proof с reproducible runtime prompt
+  - по user команде зафиксировать текущий diff коммитом и продолжить merge-flow
 - edited_files:
   - app/src/main/kotlin/dev/vitalcc/stukay/StukayApp.kt
   - app/src/main/kotlin/dev/vitalcc/stukay/runtime/RuntimeThreadRepository.kt
@@ -55,6 +59,9 @@
   - `python -W error::ResourceWarning -m unittest discover -s tools/hostbridge/tests -p 'test_*.py'` -> passes
   - `.\gradlew.bat :app:testDebugUnitTest --console=plain` -> passes
   - `.\gradlew.bat :core:model:testDebugUnitTest :feature:projects:testDebugUnitTest :feature:thread:testDebugUnitTest :core:logging:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug :app:lintDebug --console=plain` -> passes
+  - emulator `medium_phone`: `connect -> projects -> project -> thread -> stream -> stop -> helper stop -> reconnect recovery` -> passes
+  - physical Pixel `49091FDAS002GD`: `connect -> projects -> project -> thread -> stream -> stop -> helper stop -> reconnect recovery` -> passes
 - open_questions:
-  - device proof для emulator и physical Pixel ещё не прогонялся в этом цикле
+  - emulator Gboard/stylus handwriting popup остаётся нестабильным для длинных `adb input text` prompts
+  - forced live approval probe на Pixel в этом цикле не surfaced настоящий `requestApproval` item и завершился обычным assistant message с текстовой просьбой о подтверждении
   - nested `references/openai-codex` checkout gitignored во внешнем repo и фиксируется здесь как локально ожидаемый baseline, а не как tracked artifact

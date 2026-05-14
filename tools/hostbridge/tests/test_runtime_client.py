@@ -64,6 +64,32 @@ class RuntimeClientTest(unittest.TestCase):
 
             self.assertEqual(["a", "b", "c"], [app["id"] for app in apps])
 
+    def test_fetch_app_list_uses_large_page_size_for_runtime_probe(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            params_path = tmp_path / "params.json"
+            script_path = _write_app_list_probe_app_server(tmp_path, params_path)
+
+            def process_factory() -> subprocess.Popen[str]:
+                return subprocess.Popen(
+                    [sys.executable, "-u", str(script_path)],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    encoding="utf-8",
+                )
+
+            client = CodexRuntimeClient(process_factory=process_factory)
+            try:
+                apps = client.fetch_app_list()
+            finally:
+                client.close()
+
+            self.assertEqual(["a"], [app["id"] for app in apps])
+            recorded_params = json.loads(params_path.read_text(encoding="utf-8"))
+            self.assertEqual({"cursor": None, "limit": 500, "forceRefetch": False}, recorded_params)
+
     def test_fetch_app_list_raises_on_transport_error(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)
@@ -175,6 +201,47 @@ class RuntimeClientTest(unittest.TestCase):
                     "limit": 25,
                     "sortDirection": "asc",
                     "itemsView": "full",
+                },
+                recorded_params,
+            )
+
+    def test_list_threads_uses_larger_default_page_size(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            params_path = tmp_path / "params.json"
+            script_path = _write_thread_list_probe_app_server(tmp_path, params_path)
+
+            def process_factory() -> subprocess.Popen[str]:
+                return subprocess.Popen(
+                    [sys.executable, "-u", str(script_path)],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    encoding="utf-8",
+                )
+
+            client = CodexRuntimeClient(process_factory=process_factory)
+            try:
+                payload = client.list_threads(
+                    source_kinds=["cli", "vscode", "appServer"],
+                    archived=False,
+                    sort_key="updated_at",
+                    sort_direction="desc",
+                )
+            finally:
+                client.close()
+
+            self.assertEqual(["thread-1"], [item["id"] for item in payload])
+            recorded_params = json.loads(params_path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                {
+                    "cursor": None,
+                    "limit": 200,
+                    "archived": False,
+                    "sortKey": "updated_at",
+                    "sortDirection": "desc",
+                    "sourceKinds": ["cli", "vscode", "appServer"],
                 },
                 recorded_params,
             )
@@ -292,6 +359,34 @@ while True:
     return script_path
 
 
+def _write_app_list_probe_app_server(tmp_path: Path, params_path: Path) -> Path:
+    script_path = tmp_path / "app_list_probe_app_server.py"
+    script_path.write_text(
+        f"""
+import json
+from pathlib import Path
+
+params_path = Path(r"{params_path}")
+
+while True:
+    line = input()
+    message = json.loads(line)
+    method = message.get("method")
+    if method == "initialize":
+        print(json.dumps({{"id": message["id"], "result": {{"userAgent": "fake-agent"}}}}), flush=True)
+    elif method == "initialized":
+        continue
+    elif method == "app/list":
+        params_path.write_text(json.dumps(message.get("params")), encoding="utf-8")
+        print(json.dumps({{"id": message["id"], "result": {{"data": [{{"id": "a"}}], "nextCursor": None}}}}), flush=True)
+    else:
+        print(json.dumps({{"id": message["id"], "error": {{"code": -32601, "message": "unknown"}}}}), flush=True)
+""".strip(),
+        encoding="utf-8",
+    )
+    return script_path
+
+
 def _write_read_thread_probe_app_server(tmp_path: Path, params_path: Path) -> Path:
     script_path = tmp_path / "read_thread_probe_app_server.py"
     script_path.write_text(
@@ -368,6 +463,34 @@ while True:
     elif method == "thread/turns/list":
         params_path.write_text(json.dumps(message.get("params")), encoding="utf-8")
         print(json.dumps({{"id": message["id"], "result": {{"data": [{{"id": "turn-1"}}], "nextCursor": "cursor-3", "backwardsCursor": "cursor-1"}}}}), flush=True)
+    else:
+        print(json.dumps({{"id": message["id"], "error": {{"code": -32601, "message": "unknown"}}}}), flush=True)
+""".strip(),
+        encoding="utf-8",
+    )
+    return script_path
+
+
+def _write_thread_list_probe_app_server(tmp_path: Path, params_path: Path) -> Path:
+    script_path = tmp_path / "thread_list_probe_app_server.py"
+    script_path.write_text(
+        f"""
+import json
+from pathlib import Path
+
+params_path = Path(r"{params_path}")
+
+while True:
+    line = input()
+    message = json.loads(line)
+    method = message.get("method")
+    if method == "initialize":
+        print(json.dumps({{"id": message["id"], "result": {{"userAgent": "fake-agent"}}}}), flush=True)
+    elif method == "initialized":
+        continue
+    elif method == "thread/list":
+        params_path.write_text(json.dumps(message.get("params")), encoding="utf-8")
+        print(json.dumps({{"id": message["id"], "result": {{"data": [{{"id": "thread-1"}}], "nextCursor": None}}}}), flush=True)
     else:
         print(json.dumps({{"id": message["id"], "error": {{"code": -32601, "message": "unknown"}}}}), flush=True)
 """.strip(),

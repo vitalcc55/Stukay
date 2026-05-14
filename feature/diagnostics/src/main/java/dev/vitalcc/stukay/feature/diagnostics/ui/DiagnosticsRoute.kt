@@ -103,6 +103,9 @@ fun DiagnosticsRoute(
                                 runtime.lastRecoverAttemptAtEpochMs?.let { recoverAt ->
                                     Text(text = "Last recover attempt: $recoverAt")
                                 }
+                                runtime.approvalActionInFlightRequestId?.let { requestId ->
+                                    Text(text = "Approval response in flight: $requestId")
+                                }
                                 runtime.lastTurnId?.let { lastTurnId ->
                                     Text(text = "Last turn id: $lastTurnId")
                                 }
@@ -111,6 +114,12 @@ fun DiagnosticsRoute(
                                 }
                                 runtime.lastItemId?.let { lastItemId ->
                                     Text(text = "Last item id: $lastItemId")
+                                }
+                                runtime.lastError?.let { lastError ->
+                                    Text(
+                                        text = "Last foreground error: $lastError",
+                                        color = MaterialTheme.colorScheme.error,
+                                    )
                                 }
                             }
                         }

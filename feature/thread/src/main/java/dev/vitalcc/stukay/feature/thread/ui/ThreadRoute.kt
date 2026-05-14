@@ -10,7 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Send
+import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -25,6 +25,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
@@ -37,6 +38,7 @@ import dev.vitalcc.stukay.core.model.ForegroundThreadStreamState
 import dev.vitalcc.stukay.core.model.ThreadHistoryState
 import dev.vitalcc.stukay.core.model.ThreadStatus
 import dev.vitalcc.stukay.core.model.TimelineItem
+import dev.vitalcc.stukay.core.model.canResolveApproval
 import dev.vitalcc.stukay.core.model.canSendPrompt
 import dev.vitalcc.stukay.core.model.canStopTurn
 import dev.vitalcc.stukay.core.design.expressive.ExpressiveCard
@@ -140,6 +142,10 @@ fun ThreadRoute(
                     item {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             sessionState.pendingApprovals.forEach { approval ->
+                                val canResolveApproval = sessionState.canResolveApproval(
+                                    requestId = approval.requestId,
+                                    runtimePathAvailable = runtimePathAvailable,
+                                )
                                 ExpressiveCard(
                                     title = approval.title,
                                     subtitle = approval.description,
@@ -159,9 +165,15 @@ fun ThreadRoute(
                                                         onResolveApproval(requestId, ApprovalDecision.AcceptOnce)
                                                     }
                                                 },
-                                                enabled = runtimePathAvailable && approval.requestId != null,
+                                                enabled = canResolveApproval,
                                                 modifier = Modifier
                                                     .fillMaxWidth()
+                                                    .semantics {
+                                                        contentDescription = approvalActionDescription(
+                                                            actionLabel = "Approve once",
+                                                            approval = approval,
+                                                        )
+                                                    }
                                                     .testTag("thread.approval.once.${approvalTag(approval)}"),
                                             ) {
                                                 Text(text = "Approve once")
@@ -174,9 +186,15 @@ fun ThreadRoute(
                                                         onResolveApproval(requestId, ApprovalDecision.AcceptSession)
                                                     }
                                                 },
-                                                enabled = runtimePathAvailable && approval.requestId != null,
+                                                enabled = canResolveApproval,
                                                 modifier = Modifier
                                                     .fillMaxWidth()
+                                                    .semantics {
+                                                        contentDescription = approvalActionDescription(
+                                                            actionLabel = "Approve session",
+                                                            approval = approval,
+                                                        )
+                                                    }
                                                     .testTag("thread.approval.session.${approvalTag(approval)}"),
                                             ) {
                                                 Text(text = "Approve session")
@@ -189,8 +207,15 @@ fun ThreadRoute(
                                                         onResolveApproval(requestId, ApprovalDecision.Decline)
                                                     }
                                                 },
-                                                enabled = runtimePathAvailable && approval.requestId != null,
-                                                modifier = Modifier.testTag("thread.approval.decline.${approvalTag(approval)}"),
+                                                enabled = canResolveApproval,
+                                                modifier = Modifier
+                                                    .semantics {
+                                                        contentDescription = approvalActionDescription(
+                                                            actionLabel = "Decline",
+                                                            approval = approval,
+                                                        )
+                                                    }
+                                                    .testTag("thread.approval.decline.${approvalTag(approval)}"),
                                             ) {
                                                 Text(text = "Decline")
                                             }
@@ -202,8 +227,15 @@ fun ThreadRoute(
                                                         onResolveApproval(requestId, ApprovalDecision.Cancel)
                                                     }
                                                 },
-                                                enabled = runtimePathAvailable && approval.requestId != null,
-                                                modifier = Modifier.testTag("thread.approval.cancel.${approvalTag(approval)}"),
+                                                enabled = canResolveApproval,
+                                                modifier = Modifier
+                                                    .semantics {
+                                                        contentDescription = approvalActionDescription(
+                                                            actionLabel = "Cancel",
+                                                            approval = approval,
+                                                        )
+                                                    }
+                                                    .testTag("thread.approval.cancel.${approvalTag(approval)}"),
                                             ) {
                                                 Text(text = "Cancel")
                                             }
@@ -240,7 +272,7 @@ fun ThreadRoute(
                                 modifier = Modifier.testTag("thread.turn.send"),
                             ) {
                                 Icon(
-                                    imageVector = Icons.Rounded.Send,
+                                    imageVector = Icons.AutoMirrored.Rounded.Send,
                                     contentDescription = "Send prompt",
                                 )
                                 Text(
@@ -281,6 +313,11 @@ private fun historyBannerText(state: ThreadHistoryState): String = when {
     state.hasOlderHistory -> "Доступна более старая история треда."
     else -> "Вся доступная история уже загружена."
 }
+
+private fun approvalActionDescription(
+    actionLabel: String,
+    approval: TimelineItem.ApprovalRequest,
+): String = "$actionLabel: ${approval.title}"
 
 @Composable
 private fun TimelineCard(

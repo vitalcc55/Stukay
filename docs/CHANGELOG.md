@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-05-14
+
+- Для runtime slice закрыт device-visible timeout class: helper теперь использует более крупные page sizes (`app/list=500`, `thread/list=200`), Android `OkHttpHostBridgeClient` получил расширенные `read/call` timeouts, а `StukayAppState` больше не складывает duplicate `refreshIndex()` запросы в один и тот же executor при `route_changed` и `Degraded` transitions.
+- Emulator device proof по `medium_phone` теперь подтверждает путь `connect -> runtime-backed projects -> open project -> open existing thread -> streaming -> stop -> helper stop -> reconnect recovery`.
+- Physical Pixel proof по `Pixel 9 Pro XL` теперь тоже подтверждает путь `connect -> runtime-backed projects -> open project -> open existing thread -> streaming -> stop -> helper stop -> reconnect recovery` через USB host bridge path `10.61.217.185:8421`.
+- На эмуляторе отдельно зафиксирован Gboard/stylus handwriting quirk: длинный prompt через `adb input text` может перехватываться системным handwriting popup, поэтому финальный interrupt proof закрывался через host-side `turn/start` при уже открытом thread и device-side `Stop`.
+- По accessibility/device-automation surfaced follow-up: status text и icon-action `contentDescription` уже хорошо читаются через `android layout`, но повторяющиеся `Open project` / `Open thread` actions стоит усилить item-bound semantics identifiers, а disabled-state подачу `Send` / `Stop` сделать более явной для automation.
+- После review-driven follow-up текущий diff дополнительно закрывает duplicate approval response path, выводит foreground `lastError` и approval in-flight state в diagnostics snapshot, а approval actions получают item-bound accessible labels поверх стабильных `testTag`.
+- Отдельная forced live approval repro на Pixel в этом цикле не surfaced настоящий `requestApproval` item: runtime завершил turn обычным assistant message с текстовой просьбой подтвердить действие, так что этот хвост остаётся follow-up только для отдельного reproducibility pass, а не как подтверждённый Android UI defect.
+
 ## 2026-05-13
 
 - Runtime slice обновлен под `codex-cli 0.130.0`: `references/openai-codex` переведен на `rust-v0.130.0`, а repo-local runtime assumptions синхронизированы с `thread/turns/list`, `itemsView`, `sessionId` и approval timestamps.

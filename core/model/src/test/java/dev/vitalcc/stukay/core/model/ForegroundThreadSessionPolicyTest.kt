@@ -61,4 +61,16 @@ class ForegroundThreadSessionPolicyTest {
         assertFalse(streaming.canStopTurn(runtimePathAvailable = false))
         assertFalse(interrupting.canStopTurn(runtimePathAvailable = true))
     }
+
+    @Test
+    fun approvalResolutionBlocksDuplicateDecisionWhileSameRequestIsInFlight() {
+        val ready = ForegroundThreadSessionState()
+        val sameRequestLocked = ready.copy(approvalActionInFlightRequestId = "req-1")
+
+        assertTrue(ready.canResolveApproval(requestId = "req-1", runtimePathAvailable = true))
+        assertFalse(ready.canResolveApproval(requestId = null, runtimePathAvailable = true))
+        assertFalse(ready.canResolveApproval(requestId = "req-1", runtimePathAvailable = false))
+        assertFalse(sameRequestLocked.canResolveApproval(requestId = "req-1", runtimePathAvailable = true))
+        assertTrue(sameRequestLocked.canResolveApproval(requestId = "req-2", runtimePathAvailable = true))
+    }
 }

@@ -50,7 +50,7 @@ class CodexRuntimeClient:
         codex_bin: str = "codex",
         cwd: str | None = None,
         env: dict[str, str] | None = None,
-        request_timeout_s: float = 10.0,
+        request_timeout_s: float = 20.0,
         client_name: str = "stukay-hostbridge",
         client_title: str = "Stukay Host Bridge",
         client_version: str = "0.1.0",
@@ -122,7 +122,7 @@ class CodexRuntimeClient:
         while True:
             result = self.request(
                 "app/list",
-                {"cursor": cursor, "limit": 50, "forceRefetch": False},
+                {"cursor": cursor, "limit": 500, "forceRefetch": False},
             )
             data = result.get("data")
             if not isinstance(data, list):
@@ -150,7 +150,7 @@ class CodexRuntimeClient:
         archived: bool,
         sort_key: str,
         sort_direction: str,
-        limit: int = 50,
+        limit: int = 200,
     ) -> list[JsonDict]:
         threads: list[JsonDict] = []
         cursor: str | None = None
