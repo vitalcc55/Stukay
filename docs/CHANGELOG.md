@@ -9,6 +9,7 @@
 - По accessibility/device-automation surfaced follow-up: status text и icon-action `contentDescription` уже хорошо читаются через `android layout`, но повторяющиеся `Open project` / `Open thread` actions стоит усилить item-bound semantics identifiers, а disabled-state подачу `Send` / `Stop` сделать более явной для automation.
 - После review-driven follow-up текущий diff дополнительно закрывает duplicate approval response path, выводит foreground `lastError` и approval in-flight state в diagnostics snapshot, а approval actions получают item-bound accessible labels поверх стабильных `testTag`.
 - Отдельная forced live approval repro на Pixel в этом цикле не surfaced настоящий `requestApproval` item: runtime завершил turn обычным assistant message с текстовой просьбой подтвердить действие, так что этот хвост остаётся follow-up только для отдельного reproducibility pass, а не как подтверждённый Android UI defect.
+- `real-thread-runtime-approval-layer-plan.md` синхронизирован с реальным состоянием ветки: milestone 4 переведён в `verified`, core device/runtime proof и manual branch-wide review отмечены как закрытые, а dedicated live approval repro оставлен открытым как честный, но неблокирующий follow-up по developer decision.
 
 ## 2026-05-13
 

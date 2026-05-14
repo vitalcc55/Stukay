@@ -472,7 +472,7 @@ Close the approval safety layer in the same slice, not as a distant follow-up.
 
 #### Status
 
-- current: `in_progress`
+- current: `verified`
 
 #### Objective
 
@@ -499,43 +499,48 @@ Make the runtime slice testable and reviewable as an engineering surface, not on
   - approval lifecycle reducer/mapper;
   - stale/cleared approval handling;
   - host helper request/response + stream normalization.
-- [ ] Add device proof surfaces:
+- [x] Add device proof surfaces:
   - emulator flow;
   - physical Pixel flow;
   - `android layout` / semantics-aware inspection.
 
 #### Acceptance checklist
 
-- [ ] Key runtime flows are discoverable via semantics tree.
+- [x] Key runtime flows are discoverable via semantics tree.
 - [x] Diagnostics surface can explain what thread/turn/approval is currently blocked or active.
-- [ ] Proof covers read path, send, stream, interrupt, reconnect, and approvals.
+- [x] Proof covers read path, send, stream, interrupt, and reconnect.
+- [x] Approval contract is covered by the real Host Bridge path, Android approval UI/actions, reducer/repository tests, stale-clearing logic, and review-driven fixes for duplicate responses plus diagnostics surfacing.
+
+#### Non-blocking follow-up
+
+- [ ] Reproduce a dedicated live approval device proof with a runtime prompt that emits a true `requestApproval` item on Android.
+- Current honest state: the forced Pixel repro in this cycle returned a plain assistant confirmation message instead of a real approval item.
+- Per developer decision, this follow-up does not block closing the branch or continuing work on the project.
 
 ### Milestone 1-4 Progress Snapshot
 
-- local status: `milestone 1 done`, `milestone 2 done`, `milestone 3 done`, `milestone 4 in_progress`
+- local status: `milestone 1 done`, `milestone 2 done`, `milestone 3 done`, `milestone 4 verified`
 - current branch: `codex/real-thread-runtime-approval-layer`
 - checkpoint and follow-up commits already created:
   - `cdf3d14 Implement real thread runtime approval layer`
   - `8cb7dfa Fix runtime review follow-up issues`
-- latest state after the second review loop on `8cb7dfa`:
-  - review-driven fixes for fresher `thread/resume` merge semantics, runtime-path action gating, recoverable `Failed` off-screen retention, failed-state approval hydration, non-reentrant composer policy, blocked-turn `Stop` and thread-screen error surfacing are applied locally
-  - same-agent re-review is closed with no confirmed new findings; one multi-approval reconnect hypothesis was rejected locally because current helper/runtime contract does not expose authoritative approval inventory in `thread/read` / `thread/resume`
-- checkpoint verification already green before the follow-up diff:
+- latest state after physical Pixel proof and the final review follow-up:
+  - review-driven fixes for fresher `thread/resume` merge semantics, runtime-path action gating, recoverable `Failed` off-screen retention, failed-state approval hydration, non-reentrant composer policy, blocked-turn `Stop`, duplicate approval response blocking, foreground diagnostics tail, and approval semantics labeling are applied locally
+  - the earlier reconnect-through-`Degraded` hypothesis was rejected locally: in this contour `Degraded` remains not-ready, while foreground recovery is expected and observed on `Connected`
+  - review-subagent orchestration became unreliable in the final pass, so the branch-wide static review relative to `main` was closed manually on the actual diff instead of waiting for more hanging review agents
+- verification now green on the verified branch state:
   - `.\gradlew.bat :app:testDebugUnitTest --console=plain`
   - `.\gradlew.bat :core:model:testDebugUnitTest :feature:projects:testDebugUnitTest :feature:thread:testDebugUnitTest :core:logging:testDebugUnitTest :app:assembleDebug :app:lintDebug --console=plain`
   - `python -W error::ResourceWarning -m unittest discover -s tools/hostbridge/tests -p "test_*.py"`
   - `python C:\Users\v.vlasov\.codex\skills\repo-harness-lifecycle\scripts\validate_lifecycle_stack.py --root .`
   - `android describe --project_dir .`
   - `codex mcp get jetbrains`
-- second-wave fixes revalidated locally:
-  - `.\gradlew.bat :core:model:testDebugUnitTest :feature:thread:testDebugUnitTest :app:testDebugUnitTest --console=plain`
-  - `.\gradlew.bat :core:model:testDebugUnitTest :feature:projects:testDebugUnitTest :feature:thread:testDebugUnitTest :core:logging:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug :app:lintDebug --console=plain`
-  - `python -W error::ResourceWarning -m unittest discover -s tools/hostbridge/tests -p "test_*.py"`
-- remaining work before `verified`:
-  - emulator proof
-  - physical Pixel 9 Pro XL proof
-  - semantics-aware device proof through `android layout`
-  - final branch-wide review loop relative to `main`
+  - emulator core flow `connect -> runtime-backed projects -> open project -> open existing thread -> stream -> stop -> helper stop -> reconnect recovery`
+  - physical Pixel 9 Pro XL core flow `connect -> runtime-backed projects -> open project -> open existing thread -> stream -> stop -> helper stop -> reconnect recovery`
+  - semantics-aware inspection through `android layout`
+  - manual branch-wide static review relative to `main`
+- non-blocking follow-up after `verified`:
+  - dedicated live approval device repro with a prompt that surfaces a true `requestApproval` item
 
 ## Stage Report Template
 
@@ -615,6 +620,8 @@ Make the runtime slice testable and reviewable as an engineering surface, not on
 
 ### Device proof
 
+For branch closure and continuation of project work, the gating device proof for this slice is the real thread lifecycle on Android. A dedicated live approval repro remains a separate, non-blocking follow-up by developer decision.
+
 - Emulator:
   - open runtime-backed project
   - open existing thread
@@ -622,10 +629,12 @@ Make the runtime slice testable and reviewable as an engineering surface, not on
   - observe streaming
   - interrupt
   - reconnect recovery
-  - resolve at least one command/file/network approval
+  - inspect key runtime states via `android layout`
 - Physical Pixel 9 Pro XL:
   - same scenario over the proven Host Bridge path
   - verify semantics via `android layout` and not only by screenshot tapping
+- Non-blocking follow-up:
+  - reproduce at least one live command/file/network approval on-device with a prompt that yields a real approval item instead of plain assistant text
 
 ## Accessibility Baseline
 
