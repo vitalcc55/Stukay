@@ -2,6 +2,8 @@
 
 ## 2026-05-14
 
+- `Real Thread Runtime + Approval Safety Layer` принят и слит в `main`; следующий обязательный слой переведен на `Review / diff / file-change surface`, а dedicated live approval device repro оставлен неблокирующим follow-up.
+- После merge синхронизированы `ExecPlan`, `ROADMAP`, `Documentation.md`, checkpoint `latest.*` и `PROJECT_SYNC.md`, чтобы control-plane больше не говорил, что `Real Thread Runtime` еще только предстоит начать.
 - Для runtime slice закрыт device-visible timeout class: helper теперь использует более крупные page sizes (`app/list=500`, `thread/list=200`), Android `OkHttpHostBridgeClient` получил расширенные `read/call` timeouts, а `StukayAppState` больше не складывает duplicate `refreshIndex()` запросы в один и тот же executor при `route_changed` и `Degraded` transitions.
 - Emulator device proof по `medium_phone` теперь подтверждает путь `connect -> runtime-backed projects -> open project -> open existing thread -> streaming -> stop -> helper stop -> reconnect recovery`.
 - Physical Pixel proof по `Pixel 9 Pro XL` теперь тоже подтверждает путь `connect -> runtime-backed projects -> open project -> open existing thread -> streaming -> stop -> helper stop -> reconnect recovery` через USB host bridge path `10.61.217.185:8421`.

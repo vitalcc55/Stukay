@@ -1,23 +1,16 @@
 {
-  "goal": "Обновить Real Thread Runtime + Approval Safety Layer под codex-cli 0.130.0 и large-thread history через thread/turns/list.",
-  "stage": "real_thread_runtime_0130_large_thread_pixel_proof_green_review_green",
+  "goal": "Зафиксировать merge Real Thread Runtime + Approval Safety Layer на main и подготовить следующий active slice Review / diff / file-change surface.",
+  "stage": "real_thread_runtime_approval_layer_merged_main",
   "done": [
-    "reference baseline switched to rust-v0.130.0",
-    "helper runtime contract split into summary/read-resume path plus typed paged history route",
-    "CodexRuntimeClient now supports excludeTurns resume and thread/turns/list page loading",
-    "Android HostBridge client models now carry sessionId, pendingApprovals, paged history payloads, and event lifecycle timestamps",
-    "RuntimeThreadStore now owns partial history state and separate pending approvals queue",
-    "foreground thread session now hydrates via read summary, pre-resume stream attach, resume, and initial history page load",
-    "thread UI now exposes manual older-history loading and matching diagnostics state",
-    "helper page-size/timeouts and Android refresh coalescing now keep thread/list inside real device budgets",
-    "emulator proof confirms connect -> open project -> open existing thread -> stream -> stop -> reconnect recovery",
-    "physical Pixel proof confirms connect -> runtime-backed projects -> open project -> open existing thread -> stream -> stop -> reconnect recovery",
-    "manual branch-wide static review relative to main is closed, and the current diff now blocks duplicate approval responses, surfaces foreground lastError in diagnostics, and strengthens approval action semantics",
-    "python helper suite and combined Gradle gate are green on the current diff"
+    "milestone Real Thread Runtime + Approval Safety Layer merged into main",
+    "main now carries runtime-backed projects/thread/turn/approval path on top of the proven Host Bridge helper",
+    "combined Gradle gate, Python helper suite, lifecycle validator, emulator proof, and physical Pixel proof are green",
+    "branch-blocking EOF whitespace and route line-ending tails were removed before merge",
+    "roadmap, documentation, checkpoint, and Notion sync note now point to Review / diff / file-change surface as the next slice"
   ],
   "next": [
-    "if needed, reproduce a dedicated live approval request on device with a runtime prompt that emits requestApproval rather than plain assistant text",
-    "commit the current diff and continue merge-flow when the user asks"
+    "open a detailed active plan for Review / diff / file-change surface",
+    "if needed, run a dedicated live approval device repro as a narrow verification follow-up"
   ],
   "edited_files": [
     "app/src/main/kotlin/dev/vitalcc/stukay/StukayApp.kt",
@@ -56,18 +49,19 @@
     ".tmp/.codex/task_state/latest.json"
   ],
   "verify_status": [
+    "git diff --check main...HEAD -> passes before merge",
     "python C:\\Users\\v.vlasov\\.codex\\skills\\repo-harness-lifecycle\\scripts\\validate_lifecycle_stack.py --root . -> warn only, no fail",
-    "python -W error::ResourceWarning -m unittest discover -s tools/hostbridge/tests -p 'test_*.py' -> passes",
-    ".\\gradlew.bat :app:testDebugUnitTest --console=plain -> passes",
+    "python -W error::ResourceWarning -m unittest discover -s tools/hostbridge/tests -p test_*.py -> passes",
     ".\\gradlew.bat :core:model:testDebugUnitTest :feature:projects:testDebugUnitTest :feature:thread:testDebugUnitTest :core:logging:testDebugUnitTest :app:testDebugUnitTest :app:assembleDebug :app:lintDebug --console=plain -> passes",
+    "android describe --project_dir . -> passes",
+    "codex mcp get jetbrains -> config surface available",
     "emulator medium_phone: connect -> projects -> project -> thread -> stream -> stop -> helper stop -> reconnect recovery -> passes",
-    "physical Pixel 49091FDAS002GD: connect -> projects -> project -> thread -> stream -> stop -> helper stop -> reconnect recovery -> passes",
-    "manual branch-wide static review relative to main: no new blocking findings after the review-driven follow-up fixes"
+    "physical Pixel 49091FDAS002GD: connect -> projects -> project -> thread -> stream -> stop -> helper stop -> reconnect recovery -> passes"
   ],
   "open_questions": [
     "emulator Gboard/stylus handwriting popup remains unreliable for long adb input text prompts",
     "the forced live approval probe on Pixel finished as a plain assistant confirmation message and did not surface a real requestApproval item",
     "nested references/openai-codex checkout is gitignored in the outer repo and is recorded here as a local expected baseline rather than a tracked artifact"
   ],
-  "updated_at_utc": "2026-05-14T06:25:00Z"
+  "updated_at_utc": "2026-05-14T07:05:00Z"
 }

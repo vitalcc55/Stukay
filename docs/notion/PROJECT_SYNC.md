@@ -6,7 +6,7 @@
 - Page title: `Stukay`
 - Notion URL: <https://app.notion.com/p/353f585cf06881c682d5ccb7437ada86>
 - Record code: `PRJ-3`
-- Current next step in Notion: `Начать Real Thread Runtime поверх уже доказанного Host Bridge transport`
+- Current next step in Notion: `Начать Review / diff / file-change surface поверх живого thread runtime`
 
 ## Sync Rule
 

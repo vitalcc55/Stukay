@@ -1,24 +1,16 @@
 # Task State
 
-- goal: Обновить `Real Thread Runtime + Approval Safety Layer` под `codex-cli 0.130.0` и large-thread history через `thread/turns/list`, не меняя текущий Android transport direction.
-- stage: real_thread_runtime_0130_large_thread_pixel_proof_green_review_green
+- goal: Зафиксировать merge `Real Thread Runtime + Approval Safety Layer` на `main` и подготовить следующий active slice `Review / diff / file-change surface`.
+- stage: real_thread_runtime_approval_layer_merged_main
 - done:
-  - `references/openai-codex` переведен на `rust-v0.130.0`
-  - helper `tools/hostbridge` теперь разделяет summary/read-resume path и paged history path `/v1/threads/{id}/history`, а также отдает `sessionId` и approval `startedAtEpochMs`
-  - `CodexRuntimeClient` получил `excludeTurns` resume mode, `thread/turns/list` page loading и pending request lookup per thread
-  - Android-side `OkHttpHostBridgeClient` и runtime payloads получили `sessionId`, `pendingApprovals`, paged history payload и event lifecycle timestamps
-  - `RuntimeThreadStore` перестроен на partial history + `ThreadHistoryState` + separate pending approvals queue
-  - `RuntimeThreadRepository` и `StukayAppState` переведены на `read summary -> pre-resume stream attach -> resume -> initial history page`
-  - `ThreadRoute` получил manual `Загрузить старое` UX и stable semantics/test tags для history loading
-  - diagnostics snapshot обогащён `activeSessionId` и history cursor state
-  - helper page-size/timeouts и Android refresh coalescing подправлены под реальный runtime volume, чтобы `thread/list` не деградировал на устройстве
-  - emulator proof подтверждает `connect -> open project -> open existing thread -> stream -> stop -> reconnect recovery`
-  - physical Pixel proof подтверждает `connect -> runtime-backed projects -> open project -> open existing thread -> stream -> stop -> reconnect recovery`
-  - branch-wide static review относительно `main` закрыт вручную; duplicate approval response, foreground diagnostics tail и approval semantics доусилены на текущем diff
-  - Python helper suite и combined Gradle gate зелёные на текущем diff
+  - milestone `Real Thread Runtime + Approval Safety Layer` слит в `main`
+  - `main` теперь держит runtime-backed projects/thread/turn/approval path поверх уже доказанного Host Bridge helper
+  - combined Gradle gate, Python helper suite, lifecycle validator, emulator proof и physical Pixel proof зелёные
+  - branch-blocking хвосты по EOF whitespace и route line endings сняты перед merge
+  - roadmap, documentation, checkpoint и Notion sync note переведены на следующий слой `Review / diff / file-change surface`
 - next:
-  - при необходимости добрать отдельный live approval device proof с reproducible runtime prompt
-  - по user команде зафиксировать текущий diff коммитом и продолжить merge-flow
+  - открыть detailed active plan под `Review / diff / file-change surface`
+  - отдельно, только при необходимости, добрать reproducible live approval device proof как узкий verification follow-up
 - edited_files:
   - app/src/main/kotlin/dev/vitalcc/stukay/StukayApp.kt
   - app/src/main/kotlin/dev/vitalcc/stukay/runtime/RuntimeThreadRepository.kt

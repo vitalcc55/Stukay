@@ -48,84 +48,36 @@
 - проверяемый build/test baseline;
 - repo-local lifecycle/docs/control-plane surfaces.
 
-Это значит, что foundation больше не является будущим этапом. `Host Bridge MVP` уже локально доказан через живой Android -> Host Bridge -> local Codex runtime path; следующий реальный шаг — `Real thread runtime`, а не очередная перестройка shell.
+Это значит, что foundation больше не является будущим этапом. `Host Bridge MVP`, `Real Thread Runtime` и `Approval safety layer` уже закрыты на `main` через живой Android -> Host Bridge -> local Codex runtime path; следующий реальный шаг — richer review/file-change surface, а не очередная перестройка transport или shell.
 
 ## Now
 
-### 1. Real thread runtime
+### 3. Review / diff / file-change surface
 
 Задача:
 
-- список проектов и тредов из runtime;
-- чтение истории;
-- создание треда;
-- отправка prompt;
-- streaming ответа;
-- interrupt;
-- восстановление после reconnect.
+- file-change cards;
+- diff preview;
+- richer command/result surface;
+- review findings и severity;
+- связь review/file changes с thread/turn context;
+- более полный approval context, чем короткая карточка metadata.
 
 Почему сейчас:
 
-- `Host Bridge MVP` уже закрыл transport, pairing, reconnect/degraded path и первый real data path;
-- следующий product-value step теперь лежит в real thread lifecycle, а не в transport scaffolding;
-- именно здесь transport prove-out начинает окупаться как пользовательский runtime, а не как только host status surface.
+- runtime-backed thread lifecycle уже живой, значит следующий product-value слой лежит не в transport, а в понимании того, что именно сделал Codex;
+- approvals уже доходят до телефона, но оператору всё ещё не хватает контекста изменений и результатов команд;
+- это естественное продолжение живого thread surface, а не новая transport-фаза.
 
 Exit criteria:
 
-- Android клиент читает runtime-backed projects/threads;
-- shell умеет создавать и открывать реальные треды;
-- появляется real prompt/response lifecycle поверх уже доказанного Host Bridge transport.
-- drawer/thread/composer/runtime-status controls получают automation-grade accessibility baseline, достаточный для device-side smoke без координатных хаков как основного способа навигации.
-
-### 2. Approval safety layer
-
-Задача:
-
-- full pending/resolved approval lifecycle;
-- approve once / session / decline / cancel;
-- stale/timeout handling;
-- audit trail;
-- redacted logging.
-
-Почему сейчас:
-
-- approval уже смоделирован fake-доменом, но реальная ценность появляется теперь, когда transport и reconnect/degraded path уже живые;
-- после real thread runtime approval surface станет следующим safety-critical слоем.
-
-Exit criteria:
-
-- approvals проходят через реальный runtime path;
-- stale/timeout paths честно видны оператору;
-- logs и diagnostics сохраняют redacted audit trail.
-- dangerous actions и approval cards имеют явную semantics/state surface для TalkBack и device-side automation.
+- оператор видит file-change и review context рядом с реальным thread/turn lifecycle;
+- review/diff surface работает поверх уже живого runtime path, а не через fake data;
+- новые review/file-change/status controls получают automation-grade accessibility baseline.
 
 ## Next
 
-### 3. Review / diff / file-change surface
-
-Reference emphasis:
-
-- `farfield`
-- `codexUI`
-- `PocketDex`
-
-## Later
-
-### 6. Review / diff / file-change surface
-
-- file-change cards
-- diff preview
-- review findings
-- severity / category
-- связь review с thread/turn context
-
-Reference emphasis:
-
-- `farfield`
-- `codexUI`
-- `PocketDex`
-
-### 7. Diagnostics persistence and export
+### 4. Diagnostics persistence and export
 
 - persistence between restarts
 - redacted export
@@ -134,14 +86,16 @@ Reference emphasis:
 - capture by thread / turn / approval
 - trace integration
 
-### 8. Notifications and long-running work
+## Later
+
+### 5. Notifications and long-running work
 
 - running task notifications
 - pending approval notifications
 - open thread / stop / open approval actions
 - low-noise policy
 
-### 9. Device validation and UX hardening
+### 6. Device validation and UX hardening
 
 - emulator smoke
 - physical Pixel 9 Pro XL smoke
@@ -149,7 +103,7 @@ Reference emphasis:
 - IME / edge-to-edge / predictive back validation
 - accessibility tree / semantics validation for critical controls and status surfaces
 
-### 10. Desktop handoff
+### 7. Desktop handoff
 
 - open corresponding desktop context
 - focus desktop UI
