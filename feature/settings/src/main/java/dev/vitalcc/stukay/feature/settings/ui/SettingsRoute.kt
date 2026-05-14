@@ -257,4 +257,3 @@ private fun runtimeSummaryText(state: HostBridgeConnectionState): String {
     }
     return parts.joinToString(" · ")
 }
-

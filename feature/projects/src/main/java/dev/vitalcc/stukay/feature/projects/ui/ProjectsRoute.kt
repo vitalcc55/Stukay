@@ -211,4 +211,3 @@ private fun hostBridgeDetail(state: HostBridgeConnectionState): String {
     }.joinToString(" · ")
     return "${pairedHost.hostLabel} · ${pairedHost.transport.name} · ${hostBridgeEndpointDisplayValue(pairedHost.endpoint)} · $runtimeParts.$errorPart"
 }
-
